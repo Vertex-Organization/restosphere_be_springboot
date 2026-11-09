@@ -1,0 +1,7 @@
+app:
+  security:
+    jwt:
+      secret: test-only-secret-not-used-outside-of-tests
+    bootstrap-admin:
+      email: ""
+      password: ""
