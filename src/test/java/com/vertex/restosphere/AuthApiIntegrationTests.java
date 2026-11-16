@@ -76,7 +76,7 @@ class AuthApiIntegrationTests {
         Jwt jwt = jwtDecoder.decode(JsonPath.read(body, "$.accessToken"));
         assertThat(jwt.getSubject()).isEqualTo(user.getId().toString());
         assertThat(jwt.getClaimAsString("iss")).isEqualTo(ISSUER);
-        assertThat(jwt.getClaimAsStringList("roles")).containsExactly("STAFF");
+        assertThat(jwt.getClaimAsStringList("roles")).containsExactly("WAITER");
         assertThat(jwt.getId()).isNotBlank();
         assertThat(jwt.getClaims()).doesNotContainKey("password");
     }
@@ -114,7 +114,7 @@ class AuthApiIntegrationTests {
         mockMvc.perform(get("/api/v1/auth/me").header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.email").value(EMAIL))
-                .andExpect(jsonPath("$.role").value("STAFF"));
+                .andExpect(jsonPath("$.role").value("WAITER"));
 
         mockMvc.perform(get("/api/v1/auth/me").header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken + "x"))
                 .andExpect(status().isUnauthorized());
@@ -188,7 +188,7 @@ class AuthApiIntegrationTests {
         newUser.setEmail(email);
         newUser.setPasswordHash(passwordEncoder.encode(PASSWORD));
         newUser.setFullName("Test User");
-        newUser.setRole(Role.STAFF);
+        newUser.setRole(Role.WAITER);
         newUser.setEnabled(enabled);
         return userRepository.save(newUser);
     }

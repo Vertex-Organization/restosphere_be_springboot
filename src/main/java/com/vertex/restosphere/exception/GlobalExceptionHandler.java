@@ -2,6 +2,7 @@ package com.vertex.restosphere.exception;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
@@ -22,6 +23,18 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler({BadCredentialsException.class, AccountStatusException.class})
     ProblemDetail handleLoginFailure() {
         return ProblemDetail.forStatusAndDetail(HttpStatus.UNAUTHORIZED, "Invalid email or password");
+    }
+
+    @ExceptionHandler(ApiException.class)
+    ProblemDetail handleApi(ApiException ex) {
+        return ProblemDetail.forStatusAndDetail(ex.getStatus(), ex.getMessage());
+    }
+
+    // Lưới an toàn khi hai request cùng qua existsBy... rồi va unique constraint.
+    // shortcut: thông báo chung, không chỉ ra cột nào trùng; tách theo tên constraint khi UI cần.
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    ProblemDetail handleIntegrity() {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, "Data conflicts with an existing record");
     }
 
     @ExceptionHandler(InvalidRefreshTokenException.class)

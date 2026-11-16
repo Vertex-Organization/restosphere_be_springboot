@@ -1,0 +1,36 @@
+package com.vertex.restosphere.entity;
+
+import com.vertex.restosphere.common.enums.TableStatus;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+@Getter
+@Setter
+@NoArgsConstructor
+@Entity
+@Table(name = "tables")
+public class RestaurantTable extends BaseEntity {
+
+    @Column(nullable = false, unique = true, length = 30)
+    private String code;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "area_id", nullable = false)
+    private Area area;
+
+    @Column(nullable = false)
+    private int capacity;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private TableStatus status = TableStatus.AVAILABLE;
+}
