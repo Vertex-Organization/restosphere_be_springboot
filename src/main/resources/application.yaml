@@ -27,6 +27,12 @@ spring:
       lifecycle-management: start-only
 
 app:
+  cloudinary:
+    enabled: ${CLOUDINARY_ENABLED:false}
+    cloud-name: ${CLOUDINARY_CLOUD_NAME:}
+    api-key: ${CLOUDINARY_API_KEY:}
+    api-secret: ${CLOUDINARY_API_SECRET:}
+
   security:
     jwt:
       issuer: ${JWT_ISSUER:restosphere}
