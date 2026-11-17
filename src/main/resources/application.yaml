@@ -12,6 +12,7 @@ spring:
     password: ${DB_PASSWORD:restosphere}
 
   jpa:
+    defer-datasource-initialization: true
     open-in-view: false
     hibernate:
       # Chi dung "update" khi dev; production nen dung "validate" kem Flyway/Liquibase.
@@ -20,6 +21,13 @@ spring:
       hibernate:
         jdbc:
           time_zone: UTC
+
+  sql:
+    init:
+      mode: always
+      data-locations: classpath:dataset.sql
+      encoding: UTF-8
+      continue-on-error: false
 
   docker:
     compose:
