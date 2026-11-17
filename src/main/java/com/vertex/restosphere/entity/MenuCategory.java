@@ -17,6 +17,9 @@ public class MenuCategory extends BaseEntity {
     @Column(nullable = false, unique = true, length = 100)
     private String name;
 
+    @Column(name = "menu_group", nullable = false, length = 20, columnDefinition = "varchar(20) default 'food'")
+    private String menuGroup = "food";
+
     @Column(name = "sort_order", nullable = false)
     private int sortOrder;
 

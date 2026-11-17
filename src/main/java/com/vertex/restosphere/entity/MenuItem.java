@@ -38,6 +38,9 @@ public class MenuItem extends BaseEntity {
     @Column(name = "image_url", length = 500)
     private String imageUrl;
 
+    @Column(name = "price_unit", nullable = false, length = 20, columnDefinition = "varchar(20) default 'portion'")
+    private String priceUnit = "portion";
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private MenuItemStatus status = MenuItemStatus.AVAILABLE;

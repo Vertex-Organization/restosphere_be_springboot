@@ -59,6 +59,25 @@ App chạy ở `http://localhost:8080`. PostgreSQL được khởi động cùng
 
 Tài khoản admin chỉ được tạo khi email chưa tồn tại, nên khởi động lại app không ghi đè mật khẩu đã đổi.
 
+### Tài khoản demo web và mobile
+
+Sau khi Hibernate tạo schema, chạy `src/main/resources/dataset.sql` trên database local (file này không tự chạy khi khởi động).
+Ví dụ với PostgreSQL CLI: `psql -h localhost -U restosphere -d restosphere -v ON_ERROR_STOP=1 -f src/main/resources/dataset.sql`.
+
+Mật khẩu chung: `123456`, lưu dưới dạng BCrypt. Chỉ dùng dữ liệu này cho môi trường phát triển.
+
+| Ứng dụng | Email | Vai trò |
+| --- | --- | --- |
+| Web | `admin@restosphere.test` | ADMIN |
+| Web | `manager@restosphere.test` | MANAGER |
+| Web | `cashier@restosphere.test` | CASHIER |
+| Web | `kitchen@restosphere.test` | KITCHEN |
+| Mobile | `receptionist@restosphere.test` | RECEPTIONIST |
+| Mobile | `waiter@restosphere.test` | WAITER |
+
+Màn hình đăng nhập web/mobile ở chế độ development có nút tự điền các tài khoản tương ứng.
+Chạy lại SQL không ghi đè tài khoản đã tồn tại, bao gồm mật khẩu.
+
 ## API
 
 Swagger UI: <http://localhost:8080/swagger-ui.html>

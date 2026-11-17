@@ -6,10 +6,10 @@ import java.math.BigDecimal;
 import java.util.UUID;
 
 public record MenuItemResponse(UUID id, String name, UUID categoryId, String categoryName, BigDecimal price,
-        String description, String imageUrl, MenuItemStatus status) {
+        String description, String imageUrl, MenuItemStatus status, String unit) {
 
     public static MenuItemResponse from(MenuItem i) {
         return new MenuItemResponse(i.getId(), i.getName(), i.getCategory().getId(), i.getCategory().getName(),
-                i.getPrice(), i.getDescription(), i.getImageUrl(), i.getStatus());
+                i.getPrice(), i.getDescription(), i.getImageUrl(), i.getStatus(), i.getPriceUnit());
     }
 }
