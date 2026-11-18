@@ -4,16 +4,20 @@ import com.vertex.restosphere.common.enums.AccountStatus;
 import com.vertex.restosphere.common.enums.Role;
 import com.vertex.restosphere.dto.response.AdminUserResponse;
 import com.vertex.restosphere.entity.AuditLog;
+import com.vertex.restosphere.entity.TableSession;
 import com.vertex.restosphere.entity.User;
 import com.vertex.restosphere.exception.ApiException;
 import com.vertex.restosphere.repository.AuditLogRepository;
+import com.vertex.restosphere.repository.CashierShiftRepository;
 import com.vertex.restosphere.repository.RefreshTokenRepository;
+import com.vertex.restosphere.repository.TableSessionRepository;
 import com.vertex.restosphere.repository.UserRepository;
 import com.vertex.restosphere.security.CurrentUserService;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,6 +29,8 @@ public class AdminUserService {
     private final UserRepository users;
     private final RefreshTokenRepository refreshTokens;
     private final AuditLogRepository auditLogs;
+    private final TableSessionRepository tableSessions;
+    private final CashierShiftRepository cashierShifts;
     private final CurrentUserService currentUser;
     private final RestaurantLock restaurantLock;
 
@@ -63,6 +69,43 @@ public class AdminUserService {
         log.setTargetType("USER");
         log.setTargetId(target.getId());
         log.setDescription(target.getEmail());
+        auditLogs.save(log);
+        return AdminUserResponse.from(target);
+    }
+
+    public AdminUserResponse updateRole(UUID actorId, UUID targetId, Role role) {
+        // dataset.sql tao lai users_role_check khong co CUSTOMER moi lan khoi dong.
+        if (role == Role.CUSTOMER) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Role CUSTOMER cannot be assigned");
+        }
+        restaurantLock.acquire();
+        User actor = currentUser.require(actorId, Role.ADMIN);
+        if (actor.getId().equals(targetId)) {
+            throw ApiException.conflict("Cannot change your own access");
+        }
+        User target = users.findById(targetId).orElseThrow(() -> ApiException.notFound("User"));
+        if (target.getRole() == role) {
+            return AdminUserResponse.from(target);
+        }
+        // Target la Admin dang hoat dong va chi con 1 -> doi xong se ve 0 Admin.
+        if (target.getRole() == Role.ADMIN && target.isEnabled()
+                && users.countByRoleAndEnabledTrue(Role.ADMIN) <= 1) {
+            throw ApiException.conflict("Cannot remove last active administrator");
+        }
+        // Dang giu ban hoac ca thu ngan ma doi vai tro thi viec dang do khong ai xu ly duoc.
+        if (tableSessions.existsByWaiterIdAndStatusNot(targetId, TableSession.Status.CLOSED)
+                || cashierShifts.existsByCashierIdAndClosedAtIsNull(targetId)) {
+            throw ApiException.conflict("Account has active work");
+        }
+        Role oldRole = target.getRole();
+        target.setRole(role);
+
+        AuditLog log = new AuditLog();
+        log.setActor(actor);
+        log.setAction("ROLE_CHANGED");
+        log.setTargetType("USER");
+        log.setTargetId(target.getId());
+        log.setDescription(target.getEmail() + ": " + oldRole + " → " + role);
         auditLogs.save(log);
         return AdminUserResponse.from(target);
     }

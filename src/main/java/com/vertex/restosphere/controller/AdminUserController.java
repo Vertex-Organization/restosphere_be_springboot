@@ -1,6 +1,7 @@
 package com.vertex.restosphere.controller;
 
 import com.vertex.restosphere.config.OpenApiConfig;
+import com.vertex.restosphere.dto.request.UpdateUserRoleRequest;
 import com.vertex.restosphere.dto.request.UpdateUserStatusRequest;
 import com.vertex.restosphere.dto.response.AdminUserResponse;
 import com.vertex.restosphere.security.CurrentUserService;
@@ -36,5 +37,11 @@ public class AdminUserController {
     public AdminUserResponse updateStatus(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID id,
             @Valid @RequestBody UpdateUserStatusRequest req) {
         return service.updateStatus(CurrentUserService.idOf(jwt), id, req.status());
+    }
+
+    @PatchMapping("/{id}/role")
+    public AdminUserResponse updateRole(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID id,
+            @Valid @RequestBody UpdateUserRoleRequest req) {
+        return service.updateRole(CurrentUserService.idOf(jwt), id, req.role());
     }
 }
