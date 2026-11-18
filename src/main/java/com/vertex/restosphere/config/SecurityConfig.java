@@ -39,7 +39,7 @@ public class SecurityConfig {
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/menu/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/reservations/settings").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/v1/reservations", "/api/v1/reservations/lookup").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/reservations", "/api/v1/reservations/lookup", "/api/v1/reservations/cancel").permitAll()
                         .requestMatchers("/error").permitAll()
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(oauth2 -> oauth2

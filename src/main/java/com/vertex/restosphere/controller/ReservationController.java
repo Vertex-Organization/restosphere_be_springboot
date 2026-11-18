@@ -15,4 +15,5 @@ public class ReservationController {
     @PostMapping @ResponseStatus(HttpStatus.CREATED)
     public Map<String,Object> create(@RequestBody Map<String,Object> input){return service.createPublic(input);}
     @PostMapping("/lookup") public Map<String,Object> lookup(@RequestBody Map<String,Object> input){return service.lookup(input);}
+    @PostMapping("/cancel") public Map<String,Object> cancel(@RequestBody Map<String,Object> input){return service.cancelPublic(input);}
 }

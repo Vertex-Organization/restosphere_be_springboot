@@ -67,7 +67,10 @@ public class ReservationWorkflow {
         r.setStartsAt(start); r.setEndsAt(start.plusSeconds(duration*60L));
         String note=text(input,web?"note":"notes"); if(note.length()>1000) throw invalid("Note too long"); r.setNote(note);
         r.setOccasion(text(input,"occasion")); r.setSpecialRequests(text(input,"specialRequests"));
-        if(db.all(RestaurantTable.class).stream().filter(t->id(t.getArea()).equals(id(r.getArea()))&&t.getStatus()!=TableStatus.OUT_OF_SERVICE).mapToInt(RestaurantTable::getCapacity).sum()<r.getGuestCount()) throw ApiException.conflict("Area has insufficient capacity");
+        int capacity=db.all(RestaurantTable.class).stream().filter(t->id(t.getArea()).equals(id(r.getArea()))&&t.getStatus()!=TableStatus.OUT_OF_SERVICE).mapToInt(RestaurantTable::getCapacity).sum();
+        // shortcut: sums guests per area, ignores how they pack into tables; upgrade to per-table fitting if overbooking still happens
+        int booked=db.all(Reservation.class).stream().filter(o->!o.equals(r)&&active(o)&&id(o.getArea()).equals(id(r.getArea()))&&o.getStartsAt().isBefore(r.getEndsAt())&&o.getEndsAt().isAfter(r.getStartsAt())).mapToInt(Reservation::getGuestCount).sum();
+        if(capacity-booked<r.getGuestCount()) throw ApiException.conflict("Area has insufficient capacity for this time");
     }
     void replaceItems(Reservation r,Map<String,Object> input,boolean web) {
         db.all(ReservationItem.class).stream().filter(i->i.getReservation().equals(r)).forEach(db::remove);
@@ -81,9 +84,14 @@ public class ReservationWorkflow {
     public static void validateQuantity(MenuItem item,BigDecimal quantity) {
         if(quantity.signum()<=0||quantity.compareTo(new BigDecimal("999"))>0||quantity.stripTrailingZeros().scale()>3||(!"kg".equals(item.getPriceUnit())&&quantity.stripTrailingZeros().scale()>0)) throw invalid("Invalid quantity for item unit");
     }
-    public Map<String,Object> lookup(Map<String,Object> input) {
+    public Map<String,Object> lookup(Map<String,Object> input) { return publicView(find(input)); }
+    public Map<String,Object> cancelPublic(Map<String,Object> input) {
+        var r=find(input); command("cancel",map("id",id(r),"reason",required(input,"reason",1000)),null);
+        var s=db.lock(); s.setRevision(s.getRevision()+1); db.flush(); return publicView(r);
+    }
+    Reservation find(Map<String,Object> input) {
         db.lock(); String code=required(input,"code",30), phone=required(input,"phone",30).replaceAll("[\\s()-]", "");
-        return db.all(Reservation.class).stream().filter(r->r.getCode().equalsIgnoreCase(code)&&r.getPhone().equals(phone)).findFirst().map(this::publicView).orElseThrow(()->ApiException.notFound("Reservation"));
+        return db.all(Reservation.class).stream().filter(r->r.getCode().equalsIgnoreCase(code)&&r.getPhone().equals(phone)).findFirst().orElseThrow(()->ApiException.notFound("Reservation"));
     }
     public void assign(Reservation r,String tableId) {
         var table=db.get(RestaurantTable.class,tableId);

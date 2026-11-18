@@ -115,6 +115,11 @@ class WorkspaceIntegrationTests {
         var second=reservations.create(map("customer",map("name","Second","phone","0907654321"),"startsAt",r.getStartsAt().toString(),"guests",2,"duration",120,"areaId",id(area)),staff,false,false);
         assertThrows(ApiException.class,()->reservations.assign(second,id(table)));
         assertFalse(workspace.load("kitchen",id(user(Role.KITCHEN))).containsKey("reservations"));
+        assertThrows(ApiException.class,()->reservations.createPublic(input));
+        assertThrows(ApiException.class,()->reservations.cancelPublic(map("code",code,"phone","0907654321","reason","x")));
+        assertEquals(Reservation.Status.CANCELLED,reservations.cancelPublic(map("code",code,"phone","0901234567","reason","Busy")).get("status"));
+        assertThrows(ApiException.class,()->reservations.cancelPublic(map("code",code,"phone","0901234567","reason","Again")));
+        assertDoesNotThrow(()->reservations.createPublic(input));
     }
     @Test void httpBoundaryRequiresAuthenticationAndCurrentRole() throws Exception {
         var cook=user(Role.KITCHEN);db.flush();

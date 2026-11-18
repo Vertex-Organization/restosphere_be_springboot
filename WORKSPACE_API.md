@@ -42,8 +42,9 @@ Self access changes and removing the last enabled administrator are rejected. Th
 - `GET /reservations/settings`: online flag, hold/buffer/no-show minutes, timezone, database `areas:[{id,name}]`.
 - `POST /reservations`: web `ReservationRequest`, **requiring real `areaId`**. Use `startsAt` or local `date` + `time`; optional `durationMinutes` defaults to 120. Returns 201 and web Reservation shape. Preorders use `items:[{dishId,quantity}]`.
 - `POST /reservations/lookup`: `{code,phone}`; both must match. Returns Reservation or 404.
+- `POST /reservations/cancel`: `{code,phone,reason}`; both must match, only PENDING/CONFIRMED may be cancelled. Returns Reservation (CANCELLED), 404 or 409.
 
-Bookings start PENDING. Confirmation requires a table assignment; overlapping assignments include the configured buffer. Public creation validates area capacity but does not guarantee a table until assignment. Lookup requires the random booking code and phone.
+Bookings start PENDING. Confirmation requires a table assignment; overlapping assignments include the configured buffer. Creation checks area capacity minus guests of active bookings overlapping the same time window (sum per area, not per-table fit), but does not guarantee a table until assignment. Lookup requires the random booking code and phone.
 
 ## Concurrency and accounting
 
@@ -61,4 +62,4 @@ Workspace reads/writes and reservation operations acquire a PostgreSQL transacti
 
 ## Verification
 
-`./mvnw.cmd test` runs existing auth/catalog/config/context checks plus `WorkspaceIntegrationTests`: full reservation-to-cleaning workflow, role/ownership denials, stale kitchen versions, idempotent payment replay/payload mismatch, lookup privacy, reservation overlap, money/quantity validation, and HTTP authentication boundaries. No parallel contention/load test has been added.
+`./mvnw.cmd test` runs existing auth/catalog/config/context checks plus `WorkspaceIntegrationTests`: full reservation-to-cleaning workflow, role/ownership denials, stale kitchen versions, idempotent payment replay/payload mismatch, lookup privacy, public cancellation, time-window capacity, reservation overlap, money/quantity validation, and HTTP authentication boundaries. No parallel contention/load test has been added.
