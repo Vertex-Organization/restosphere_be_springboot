@@ -9,6 +9,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface OrderDraftRepository extends JpaRepository<OrderDraft, UUID> {
 
+    boolean existsByMenuItemId(UUID menuItemId);
+
     List<OrderDraft> findBySessionAndWaiterOrderByCreatedAt(TableSession session, User waiter);
 
     boolean existsBySession(TableSession session);

@@ -4,6 +4,7 @@ import com.vertex.restosphere.common.enums.TableStatus;
 import com.vertex.restosphere.entity.RestaurantTable;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface RestaurantTableRepository extends JpaRepository<RestaurantTable, UUID> {
@@ -17,4 +18,8 @@ public interface RestaurantTableRepository extends JpaRepository<RestaurantTable
     List<RestaurantTable> findByStatus(TableStatus status);
 
     List<RestaurantTable> findByAreaIdAndStatus(UUID areaId, TableStatus status);
+
+    // Nap area cung query (can ten khu), tranh N+1.
+    @EntityGraph(attributePaths = "area")
+    List<RestaurantTable> findAllByOrderByAreaNameAscCodeAsc();
 }

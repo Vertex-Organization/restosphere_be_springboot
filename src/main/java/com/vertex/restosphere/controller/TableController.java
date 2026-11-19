@@ -5,6 +5,7 @@ import com.vertex.restosphere.config.OpenApiConfig;
 import com.vertex.restosphere.dto.request.TableRequest;
 import com.vertex.restosphere.dto.request.TableStatusRequest;
 import com.vertex.restosphere.dto.response.TableResponse;
+import com.vertex.restosphere.security.CurrentUserService;
 import com.vertex.restosphere.service.TableService;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -14,6 +15,8 @@ import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 @Tag(name = "Tables")
@@ -45,8 +48,9 @@ public class TableController {
 
     @PutMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
-    public TableResponse update(@PathVariable UUID id, @Valid @RequestBody TableRequest req) {
-        return service.update(id, req);
+    public TableResponse update(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID id,
+            @Valid @RequestBody TableRequest req) {
+        return service.update(CurrentUserService.idOf(jwt), id, req);
     }
 
     @PatchMapping("/{id}/status")

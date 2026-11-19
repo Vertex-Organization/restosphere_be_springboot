@@ -8,5 +8,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface OrderItemRepository extends JpaRepository<OrderItem, UUID> {
 
+    boolean existsByMenuItemId(UUID menuItemId);
+
     boolean existsByOrderSessionAndStatusIn(TableSession session, Collection<OrderItem.Status> statuses);
 }
