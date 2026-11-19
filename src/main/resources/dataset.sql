@@ -6,9 +6,10 @@ BEGIN;
 
 -- Local demo accounts only. Password: 123456 (BCrypt). Existing users are preserved.
 -- Refresh the legacy role constraint; NOT VALID preserves legacy rows until migrated.
+-- Must list every value of the Role enum (incl. CUSTOMER), same as migrations/workspace-legacy-constraints.sql.
 ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
 ALTER TABLE users ADD CONSTRAINT users_role_check
-CHECK (role IN ('ADMIN', 'MANAGER', 'RECEPTIONIST', 'WAITER', 'KITCHEN', 'CASHIER')) NOT VALID;
+CHECK (role IN ('CUSTOMER', 'ADMIN', 'MANAGER', 'RECEPTIONIST', 'WAITER', 'KITCHEN', 'CASHIER')) NOT VALID;
 INSERT INTO users (id, email, password_hash, full_name, role, enabled, created_at, updated_at)
 SELECT md5('restosphere:demo:' || account)::uuid, account || '@restosphere.test',
        '$2b$10$LTsVxyCfFG2CRk86pJ6HKO9vBqu9FVik7RgWPNgT0jYZPLvPxU54W',
