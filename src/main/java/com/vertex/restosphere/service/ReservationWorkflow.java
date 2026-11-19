@@ -83,7 +83,7 @@ public class ReservationWorkflow {
     // RS-ddMMyy-NNN: booking creation date (restaurant timezone) + sequence; never changes, even if the booking is moved.
     String newCode(Instant createdAt) {
         String prefix="RS-"+createdAt.atZone(ZoneId.of(db.lock().getTimezone())).format(java.time.format.DateTimeFormatter.ofPattern("ddMMyy"))+"-";
-        int next=db.all(Reservation.class).stream().map(Reservation::getCode).filter(c->c.startsWith(prefix))
+        int next=db.query(String.class,"select r.code from Reservation r where r.code like ?1",prefix+"%").stream()
                 .mapToInt(c->{try{return Integer.parseInt(c.substring(prefix.length()));}catch(NumberFormatException e){return 0;}}).max().orElse(0)+1;
         return prefix+String.format("%03d",next);
     }
@@ -113,14 +113,15 @@ public class ReservationWorkflow {
         String occasion=text(input,"occasion"), special=text(input,"specialRequests");
         if(occasion.length()>150||special.length()>255) throw invalid("Dịp đặc biệt tối đa 150 ký tự, yêu cầu đặc biệt tối đa 255 ký tự.");
         r.setOccasion(occasion); r.setSpecialRequests(special);
-        int capacity=db.all(RestaurantTable.class).stream().filter(t->id(t.getArea()).equals(id(r.getArea()))&&t.getStatus()!=TableStatus.OUT_OF_SERVICE).mapToInt(RestaurantTable::getCapacity).sum();
+        int capacity=db.query(RestaurantTable.class,"from RestaurantTable t where t.area=?1 and t.status<>?2",r.getArea(),TableStatus.OUT_OF_SERVICE).stream().mapToInt(RestaurantTable::getCapacity).sum();
         // Sums guests per area; does not check how they fit into individual tables.
         long buffer=db.lock().getBufferMinutes()*60L;
-        int booked=db.all(Reservation.class).stream().filter(o->!o.equals(r)&&active(o)&&id(o.getArea()).equals(id(r.getArea()))&&o.getStartsAt().isBefore(r.getEndsAt().plusSeconds(buffer))&&o.getEndsAt().plusSeconds(buffer).isAfter(r.getStartsAt())).mapToInt(Reservation::getGuestCount).sum();
+        int booked=db.query(Reservation.class,"from Reservation o where o.area=?1 and o.status in ?2 and o.startsAt<?3 and o.endsAt>?4",
+                r.getArea(),ACTIVE,r.getEndsAt().plusSeconds(buffer),r.getStartsAt().minusSeconds(buffer)).stream().filter(o->!o.equals(r)).mapToInt(Reservation::getGuestCount).sum();
         if(capacity-booked<r.getGuestCount()) throw ApiException.conflict("Khu vực đã kín chỗ trong khung giờ này. Hãy chọn giờ hoặc khu khác.");
     }
     void replaceItems(Reservation r,Map<String,Object> input,boolean web) {
-        db.all(ReservationItem.class).stream().filter(i->i.getReservation().equals(r)).forEach(db::remove);
+        if(r.getId()!=null) db.query(ReservationItem.class,"from ReservationItem i where i.reservation=?1",r).forEach(db::remove);
         for(var line:lines(input,web?"items":"preorder")) {
             var menu=db.get(MenuItem.class,required(line,web?"dishId":"menuItemId",100));
             if(menu.getStatus()!=MenuItemStatus.AVAILABLE||!menu.getCategory().isVisible()) throw ApiException.conflict("Có món đặt trước đã hết hoặc ngừng bán.");
@@ -139,36 +140,45 @@ public class ReservationWorkflow {
     }
     Reservation find(Map<String,Object> input) {
         db.lock(); String code=required(input,"code",30), phone=phone(input);
-        return db.all(Reservation.class).stream().filter(r->r.getCode().equalsIgnoreCase(code)&&r.getPhone().equals(phone)).findFirst().orElseThrow(()->new ApiException(org.springframework.http.HttpStatus.NOT_FOUND,"Không tìm thấy lịch đặt. Kiểm tra lại mã và số điện thoại."));
+        return db.query(Reservation.class,"from Reservation r where upper(r.code)=?1 and r.phone=?2",code.toUpperCase(),phone).stream().findFirst().orElseThrow(()->new ApiException(org.springframework.http.HttpStatus.NOT_FOUND,"Không tìm thấy lịch đặt. Kiểm tra lại mã và số điện thoại."));
     }
     public int expireNoShows() {
-        var s=db.lock(); var deadline=Instant.now().minusSeconds(s.getNoShowMinutes()*60L);
-        var late=db.all(Reservation.class).stream().filter(r->r.getStatus()==Reservation.Status.CONFIRMED&&!r.getStartsAt().isAfter(deadline)).toList();
+        var s=db.lock(); var now=Instant.now();
+        var late=db.query(Reservation.class,"from Reservation r where r.status=?1 and r.startsAt<=?2",Reservation.Status.CONFIRMED,now.minusSeconds(s.getNoShowMinutes()*60L));
         for(var r:late) {command("no-show",map("id",id(r)),null);service.notify(Role.RECEPTIONIST,"AUTO_NO_SHOW","Tự động đánh dấu không đến",r.getCode()+" · "+r.getCustomerName(),id(r));}
-        if(!late.isEmpty()) s.setRevision(s.getRevision()+1);
-        return late.size();
+        // Hold window: once a confirmed guest is later than tableHoldMinutes, the table is released for others; the booking keeps waiting until no-show.
+        int released=0;
+        if(s.getHoldMinutes()<s.getNoShowMinutes()) {
+            for(var a:db.query(ReservationTable.class,"from ReservationTable a where a.reservation.status=?1 and a.reservation.startsAt<=?2",Reservation.Status.CONFIRMED,now.minusSeconds(s.getHoldMinutes()*60L))) {
+                var r=a.getReservation(); db.remove(a); released++;
+                history(r,null,"hold-expired","Khách trễ quá "+s.getHoldMinutes()+" phút, đã trả bàn "+a.getTable().getCode()+". Gán lại bàn khi khách đến.");
+                service.notify(Role.RECEPTIONIST,"HOLD_EXPIRED","Đã trả bàn "+a.getTable().getCode(),r.getCode()+" · "+r.getCustomerName()+" trễ quá "+s.getHoldMinutes()+" phút",id(r));
+            }
+        }
+        if(!late.isEmpty()||released>0) s.setRevision(s.getRevision()+1);
+        return late.size()+released;
     }
     public void assign(Reservation r,String tableId) {
         var table=db.get(RestaurantTable.class,tableId);
         int guests=r.getActualGuests()==null?r.getGuestCount():r.getActualGuests();
         if(!id(table.getArea()).equals(id(r.getArea()))||table.getCapacity()<guests||table.getStatus()==TableStatus.OUT_OF_SERVICE) throw ApiException.conflict("Bàn không phù hợp: khác khu vực, không đủ chỗ hoặc đang tạm ngưng.");
         ensureFree(r,table,r.getStartsAt(),r.getEndsAt());
-        db.all(ReservationTable.class).stream().filter(a->a.getReservation().equals(r)).forEach(db::remove); db.flush();
+        if(r.getId()!=null) db.query(ReservationTable.class,"from ReservationTable a where a.reservation=?1",r).forEach(db::remove); db.flush();
         var a=new ReservationTable();a.setReservation(r);a.setTable(table);db.save(a);
     }
     void ensureFree(Reservation r,RestaurantTable table,Instant start,Instant end) {
         long buffer=db.lock().getBufferMinutes()*60L;
-        for(var a:db.all(ReservationTable.class)) {
-            var other=a.getReservation();
-            if(!other.equals(r)&&a.getTable().equals(table)&&active(other)&&start.isBefore(other.getEndsAt().plusSeconds(buffer))&&end.plusSeconds(buffer).isAfter(other.getStartsAt())) throw ApiException.conflict("Bàn đã có lịch khác trùng khung giờ này.");
-        }
+        boolean clash=db.query(ReservationTable.class,"from ReservationTable a where a.table=?1 and a.reservation.status in ?2 and a.reservation.startsAt<?3 and a.reservation.endsAt>?4",
+                table,ACTIVE,end.plusSeconds(buffer),start.minusSeconds(buffer)).stream().anyMatch(a->!a.getReservation().equals(r));
+        if(clash) throw ApiException.conflict("Bàn đã có lịch khác trùng khung giờ này.");
     }
     void autoAssign(Reservation r) {
-        var tables=db.all(RestaurantTable.class).stream().filter(t->id(t.getArea()).equals(id(r.getArea()))&&t.getCapacity()>=r.getGuestCount()).sorted(Comparator.comparingInt(RestaurantTable::getCapacity)).toList();
+        var tables=db.query(RestaurantTable.class,"from RestaurantTable t where t.area=?1 and t.capacity>=?2 order by t.capacity",r.getArea(),r.getGuestCount());
         for(var t:tables) {try {assign(r,id(t));return;} catch(ApiException ignored) {}}
         throw ApiException.conflict("Không còn bàn trống đủ chỗ trong khung giờ này.");
     }
-    boolean active(Reservation r) { return Set.of(Reservation.Status.PENDING,Reservation.Status.CONFIRMED,Reservation.Status.ARRIVED,Reservation.Status.SEATED).contains(r.getStatus()); }
+    static final List<Reservation.Status> ACTIVE=List.of(Reservation.Status.PENDING,Reservation.Status.CONFIRMED,Reservation.Status.ARRIVED,Reservation.Status.SEATED);
+    boolean active(Reservation r) { return ACTIVE.contains(r.getStatus()); }
     public void command(String type,Map<String,Object> c,User actor) {
         var r=db.get(Reservation.class,required(c,"id",100));
         switch(type) {
@@ -178,7 +188,7 @@ public class ReservationWorkflow {
                 String tableId=text(input,"tableId");
                 if(!tableId.isEmpty())assign(r,tableId);
                 else if(r.getStatus()==Reservation.Status.CONFIRMED)throw ApiException.conflict("Lịch đã xác nhận phải giữ một bàn. Hãy chọn bàn.");
-                else db.all(ReservationTable.class).stream().filter(a->a.getReservation().equals(r)).forEach(db::remove);
+                else db.query(ReservationTable.class,"from ReservationTable a where a.reservation=?1",r).forEach(db::remove);
             }
             case "assign", "reservation.move" -> {
                 require(r,Reservation.Status.PENDING,Reservation.Status.CONFIRMED,Reservation.Status.ARRIVED,Reservation.Status.SEATED);
@@ -212,14 +222,14 @@ public class ReservationWorkflow {
         history(r,actor,type,text(c,"reason").isEmpty()?label:label+": "+text(c,"reason"));
     }
     void require(Reservation r,Reservation.Status... statuses) {if(!Arrays.asList(statuses).contains(r.getStatus()))throw ApiException.conflict("Không thể thực hiện thao tác này với lịch đang ở trạng thái hiện tại.");}
-    public ReservationTable assignment(Reservation r) {return db.all(ReservationTable.class).stream().filter(a->a.getReservation().equals(r)).findFirst().orElse(null);}
+    public ReservationTable assignment(Reservation r) {return r.getId()==null?null:db.query(ReservationTable.class,"from ReservationTable a where a.reservation=?1",r).stream().findFirst().orElse(null);}
     void history(Reservation r,User actor,String action,String description) {var h=new ReservationHistory();h.setReservation(r);h.setActor(actor);h.setAction(action);h.setNewStatus(r.getStatus());h.setDescription(description);db.save(h);}
     public Map<String,Object> view(Reservation r) {
         var a=assignment(r);
-        return map("id",id(r),"code",r.getCode(),"customer",map("name",r.getCustomerName(),"phone",r.getPhone()),"startsAt",r.getStartsAt(),"guests",r.getGuestCount(),"duration",Duration.between(r.getStartsAt(),r.getEndsAt()).toMinutes(),"areaId",id(r.getArea()),"tableId",a==null?null:id(a.getTable()),"occasion",r.getOccasion(),"email",r.getEmail(),"notes",r.getNote(),"specialRequests",Objects.toString(r.getSpecialRequests(),""),"status",r.getStatus(),"source",r.getSource(),"actualGuests",r.getActualGuests(),"arrivedAt",r.getArrivedAt(),"handedOverAt",r.getHandedOverAt(),"preorder",db.all(ReservationItem.class).stream().filter(i->i.getReservation().equals(r)).map(i->map("menuItemId",id(i.getMenuItem()),"quantity",i.getQuantity(),"note",i.getNote())).toList(),"history",db.all(ReservationHistory.class).stream().filter(h->h.getReservation().equals(r)).map(h->map("at",h.getCreatedAt(),"text",h.getDescription())).toList());
+        return map("id",id(r),"code",r.getCode(),"customer",map("name",r.getCustomerName(),"phone",r.getPhone()),"startsAt",r.getStartsAt(),"guests",r.getGuestCount(),"duration",Duration.between(r.getStartsAt(),r.getEndsAt()).toMinutes(),"areaId",id(r.getArea()),"tableId",a==null?null:id(a.getTable()),"occasion",r.getOccasion(),"email",r.getEmail(),"notes",r.getNote(),"specialRequests",Objects.toString(r.getSpecialRequests(),""),"status",r.getStatus(),"source",r.getSource(),"actualGuests",r.getActualGuests(),"arrivedAt",r.getArrivedAt(),"handedOverAt",r.getHandedOverAt(),"preorder",db.query(ReservationItem.class,"from ReservationItem i where i.reservation=?1",r).stream().map(i->map("menuItemId",id(i.getMenuItem()),"quantity",i.getQuantity(),"note",i.getNote())).toList(),"history",db.query(ReservationHistory.class,"from ReservationHistory h where h.reservation=?1 order by h.createdAt",r).stream().map(h->map("at",h.getCreatedAt(),"text",h.getDescription())).toList());
     }
     public Map<String,Object> publicView(Reservation r) {
         var local=r.getStartsAt().atZone(ZoneId.of(db.lock().getTimezone()));
-        return map("code",r.getCode(),"status",r.getStatus(),"createdAt",r.getCreatedAt(),"startsAt",r.getStartsAt(),"durationMinutes",Duration.between(r.getStartsAt(),r.getEndsAt()).toMinutes(),"areaId",id(r.getArea()),"areaName",r.getArea().getName(),"date",local.toLocalDate(),"time",local.toLocalTime().toString(),"guests",r.getGuestCount(),"name",r.getCustomerName(),"phone",r.getPhone(),"email",r.getEmail(),"note",r.getNote(),"occasion",r.getOccasion(),"items",db.all(ReservationItem.class).stream().filter(i->i.getReservation().equals(r)).map(i->map("dishId",id(i.getMenuItem()),"name",i.getMenuItem().getName(),"quantity",i.getQuantity())).toList());
+        return map("code",r.getCode(),"status",r.getStatus(),"createdAt",r.getCreatedAt(),"startsAt",r.getStartsAt(),"durationMinutes",Duration.between(r.getStartsAt(),r.getEndsAt()).toMinutes(),"areaId",id(r.getArea()),"areaName",r.getArea().getName(),"date",local.toLocalDate(),"time",local.toLocalTime().toString(),"guests",r.getGuestCount(),"name",r.getCustomerName(),"phone",r.getPhone(),"email",r.getEmail(),"note",r.getNote(),"occasion",r.getOccasion(),"items",db.query(ReservationItem.class,"from ReservationItem i where i.reservation=?1",r).stream().map(i->map("dishId",id(i.getMenuItem()),"name",i.getMenuItem().getName(),"quantity",i.getQuantity())).toList());
     }
 }

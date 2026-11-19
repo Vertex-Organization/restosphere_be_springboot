@@ -12,6 +12,12 @@ import org.springframework.stereotype.Component;
 public class WorkspaceStore {
     @PersistenceContext EntityManager em;
     public <T> List<T> all(Class<T> type) { return em.createQuery("from " + type.getSimpleName(), type).getResultList(); }
+    /** Filtered JPQL query with positional parameters ?1, ?2...; avoids loading whole tables. */
+    public <T> List<T> query(Class<T> type, String jpql, Object... params) {
+        var q = em.createQuery(jpql, type);
+        for (int i = 0; i < params.length; i++) q.setParameter(i + 1, params[i]);
+        return q.getResultList();
+    }
     public <T> T get(Class<T> type, String id) {
         UUID uuid;
         try { uuid = UUID.fromString(id); } catch (Exception e) { throw invalid("Không tìm thấy dữ liệu. Vui lòng tải lại."); }
