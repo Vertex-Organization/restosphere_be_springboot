@@ -17,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class ReservationWorkflow {
     private final WorkspaceStore db;
     private final ServiceWorkflow service;
+    private final ReservationMailer mailer;
     static final Map<String,String> HISTORY_LABELS=Map.of("edit","Cập nhật lịch đặt","assign","Gán / đổi bàn","reservation.move","Quản lý đổi bàn","confirm","Xác nhận","reject","Từ chối","cancel","Hủy lịch","no-show","Không đến","check-in","Check-in","handover","Bàn giao cho phục vụ");
     static String phone(Map<String,Object> input) {return required(input,"phone",30).replaceAll("[\\s().-]", "");}
     public static String text(Map<String,Object> input, String key) { return Objects.toString(input.get(key), "").trim(); }
@@ -40,14 +41,24 @@ public class ReservationWorkflow {
         if(!(value instanceof List<?> list) || list.size()>100 || list.stream().anyMatch(x->!(x instanceof Map))) throw invalid("Invalid " + key);
         return (List<Map<String,Object>>)value;
     }
+    static final int EARLY_CHECK_IN_MINUTES=60;
+    static final java.util.regex.Pattern HOURS=java.util.regex.Pattern.compile("(\\d{1,2})[:h](\\d{2})\\s*[-–]\\s*(\\d{1,2})[:h](\\d{2})");
+    // Parses "10:00 - 22:00" from the admin opening-hours text; null = no limit. Overnight close gets +1440.
+    public static int[] openingMinutes(String text) {
+        var m=HOURS.matcher(text==null?"":text); if(!m.find()) return null;
+        int open=Integer.parseInt(m.group(1))*60+Integer.parseInt(m.group(2)), close=Integer.parseInt(m.group(3))*60+Integer.parseInt(m.group(4));
+        if(open>=1440||close>1440) return null;
+        return new int[]{open,close<=open?close+1440:close};
+    }
     public Map<String,Object> settings() {
-        var s=db.lock();
-        return map("onlineReservations",s.isOnlineReservations(),"bufferMinutes",s.getBufferMinutes(),"noShowMinutes",s.getNoShowMinutes(),"tableHoldMinutes",s.getHoldMinutes(),"timezone",s.getTimezone(),"areas",db.all(Area.class).stream().map(a->map("id",id(a),"name",a.getName())).toList());
+        var s=db.lock(); var hours=openingMinutes(s.getOpeningHours());
+        return map("openMinutes",hours==null?null:hours[0],"closeMinutes",hours==null?null:hours[1],"earlyCheckInMinutes",EARLY_CHECK_IN_MINUTES,"onlineReservations",s.isOnlineReservations(),"bufferMinutes",s.getBufferMinutes(),"noShowMinutes",s.getNoShowMinutes(),"tableHoldMinutes",s.getHoldMinutes(),"timezone",s.getTimezone(),"areas",db.all(Area.class).stream().map(a->map("id",id(a),"name",a.getName())).toList());
     }
     public Map<String,Object> createPublic(Map<String,Object> input) {
         var s=db.lock(); if(!s.isOnlineReservations()) throw ApiException.conflict("Online reservations are disabled");
         var r=create(input,null,true,false); s.setRevision(s.getRevision()+1);
         service.notify(Role.RECEPTIONIST,"NEW_WEB_RESERVATION","Đặt bàn mới từ web",r.getCode()+" · "+r.getCustomerName(),id(r));
+        mailer.send(r,"Đã nhận yêu cầu đặt bàn","Nhà hàng đã nhận yêu cầu đặt bàn của bạn và sẽ xác nhận sớm.");
         db.flush(); return publicView(r);
     }
     public Reservation create(Map<String,Object> input,User actor,boolean web,boolean walkIn) {
@@ -79,14 +90,21 @@ public class ReservationWorkflow {
         boolean moved=r.getStartsAt()==null||!start.equals(r.getStartsAt());
         if(moved&&start.isBefore(Instant.now().minusSeconds(walkIn?1800:60)) || start.isAfter(Instant.now().plus(Duration.ofDays(365)))) throw invalid("Reservation date is outside booking window");
         int duration=input.containsKey(web?"durationMinutes":"duration")?integer(input,web?"durationMinutes":"duration",15,720):120;
+        var hours=openingMinutes(db.lock().getOpeningHours());
+        if(hours!=null) {
+            var local=start.atZone(ZoneId.of(db.lock().getTimezone())).toLocalTime(); int m=local.getHour()*60+local.getMinute();
+            if(m<hours[0]&&hours[1]>1440) m+=1440;
+            if(m<hours[0]||(walkIn?m+1:m+duration)>hours[1]) throw invalid("Reservation must be within opening hours "+db.lock().getOpeningHours());
+        }
         r.setStartsAt(start); r.setEndsAt(start.plusSeconds(duration*60L));
         String note=text(input,web?"note":"notes"); if(note.length()>1000) throw invalid("Note too long"); r.setNote(note);
         String occasion=text(input,"occasion"), special=text(input,"specialRequests");
         if(occasion.length()>150||special.length()>255) throw invalid("occasion/specialRequests too long");
         r.setOccasion(occasion); r.setSpecialRequests(special);
         int capacity=db.all(RestaurantTable.class).stream().filter(t->id(t.getArea()).equals(id(r.getArea()))&&t.getStatus()!=TableStatus.OUT_OF_SERVICE).mapToInt(RestaurantTable::getCapacity).sum();
-        // shortcut: sums guests per area, ignores how they pack into tables; upgrade to per-table fitting if overbooking still happens
-        int booked=db.all(Reservation.class).stream().filter(o->!o.equals(r)&&active(o)&&id(o.getArea()).equals(id(r.getArea()))&&o.getStartsAt().isBefore(r.getEndsAt())&&o.getEndsAt().isAfter(r.getStartsAt())).mapToInt(Reservation::getGuestCount).sum();
+        // Sums guests per area; does not check how they fit into individual tables.
+        long buffer=db.lock().getBufferMinutes()*60L;
+        int booked=db.all(Reservation.class).stream().filter(o->!o.equals(r)&&active(o)&&id(o.getArea()).equals(id(r.getArea()))&&o.getStartsAt().isBefore(r.getEndsAt().plusSeconds(buffer))&&o.getEndsAt().plusSeconds(buffer).isAfter(r.getStartsAt())).mapToInt(Reservation::getGuestCount).sum();
         if(capacity-booked<r.getGuestCount()) throw ApiException.conflict("Area has insufficient capacity for this time");
     }
     void replaceItems(Reservation r,Map<String,Object> input,boolean web) {
@@ -111,17 +129,27 @@ public class ReservationWorkflow {
         db.lock(); String code=required(input,"code",30), phone=phone(input);
         return db.all(Reservation.class).stream().filter(r->r.getCode().equalsIgnoreCase(code)&&r.getPhone().equals(phone)).findFirst().orElseThrow(()->ApiException.notFound("Reservation"));
     }
+    public int expireNoShows() {
+        var s=db.lock(); var deadline=Instant.now().minusSeconds(s.getNoShowMinutes()*60L);
+        var late=db.all(Reservation.class).stream().filter(r->r.getStatus()==Reservation.Status.CONFIRMED&&!r.getStartsAt().isAfter(deadline)).toList();
+        for(var r:late) {command("no-show",map("id",id(r)),null);service.notify(Role.RECEPTIONIST,"AUTO_NO_SHOW","Tự động đánh dấu không đến",r.getCode()+" · "+r.getCustomerName(),id(r));}
+        if(!late.isEmpty()) s.setRevision(s.getRevision()+1);
+        return late.size();
+    }
     public void assign(Reservation r,String tableId) {
         var table=db.get(RestaurantTable.class,tableId);
         int guests=r.getActualGuests()==null?r.getGuestCount():r.getActualGuests();
         if(!id(table.getArea()).equals(id(r.getArea()))||table.getCapacity()<guests||table.getStatus()==TableStatus.OUT_OF_SERVICE) throw ApiException.conflict("Table does not match reservation");
+        ensureFree(r,table,r.getStartsAt(),r.getEndsAt());
+        db.all(ReservationTable.class).stream().filter(a->a.getReservation().equals(r)).forEach(db::remove); db.flush();
+        var a=new ReservationTable();a.setReservation(r);a.setTable(table);db.save(a);
+    }
+    void ensureFree(Reservation r,RestaurantTable table,Instant start,Instant end) {
         long buffer=db.lock().getBufferMinutes()*60L;
         for(var a:db.all(ReservationTable.class)) {
             var other=a.getReservation();
-            if(!other.equals(r)&&a.getTable().equals(table)&&active(other)&&r.getStartsAt().isBefore(other.getEndsAt().plusSeconds(buffer))&&r.getEndsAt().plusSeconds(buffer).isAfter(other.getStartsAt())) throw ApiException.conflict("Table is already reserved for this time");
+            if(!other.equals(r)&&a.getTable().equals(table)&&active(other)&&start.isBefore(other.getEndsAt().plusSeconds(buffer))&&end.plusSeconds(buffer).isAfter(other.getStartsAt())) throw ApiException.conflict("Table is already reserved for this time");
         }
-        db.all(ReservationTable.class).stream().filter(a->a.getReservation().equals(r)).forEach(db::remove); db.flush();
-        var a=new ReservationTable();a.setReservation(r);a.setTable(table);db.save(a);
     }
     void autoAssign(Reservation r) {
         var tables=db.all(RestaurantTable.class).stream().filter(t->id(t.getArea()).equals(id(r.getArea()))&&t.getCapacity()>=r.getGuestCount()).sorted(Comparator.comparingInt(RestaurantTable::getCapacity)).toList();
@@ -151,16 +179,17 @@ public class ReservationWorkflow {
                     service.notify(Role.WAITER,"TABLE_REASSIGNED","Đổi bàn "+previous.getTable().getCode()+" → "+table.getCode(),r.getCode()+" · "+r.getCustomerName(),id(session));
                 } else assign(r,tableId);
             }
-            case "confirm" -> {require(r,Reservation.Status.PENDING);if(assignment(r)==null)autoAssign(r);r.setStatus(Reservation.Status.CONFIRMED);}
-            case "reject" -> {require(r,Reservation.Status.PENDING);required(c,"reason",1000);r.setStatus(Reservation.Status.REJECTED);}
-            case "cancel" -> {require(r,Reservation.Status.PENDING,Reservation.Status.CONFIRMED);required(c,"reason",1000);r.setStatus(Reservation.Status.CANCELLED);if(actor==null)service.notify(Role.RECEPTIONIST,"RESERVATION_CANCELLED","Khách hủy đặt bàn",r.getCode()+" · "+text(c,"reason"),id(r));}
+            case "confirm" -> {require(r,Reservation.Status.PENDING);if(assignment(r)==null)autoAssign(r);r.setStatus(Reservation.Status.CONFIRMED);mailer.send(r,"Đặt bàn đã được xác nhận","Lịch đặt bàn của bạn đã được xác nhận. Hẹn gặp bạn!");}
+            case "reject" -> {require(r,Reservation.Status.PENDING);required(c,"reason",1000);r.setStatus(Reservation.Status.REJECTED);mailer.send(r,"Đặt bàn không thành công","Rất tiếc, nhà hàng không thể nhận lịch đặt bàn này. Lý do: "+text(c,"reason"));}
+            case "cancel" -> {require(r,Reservation.Status.PENDING,Reservation.Status.CONFIRMED);required(c,"reason",1000);r.setStatus(Reservation.Status.CANCELLED);if(actor==null)service.notify(Role.RECEPTIONIST,"RESERVATION_CANCELLED","Khách hủy đặt bàn",r.getCode()+" · "+text(c,"reason"),id(r));mailer.send(r,"Đặt bàn đã bị hủy","Lịch đặt bàn của bạn đã được hủy. Lý do: "+text(c,"reason"));}
             case "no-show" -> {require(r,Reservation.Status.CONFIRMED);if(Instant.now().isBefore(r.getStartsAt().plusSeconds(db.lock().getNoShowMinutes()*60L)))throw ApiException.conflict("No-show grace period has not elapsed");r.setStatus(Reservation.Status.NO_SHOW);}
-            case "check-in" -> {require(r,Reservation.Status.CONFIRMED);r.setActualGuests(integer(c,"actualGuests",1,200));r.setArrivedAt(Instant.now());r.setStatus(Reservation.Status.ARRIVED);}
+            case "check-in" -> {require(r,Reservation.Status.CONFIRMED);if(Instant.now().isBefore(r.getStartsAt().minusSeconds(EARLY_CHECK_IN_MINUTES*60L)))throw ApiException.conflict("Check-in opens "+EARLY_CHECK_IN_MINUTES+" minutes before the booking time");r.setActualGuests(integer(c,"actualGuests",1,200));r.setArrivedAt(Instant.now());r.setStatus(Reservation.Status.ARRIVED);}
             case "handover" -> {
                 require(r,Reservation.Status.ARRIVED); var a=assignment(r);
                 if(a==null||a.getTable().getCapacity()<r.getActualGuests())throw ApiException.conflict("Assign a table that fits the actual guests first");
                 if(a.getTable().getStatus()!=TableStatus.AVAILABLE)throw ApiException.conflict("Table is not available");
                 if(db.all(TableSession.class).stream().anyMatch(s->s.getTable().equals(a.getTable())&&s.getStatus()!=TableSession.Status.CLOSED))throw ApiException.conflict("Table already has an active session");
+                var now=Instant.now();ensureFree(r,a.getTable(),now,now.plus(Duration.between(r.getStartsAt(),r.getEndsAt())));
                 var session=new TableSession();session.setTable(a.getTable());session.setReservation(r);session.setGuestCount(r.getActualGuests()==null?r.getGuestCount():r.getActualGuests());session.setStartedAt(Instant.now());db.save(session);
                 var bill=new Bill();bill.setSession(session);bill.setCode("B-"+id(session));db.save(bill);a.getTable().setStatus(TableStatus.OCCUPIED);r.setHandedOverAt(Instant.now());r.setStatus(Reservation.Status.SEATED);
                 service.notify(Role.WAITER,"HANDOVER","Bàn "+a.getTable().getCode()+" chờ tiếp nhận",r.getCode()+" · "+r.getActualGuests()+" khách",id(session));
