@@ -7,8 +7,10 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import java.util.UUID;
 
+/** outOfService chi dung khi sua: true -> OUT_OF_SERVICE, false -> AVAILABLE, null -> giu trang thai. */
 public record TableRequest(
         @NotBlank @Size(max = 30) String code,
         @NotNull UUID areaId,
-        @Min(1) @Max(100) int capacity) {
+        @Min(1) @Max(100) int capacity,
+        Boolean outOfService) {
 }

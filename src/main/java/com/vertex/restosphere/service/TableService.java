@@ -1,13 +1,28 @@
 package com.vertex.restosphere.service;
 
+import com.vertex.restosphere.common.enums.Role;
 import com.vertex.restosphere.common.enums.TableStatus;
 import com.vertex.restosphere.dto.request.TableRequest;
+import com.vertex.restosphere.dto.response.ManagerTableResponse;
 import com.vertex.restosphere.dto.response.TableResponse;
+import com.vertex.restosphere.entity.Area;
+import com.vertex.restosphere.entity.AuditLog;
+import com.vertex.restosphere.entity.Reservation;
 import com.vertex.restosphere.entity.RestaurantTable;
+import com.vertex.restosphere.entity.TableSession;
+import com.vertex.restosphere.entity.User;
 import com.vertex.restosphere.exception.ApiException;
 import com.vertex.restosphere.repository.AreaRepository;
+import com.vertex.restosphere.repository.AuditLogRepository;
+import com.vertex.restosphere.repository.ReservationTableRepository;
 import com.vertex.restosphere.repository.RestaurantTableRepository;
+import com.vertex.restosphere.repository.TableSessionRepository;
+import com.vertex.restosphere.security.CurrentUserService;
+import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -18,16 +33,37 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 public class TableService {
 
+    // Lich con giu ban (cung danh sach voi quy tac cu).
+    private static final Set<Reservation.Status> ACTIVE_RESERVATION = EnumSet.of(Reservation.Status.PENDING,
+            Reservation.Status.CONFIRMED, Reservation.Status.ARRIVED, Reservation.Status.SEATED);
+
     private final RestaurantTableRepository tables;
     private final AreaRepository areas;
-    private final WorkspaceStore workspace;
+    private final TableSessionRepository sessions;
+    private final ReservationTableRepository reservationTables;
+    private final RestaurantLock restaurantLock;
+    private final CurrentUserService currentUser;
+    private final AuditLogRepository auditLogs;
 
+    // Khoa chung voi lenh workspace, roi hoi DB bang 2 cau exists thay vi tai het phien/lich dat.
     private void requireIdle(UUID id) {
-        workspace.lock();
-        if (workspace.all(com.vertex.restosphere.entity.TableSession.class).stream().anyMatch(s -> s.getTable().getId().equals(id) && s.getStatus() != com.vertex.restosphere.entity.TableSession.Status.CLOSED)
-                || workspace.all(com.vertex.restosphere.entity.ReservationTable.class).stream().anyMatch(a -> a.getTable().getId().equals(id) && java.util.Set.of(com.vertex.restosphere.entity.Reservation.Status.PENDING, com.vertex.restosphere.entity.Reservation.Status.CONFIRMED, com.vertex.restosphere.entity.Reservation.Status.ARRIVED, com.vertex.restosphere.entity.Reservation.Status.SEATED).contains(a.getReservation().getStatus()))) {
+        restaurantLock.acquire();
+        if (sessions.existsByTableIdAndStatusNot(id, TableSession.Status.CLOSED)
+                || reservationTables.existsByTableIdAndReservationStatusIn(id, ACTIVE_RESERVATION)) {
             throw ApiException.conflict("Table has an active session or reservation; use workspace commands");
         }
+    }
+
+    @Transactional(readOnly = true)
+    public List<ManagerTableResponse> listForManager(UUID actorId) {
+        currentUser.require(actorId, Role.ADMIN, Role.MANAGER);
+        Map<UUID, UUID> sessionByTable = new HashMap<>();
+        sessions.findOpenSessionIdsByTable().forEach(r -> sessionByTable.putIfAbsent((UUID) r[0], (UUID) r[1]));
+        Set<UUID> reserved = reservationTables.findTableIdsByReservationStatusIn(ACTIVE_RESERVATION);
+        return tables.findAllByOrderByAreaNameAscCodeAsc().stream()
+                .map(t -> new ManagerTableResponse(t.getId(), t.getCode(), t.getArea().getId(), t.getArea().getName(),
+                        t.getCapacity(), t.getStatus(), sessionByTable.get(t.getId()), reserved.contains(t.getId())))
+                .toList();
     }
 
     @Transactional(readOnly = true)
@@ -54,14 +90,37 @@ public class TableService {
         return TableResponse.from(tables.save(table));
     }
 
-    public TableResponse update(UUID id, TableRequest req) {
+    public TableResponse update(UUID actorId, UUID id, TableRequest req) {
         requireIdle(id);
+        User actor = currentUser.require(actorId, Role.ADMIN, Role.MANAGER);
         RestaurantTable table = find(id);
+        // Chi chan o day (khong dua vao requireIdle) de PATCH /status va DELETE giu hanh vi cu.
+        if (table.getStatus() == TableStatus.OCCUPIED || table.getStatus() == TableStatus.CLEANING) {
+            throw ApiException.conflict("Table is in service or being cleaned");
+        }
         String code = req.code().trim();
         if (!code.equals(table.getCode()) && tables.existsByCode(code)) {
             throw ApiException.conflict("Table code already exists");
         }
-        apply(table, code, req);
+        Area area = areas.findById(req.areaId()).orElseThrow(() -> ApiException.notFound("Area"));
+        TableStatus status = req.outOfService() == null ? table.getStatus()
+                : req.outOfService() ? TableStatus.OUT_OF_SERVICE : TableStatus.AVAILABLE;
+        if (code.equals(table.getCode()) && area.getId().equals(table.getArea().getId())
+                && req.capacity() == table.getCapacity() && status == table.getStatus()) {
+            return TableResponse.from(table);
+        }
+        table.setCode(code);
+        table.setArea(area);
+        table.setCapacity(req.capacity());
+        table.setStatus(status);
+        AuditLog log = new AuditLog();
+        log.setActor(actor);
+        log.setAction("TABLE_UPDATED");
+        log.setTargetType("TABLE");
+        log.setTargetId(id);
+        log.setDescription("Cập nhật bố trí bàn " + code + " · " + req.capacity() + " ghế · " + area.getName()
+                + (status == TableStatus.OUT_OF_SERVICE ? " · tạm ngưng" : ""));
+        auditLogs.save(log);
         return TableResponse.from(table);
     }
 
