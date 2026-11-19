@@ -62,9 +62,9 @@ public class ReservationWorkflow {
         db.flush(); return publicView(r);
     }
     public Reservation create(Map<String,Object> input,User actor,boolean web,boolean walkIn) {
-        var r=new Reservation(); r.setCode(newCode());
+        var r=new Reservation();
         r.setSource(web?Reservation.Source.WEB:walkIn?Reservation.Source.WALK_IN:Reservation.Source.PHONE);
-        fill(r,input,web,walkIn); db.save(r); history(r,actor,"CREATED",walkIn?"Khách trực tiếp đã đến":web?"Khách đặt bàn qua web":"Tạo lịch đặt");
+        fill(r,input,web,walkIn); r.setCode(newCode(r.getStartsAt())); db.save(r); history(r,actor,"CREATED",walkIn?"Khách trực tiếp đã đến":web?"Khách đặt bàn qua web":"Tạo lịch đặt");
         String tableId=text(input,"tableId");
         if(walkIn&&tableId.isEmpty()) throw invalid("tableId is required for walk-in");
         if(!web&&!tableId.isEmpty()) assign(r,tableId);
@@ -75,14 +75,12 @@ public class ReservationWorkflow {
         }
         replaceItems(r,input,web); return r;
     }
-    static final String CODE_CHARS="ABCDEFGHJKMNPQRSTUVWXYZ23456789";
-    static final java.security.SecureRandom RANDOM=new java.security.SecureRandom();
-    String newCode() {
-        var used=new HashSet<String>(); db.all(Reservation.class).forEach(x->used.add(x.getCode()));
-        while(true) {
-            var sb=new StringBuilder("RS-"); for(int i=0;i<8;i++) sb.append(CODE_CHARS.charAt(RANDOM.nextInt(CODE_CHARS.length())));
-            if(used.add(sb.toString())) return sb.toString();
-        }
+    // RS-ddMMyy-NNN: arrival date (restaurant timezone) + sequence within that date. Kept when the booking is edited.
+    String newCode(Instant start) {
+        String prefix="RS-"+start.atZone(ZoneId.of(db.lock().getTimezone())).format(java.time.format.DateTimeFormatter.ofPattern("ddMMyy"))+"-";
+        int next=db.all(Reservation.class).stream().map(Reservation::getCode).filter(c->c.startsWith(prefix))
+                .mapToInt(c->{try{return Integer.parseInt(c.substring(prefix.length()));}catch(NumberFormatException e){return 0;}}).max().orElse(0)+1;
+        return prefix+String.format("%03d",next);
     }
     void fill(Reservation r,Map<String,Object> input,boolean web,boolean walkIn) {
         var customer=web?input:object(input,"customer");
