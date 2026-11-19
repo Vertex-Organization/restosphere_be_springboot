@@ -64,7 +64,7 @@ public class ReservationWorkflow {
     public Reservation create(Map<String,Object> input,User actor,boolean web,boolean walkIn) {
         var r=new Reservation();
         r.setSource(web?Reservation.Source.WEB:walkIn?Reservation.Source.WALK_IN:Reservation.Source.PHONE);
-        fill(r,input,web,walkIn); r.setCode(newCode(r.getStartsAt())); db.save(r); history(r,actor,"CREATED",walkIn?"Khách trực tiếp đã đến":web?"Khách đặt bàn qua web":"Tạo lịch đặt");
+        fill(r,input,web,walkIn); r.setCode(newCode(Instant.now())); db.save(r); history(r,actor,"CREATED",walkIn?"Khách trực tiếp đã đến":web?"Khách đặt bàn qua web":"Tạo lịch đặt");
         String tableId=text(input,"tableId");
         if(walkIn&&tableId.isEmpty()) throw invalid("tableId is required for walk-in");
         if(!web&&!tableId.isEmpty()) assign(r,tableId);
@@ -75,9 +75,9 @@ public class ReservationWorkflow {
         }
         replaceItems(r,input,web); return r;
     }
-    // RS-ddMMyy-NNN: arrival date (restaurant timezone) + sequence within that date. Kept when the booking is edited.
-    String newCode(Instant start) {
-        String prefix="RS-"+start.atZone(ZoneId.of(db.lock().getTimezone())).format(java.time.format.DateTimeFormatter.ofPattern("ddMMyy"))+"-";
+    // RS-ddMMyy-NNN: booking creation date (restaurant timezone) + sequence; never changes, even if the booking is moved.
+    String newCode(Instant createdAt) {
+        String prefix="RS-"+createdAt.atZone(ZoneId.of(db.lock().getTimezone())).format(java.time.format.DateTimeFormatter.ofPattern("ddMMyy"))+"-";
         int next=db.all(Reservation.class).stream().map(Reservation::getCode).filter(c->c.startsWith(prefix))
                 .mapToInt(c->{try{return Integer.parseInt(c.substring(prefix.length()));}catch(NumberFormatException e){return 0;}}).max().orElse(0)+1;
         return prefix+String.format("%03d",next);
