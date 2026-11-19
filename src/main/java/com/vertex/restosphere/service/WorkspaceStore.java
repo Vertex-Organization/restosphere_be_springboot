@@ -36,7 +36,7 @@ public class WorkspaceStore {
         return result;
     }
     public static String id(BaseEntity entity) { return entity == null ? "" : entity.getId().toString(); }
-    /** Mã hiển thị ngắn, dễ đọc: tiền tố + 8 ký tự đầu của id, vd. "R-F6933063" (thay vì cả UUID). */
+    /** Short readable display code: prefix + first 8 id chars, e.g. "R-F6933063" (instead of the full UUID). */
     public static String code(String prefix, BaseEntity entity) {
         return entity == null ? "" : prefix + "-" + entity.getId().toString().substring(0, 8).toUpperCase();
     }

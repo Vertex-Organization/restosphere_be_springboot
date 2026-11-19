@@ -25,10 +25,7 @@ spring:
   sql:
     init:
       mode: always
-      # waiter-demo.sql: ban mau cho tung buoc cua luong phuc vu (xem chu thich dau file).
-      data-locations:
-        - classpath:dataset.sql
-        - classpath:waiter-demo.sql
+      data-locations: classpath:dataset.sql
       encoding: UTF-8
       continue-on-error: false
 

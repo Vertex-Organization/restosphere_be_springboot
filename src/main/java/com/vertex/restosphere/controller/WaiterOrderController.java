@@ -19,8 +19,8 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 /**
- * API gọi món của phục vụ trên một lượt phục vụ bàn (table session).
- * Mỗi endpoint trả về snapshot workspace "staff" mới nhất để client vẽ lại màn hình.
+ * Waiter ordering API for a single table session.
+ * Every endpoint returns the latest "staff" workspace snapshot so the client can re-render.
  */
 @Tag(name = "Waiter orders")
 @SecurityRequirement(name = OpenApiConfig.BEARER_AUTH)
@@ -33,24 +33,24 @@ public class WaiterOrderController {
     private final WorkspaceService workspace;
     private final WaiterService waiter;
 
-    // ---- Tiếp nhận bàn ----
+    // ---- Table acceptance ----
 
-    @Operation(summary = "Nhận bàn lễ tân đã bàn giao")
+    @Operation(summary = "Accept a table handed over by reception")
     @PostMapping("/accept")
     public Map<String, Object> accept(@PathVariable UUID sessionId, @AuthenticationPrincipal Jwt jwt) {
         return workspace.waiter(jwt.getSubject(), "accept", u -> waiter.accept(sessionId, u));
     }
 
-    // ---- Giỏ món ----
+    // ---- Cart ----
 
-    @Operation(summary = "Thêm món vào giỏ")
+    @Operation(summary = "Add a menu item to the cart")
     @PostMapping("/drafts")
     public Map<String, Object> addDraft(@PathVariable UUID sessionId, @Valid @RequestBody AddDraftRequest req,
             @AuthenticationPrincipal Jwt jwt) {
         return workspace.waiter(jwt.getSubject(), "add-draft", u -> waiter.addDraft(sessionId, req.menuItemId(), u));
     }
 
-    @Operation(summary = "Sửa số lượng / ghi chú món trong giỏ")
+    @Operation(summary = "Edit quantity / note of a cart line")
     @PatchMapping("/drafts/{draftId}")
     public Map<String, Object> editDraft(@PathVariable UUID sessionId, @PathVariable UUID draftId,
             @Valid @RequestBody EditDraftRequest req, @AuthenticationPrincipal Jwt jwt) {
@@ -58,22 +58,22 @@ public class WaiterOrderController {
                 u -> waiter.editDraft(sessionId, draftId, req.quantity(), req.note(), u));
     }
 
-    @Operation(summary = "Xóa món khỏi giỏ")
+    @Operation(summary = "Remove a cart line")
     @DeleteMapping("/drafts/{draftId}")
     public Map<String, Object> removeDraft(@PathVariable UUID sessionId, @PathVariable UUID draftId,
             @AuthenticationPrincipal Jwt jwt) {
         return workspace.waiter(jwt.getSubject(), "remove-draft", u -> waiter.removeDraft(sessionId, draftId, u));
     }
 
-    @Operation(summary = "Gửi toàn bộ giỏ xuống bếp thành một lượt gọi mới")
+    @Operation(summary = "Submit the whole cart to the kitchen as a new order round")
     @PostMapping("/orders")
     public Map<String, Object> submit(@PathVariable UUID sessionId, @AuthenticationPrincipal Jwt jwt) {
         return workspace.waiter(jwt.getSubject(), "submit", u -> waiter.submit(sessionId, u));
     }
 
-    // ---- Món đã gửi ----
+    // ---- Submitted items ----
 
-    @Operation(summary = "Yêu cầu bếp ưu tiên một lượt gọi")
+    @Operation(summary = "Ask the kitchen to prioritise an order round")
     @PostMapping("/orders/{orderId}/priority")
     public Map<String, Object> requestPriority(@PathVariable UUID sessionId, @PathVariable UUID orderId,
             @Valid @RequestBody ReasonRequest req, @AuthenticationPrincipal Jwt jwt) {
@@ -81,14 +81,14 @@ public class WaiterOrderController {
                 u -> waiter.requestPriority(sessionId, orderId, req.reason(), u));
     }
 
-    @Operation(summary = "Đánh dấu món đã mang ra bàn")
+    @Operation(summary = "Mark an item as served")
     @PostMapping("/items/{itemId}/serve")
     public Map<String, Object> serve(@PathVariable UUID sessionId, @PathVariable UUID itemId,
             @AuthenticationPrincipal Jwt jwt) {
         return workspace.waiter(jwt.getSubject(), "serve", u -> waiter.serve(sessionId, itemId, u));
     }
 
-    @Operation(summary = "Gửi quản lý yêu cầu hủy món đang làm / đã xong")
+    @Operation(summary = "Ask a manager to cancel an item being prepared or ready")
     @PostMapping("/items/{itemId}/cancel-request")
     public Map<String, Object> requestCancel(@PathVariable UUID sessionId, @PathVariable UUID itemId,
             @Valid @RequestBody ReasonRequest req, @AuthenticationPrincipal Jwt jwt) {
@@ -96,30 +96,30 @@ public class WaiterOrderController {
                 u -> waiter.requestCancel(sessionId, itemId, req.reason(), u));
     }
 
-    // ---- Thanh toán ----
+    // ---- Payment ----
 
-    @Operation(summary = "Yêu cầu thu ngân tính tiền")
+    @Operation(summary = "Request payment from the cashier")
     @PostMapping("/payment-request")
     public Map<String, Object> requestPayment(@PathVariable UUID sessionId, @AuthenticationPrincipal Jwt jwt) {
         return workspace.waiter(jwt.getSubject(), "request-payment", u -> waiter.requestPayment(sessionId, u));
     }
 
-    @Operation(summary = "Rút lại yêu cầu tính tiền")
+    @Operation(summary = "Withdraw the payment request")
     @DeleteMapping("/payment-request")
     public Map<String, Object> withdrawPaymentRequest(@PathVariable UUID sessionId, @AuthenticationPrincipal Jwt jwt) {
         return workspace.waiter(jwt.getSubject(), "withdraw-payment-request",
                 u -> waiter.withdrawPaymentRequest(sessionId, u));
     }
 
-    // ---- Kết thúc phục vụ ----
+    // ---- End of service ----
 
-    @Operation(summary = "Xác nhận khách đã rời bàn (sau khi thanh toán)")
+    @Operation(summary = "Confirm guests have left (after payment)")
     @PostMapping("/guest-left")
     public Map<String, Object> guestLeft(@PathVariable UUID sessionId, @AuthenticationPrincipal Jwt jwt) {
         return workspace.waiter(jwt.getSubject(), "guest-left", u -> waiter.guestLeft(sessionId, true, u));
     }
 
-    @Operation(summary = "Dọn bàn xong, đóng lượt phục vụ")
+    @Operation(summary = "Table cleaned, close the session")
     @PostMapping("/clean")
     public Map<String, Object> clean(@PathVariable UUID sessionId, @AuthenticationPrincipal Jwt jwt) {
         return workspace.waiter(jwt.getSubject(), "clean", u -> waiter.clean(sessionId, true, u));

@@ -32,8 +32,8 @@ public class WorkspaceService {
     }
     public Map<String,Object> load(String workspace,String subject) {db.lock();return snapshots.snapshot(workspace,authorize(workspace,subject));}
     /**
-     * Lối vào cho REST riêng của phục vụ ({@code WaiterOrderController}): cùng khóa, revision, audit
-     * và trả về snapshot workspace "staff" giống endpoint commands chung.
+     * Entry point for the waiter REST API ({@code WaiterOrderController}): same lock, revision, audit
+     * and "staff" workspace snapshot response as the generic commands endpoint.
      */
     public Map<String,Object> waiter(String subject,String action,Consumer<User> operation) {
         var settings=db.lock();var user=authorize("staff",subject);

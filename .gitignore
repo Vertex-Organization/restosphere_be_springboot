@@ -32,3 +32,7 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Local demo data (not shared) ###
+src/main/resources/waiter-demo.sql
+src/main/resources/waiter-demo-reset.sql

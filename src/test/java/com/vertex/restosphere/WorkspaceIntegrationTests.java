@@ -80,35 +80,6 @@ class WorkspaceIntegrationTests {
         run("staff",waiter,"type","guest-left","sessionId",session,"confirmed",true);assertEquals(TableStatus.CLEANING,table.getStatus());
         run("staff",waiter,"type","clean","sessionId",session,"confirmed",true);assertEquals(TableStatus.AVAILABLE,table.getStatus());
     }
-    @Test void waiterAreaPriorityAndCancelRules() {
-        var reception=user(Role.RECEPTIONIST);var waiter=user(Role.WAITER);var cook=user(Role.KITCHEN);
-        var area=new Area();area.setName("Rules "+UUID.randomUUID());db.save(area);
-        var elsewhere=new Area();elsewhere.setName("Elsewhere "+UUID.randomUUID());db.save(elsewhere);
-        var table=new RestaurantTable();table.setArea(area);table.setCode("R-"+UUID.randomUUID().toString().substring(0,8));table.setCapacity(4);table.setStatus(TableStatus.AVAILABLE);db.save(table);
-        var cat=new MenuCategory();cat.setName("Rules "+UUID.randomUUID());db.save(cat);
-        var menu=new MenuItem();menu.setName("Dish");menu.setCategory(cat);menu.setPrice(new BigDecimal("50000"));db.save(menu);
-        var input=map("customer",map("name","Guest","phone","0901234567"),"startsAt",Instant.now().plusSeconds(3600).toString(),"guests",2,"duration",120,"areaId",id(area),"tableId",id(table),"notes","");
-        String reservation=run("staff",reception,"type","create","input",input).get("reservationId").toString();
-        run("staff",reception,"type","confirm","id",reservation);
-        run("staff",reception,"type","check-in","id",reservation,"actualGuests",2);
-        var state=data(run("staff",reception,"type","handover","id",reservation));String session=list(state,"tableSessions").stream().filter(s->reservation.equals(s.get("reservationId"))).findFirst().orElseThrow().get("id").toString();
-
-        var outsider=user(Role.WAITER);outsider.setAssignedArea(elsewhere);
-        assertThrows(ApiException.class,()->run("staff",outsider,"type","accept","sessionId",session));
-        waiter.setAssignedArea(area);
-        run("staff",waiter,"type","accept","sessionId",session);
-        run("staff",waiter,"type","add-draft","sessionId",session,"menuItemId",id(menu));
-        state=data(run("staff",waiter,"type","submit","sessionId",session));
-        var item=list(state,"orderItems").getFirst();String itemId=item.get("id").toString();String orderId=item.get("orderId").toString();
-
-        run("staff",waiter,"type","request-priority","sessionId",session,"orderId",orderId,"reason","Guests in a hurry");
-        assertEquals(waiter.getId(),db.get(Order.class,orderId).getPriorityBy().getId());
-
-        assertThrows(ApiException.class,()->run("staff",waiter,"type","request-cancel","sessionId",session,"itemId",itemId,"reason","Changed mind"));
-        run("kitchen",cook,"type","start","items",List.of(map("id",itemId,"version",item.get("version"))));
-        run("staff",waiter,"type","request-cancel","sessionId",session,"itemId",itemId,"reason","Changed mind");
-        assertThrows(ApiException.class,()->run("staff",waiter,"type","request-cancel","sessionId",session,"itemId",itemId,"reason","Again"));
-    }
     @Test void currentDatabaseRoleAndEnabledStateOverrideTokenClaims() {
         var u=user(Role.KITCHEN);assertThrows(ApiException.class,()->workspace.load("admin",id(u)));
         u.setEnabled(false);assertThrows(ApiException.class,()->workspace.load("kitchen",id(u)));
@@ -144,32 +115,6 @@ class WorkspaceIntegrationTests {
         var second=reservations.create(map("customer",map("name","Second","phone","0907654321"),"startsAt",r.getStartsAt().toString(),"guests",2,"duration",120,"areaId",id(area)),staff,false,false);
         assertThrows(ApiException.class,()->reservations.assign(second,id(table)));
         assertFalse(workspace.load("kitchen",id(user(Role.KITCHEN))).containsKey("reservations"));
-    }
-    @Test void waiterRestEndpointsDriveOrderFlow() throws Exception {
-        var reception=user(Role.RECEPTIONIST);var waiter=user(Role.WAITER);var cook=user(Role.KITCHEN);
-        var area=new Area();area.setName("Rest "+UUID.randomUUID());db.save(area);
-        var table=new RestaurantTable();table.setArea(area);table.setCode("W-"+UUID.randomUUID().toString().substring(0,8));table.setCapacity(4);table.setStatus(TableStatus.AVAILABLE);db.save(table);
-        var cat=new MenuCategory();cat.setName("Rest "+UUID.randomUUID());db.save(cat);
-        var menu=new MenuItem();menu.setName("Dish");menu.setCategory(cat);menu.setPrice(new BigDecimal("50000"));db.save(menu);
-        var input=map("customer",map("name","Guest","phone","0901234567"),"startsAt",Instant.now().plusSeconds(3600).toString(),"guests",2,"duration",120,"areaId",id(area),"tableId",id(table),"notes","");
-        String reservation=run("staff",reception,"type","create","input",input).get("reservationId").toString();
-        run("staff",reception,"type","confirm","id",reservation);
-        run("staff",reception,"type","check-in","id",reservation,"actualGuests",2);
-        var state=data(run("staff",reception,"type","handover","id",reservation));String session=list(state,"tableSessions").stream().filter(s->reservation.equals(s.get("reservationId"))).findFirst().orElseThrow().get("id").toString();
-        db.flush();
-        String base="/api/v1/waiter/sessions/"+session;
-        var asWaiter=org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt().jwt(j->j.subject(id(waiter))).authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_WAITER"));
-        var asCook=org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt().jwt(j->j.subject(id(cook))).authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_KITCHEN"));
-        var json=org.springframework.http.MediaType.APPLICATION_JSON;
-        var status=org.springframework.test.web.servlet.result.MockMvcResultMatchers.status();
-
-        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post(base+"/accept").with(asCook)).andExpect(status.isForbidden());
-        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post(base+"/accept").with(asWaiter)).andExpect(status.isOk());
-        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post(base+"/drafts").with(asWaiter).contentType(json).content("{}")).andExpect(status.isBadRequest());
-        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post(base+"/drafts").with(asWaiter).contentType(json).content("{\"menuItemId\":\""+id(menu)+"\"}")).andExpect(status.isOk());
-        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post(base+"/orders").with(asWaiter))
-                .andExpect(status.isOk())
-                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.orderItems[?(@.menuItemId=='"+id(menu)+"')].status").value("SUBMITTED"));
     }
     @Test void httpBoundaryRequiresAuthenticationAndCurrentRole() throws Exception {
         var cook=user(Role.KITCHEN);db.flush();

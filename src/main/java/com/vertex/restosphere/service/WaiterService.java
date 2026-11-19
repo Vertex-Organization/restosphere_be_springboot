@@ -24,13 +24,13 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 /**
- * Nghiệp vụ của phục vụ (WAITER) trên một lượt phục vụ bàn (TableSession):
- * tiếp nhận bàn → giỏ món → gửi bếp → phục vụ → yêu cầu thanh toán → khách rời → dọn bàn.
+ * Waiter (WAITER role) operations on a table session (TableSession):
+ * accept table -> cart -> submit to kitchen -> serve -> request payment -> guests leave -> clean.
  *
- * <p>Có hai lối vào, cùng chạy trong transaction và khóa của {@link WorkspaceService}:
+ * <p>Two entry points, both running inside the transaction and lock of {@link WorkspaceService}:
  * <ul>
- *   <li>REST riêng: {@code WaiterOrderController} gọi thẳng các method public bên dưới.</li>
- *   <li>Endpoint chung {@code POST /api/v1/workspaces/staff/commands}: đi qua {@link #handle}.</li>
+ *   <li>Dedicated REST: {@code WaiterOrderController} calls the public methods below directly.</li>
+ *   <li>Generic endpoint {@code POST /api/v1/workspaces/staff/commands}: goes through {@link #handle}.</li>
  * </ul>
  */
 @Service
@@ -52,7 +52,7 @@ public class WaiterService {
     private final BillingWorkflow billing;
     private final ServiceWorkflow events;
 
-    /** Chuyển lệnh {@code type} từ endpoint workspace chung sang đúng nghiệp vụ. */
+    /** Dispatches a {@code type} command from the generic workspace endpoint. */
     public void handle(String type, Map<String, Object> command, User waiter) {
         UUID session = uuid(command, "sessionId");
         switch (type) {
@@ -75,9 +75,9 @@ public class WaiterService {
         }
     }
 
-    // ---- Tiếp nhận bàn ----
+    // ---- Table acceptance ----
 
-    /** Nhận bàn lễ tân vừa bàn giao; món đặt trước của khách được đưa sẵn vào giỏ. */
+    /** Accepts a table handed over by reception; the guest's pre-ordered items are copied into the cart. */
     public void accept(UUID sessionId, User waiter) {
         TableSession session = db.get(TableSession.class, sessionId.toString());
         if (session.getStatus() != TableSession.Status.OPEN || session.getWaiter() != null) {
@@ -96,7 +96,7 @@ public class WaiterService {
         }
     }
 
-    // ---- Giỏ món ----
+    // ---- Cart ----
 
     public void addDraft(UUID sessionId, UUID menuItemId, User waiter) {
         TableSession session = orderingSession(sessionId, waiter);
@@ -120,7 +120,7 @@ public class WaiterService {
         drafts.delete(ownDraft(session, waiter, draftId));
     }
 
-    /** Gửi toàn bộ giỏ thành một lượt gọi mới; giá được chốt tại thời điểm gửi. */
+    /** Sends the whole cart as a new order round; prices are locked at submit time. */
     public void submit(UUID sessionId, User waiter) {
         TableSession session = orderingSession(sessionId, waiter);
         var cart = drafts.findBySessionAndWaiterOrderByCreatedAt(session, waiter);
@@ -151,7 +151,7 @@ public class WaiterService {
         events.notify(Role.KITCHEN, "NEW_ORDER", "New order", session.getTable().getCode(), id(order));
     }
 
-    // ---- Món đã gửi ----
+    // ---- Submitted items ----
 
     public void serve(UUID sessionId, UUID itemId, User waiter) {
         TableSession session = ownSession(sessionId, waiter);
@@ -161,7 +161,7 @@ public class WaiterService {
         item.setServedAt(Instant.now());
     }
 
-    /** Món đang làm hoặc đã xong chỉ được hủy khi quản lý duyệt. */
+    /** Items being prepared or ready can only be cancelled with manager approval. */
     public void requestCancel(UUID sessionId, UUID itemId, String reason, User waiter) {
         TableSession session = orderingSession(sessionId, waiter);
         OrderItem item = sessionItem(session, itemId);
@@ -184,9 +184,9 @@ public class WaiterService {
         events.notify(Role.KITCHEN, "PRIORITY", "Priority requested", reason, id(order));
     }
 
-    // ---- Thanh toán ----
+    // ---- Payment ----
 
-    /** Chỉ yêu cầu khi giỏ trống, mọi món hợp lệ đã phục vụ và hóa đơn có tiền. */
+    /** Allowed only when the cart is empty, every valid item is served and the bill is non-zero. */
     public void requestPayment(UUID sessionId, User waiter) {
         TableSession session = ownSession(sessionId, waiter);
         if (session.getStatus() != TableSession.Status.OPEN) throw ApiException.conflict("Payment already requested");
@@ -214,9 +214,9 @@ public class WaiterService {
                 session.getTable().getCode(), id(bill));
     }
 
-    // ---- Kết thúc phục vụ ----
+    // ---- End of service ----
 
-    /** Khách rời sau khi đã thanh toán: bàn chuyển sang chờ dọn. */
+    /** Guests left after paying: the table moves to cleaning. */
     public void guestLeft(UUID sessionId, boolean confirmed, User waiter) {
         TableSession session = ownSession(sessionId, waiter);
         if (!confirmed || session.getGuestLeftAt() != null || billing.bill(session).getStatus() != Bill.Status.PAID) {
@@ -226,7 +226,7 @@ public class WaiterService {
         session.getTable().setStatus(TableStatus.CLEANING);
     }
 
-    /** Dọn xong: đóng lượt phục vụ, trả bàn và hoàn tất đặt bàn. */
+    /** Cleaning done: closes the session, frees the table and completes the reservation. */
     public void clean(UUID sessionId, boolean confirmed, User waiter) {
         TableSession session = ownSession(sessionId, waiter);
         if (!confirmed || session.getGuestLeftAt() == null || session.getTable().getStatus() != TableStatus.CLEANING) {
@@ -238,9 +238,9 @@ public class WaiterService {
         if (session.getReservation() != null) session.getReservation().setStatus(Reservation.Status.COMPLETED);
     }
 
-    // ---- Kiểm tra dùng chung ----
+    // ---- Shared checks ----
 
-    /** Lượt phục vụ do chính phục vụ này nhận và chưa đóng. */
+    /** Session accepted by this waiter and not closed yet. */
     private TableSession ownSession(UUID sessionId, User waiter) {
         TableSession session = db.get(TableSession.class, sessionId.toString());
         if (!same(session.getWaiter(), waiter)) {
@@ -250,7 +250,7 @@ public class WaiterService {
         return session;
     }
 
-    /** Chỉ gọi/sửa món khi chưa yêu cầu thanh toán, khách còn ngồi và hóa đơn chưa có thanh toán. */
+    /** Ordering is open only before payment is requested, while guests are seated and the bill has no payments. */
     private TableSession orderingSession(UUID sessionId, User waiter) {
         TableSession session = ownSession(sessionId, waiter);
         if (session.getStatus() != TableSession.Status.OPEN || session.getGuestLeftAt() != null) {
@@ -302,7 +302,7 @@ public class WaiterService {
         return Boolean.TRUE.equals(command.get("confirmed"));
     }
 
-    /** So sánh theo id để không phụ thuộc proxy lazy của Hibernate. */
+    /** Compares by id so Hibernate lazy proxies do not matter. */
     private static boolean same(BaseEntity a, BaseEntity b) {
         return a != null && b != null && a.getId().equals(b.getId());
     }

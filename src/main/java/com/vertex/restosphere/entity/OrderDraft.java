@@ -6,7 +6,7 @@ import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.Check;
 
-/** Một dòng trong giỏ món của phục vụ, chưa gửi bếp. */
+/** A line in the waiter's cart, not yet sent to the kitchen. */
 @Getter
 @Setter
 @Entity

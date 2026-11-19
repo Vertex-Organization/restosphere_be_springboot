@@ -6,7 +6,7 @@ import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.Check;
 
-/** Một lượt gọi món đã gửi bếp. Món chưa gửi nằm ở {@link OrderDraft}. */
+/** An order round already sent to the kitchen. Unsent items live in {@link OrderDraft}. */
 @Getter
 @Setter
 @Entity
@@ -21,7 +21,7 @@ public class Order extends BaseEntity {
     @JoinColumn(name = "waiter_id", nullable = false)
     private User waiter;
 
-    /** Lượt gọi thứ mấy của bàn, bắt đầu từ 1. */
+    /** Order round number within the session, starting at 1. */
     @Column(nullable = false)
     private int roundNumber;
 

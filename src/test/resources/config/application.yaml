@@ -1,9 +1,3 @@
-spring:
-  sql:
-    init:
-      # Test tu tao du lieu rieng; khong nap ban demo cua phuc vu.
-      data-locations: classpath:dataset.sql
-
 app:
   security:
     jwt:
