@@ -14,9 +14,9 @@ public class WorkspaceStore {
     public <T> List<T> all(Class<T> type) { return em.createQuery("from " + type.getSimpleName(), type).getResultList(); }
     public <T> T get(Class<T> type, String id) {
         UUID uuid;
-        try { uuid = UUID.fromString(id); } catch (Exception e) { throw invalid("Invalid " + type.getSimpleName() + " id"); }
+        try { uuid = UUID.fromString(id); } catch (Exception e) { throw invalid("Không tìm thấy dữ liệu. Vui lòng tải lại."); }
         T value = em.find(type, uuid);
-        if (value == null) throw ApiException.notFound(type.getSimpleName());
+        if (value == null) throw new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy dữ liệu. Có thể đã bị xóa hoặc thay đổi, vui lòng tải lại.");
         return value;
     }
     public <T> T save(T value) { em.persist(value); return value; }
