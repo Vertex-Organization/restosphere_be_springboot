@@ -62,7 +62,7 @@ public class ReservationWorkflow {
         db.flush(); return publicView(r);
     }
     public Reservation create(Map<String,Object> input,User actor,boolean web,boolean walkIn) {
-        var r=new Reservation(); r.setCode("RS-"+UUID.randomUUID().toString().replace("-", "").substring(0,16).toUpperCase());
+        var r=new Reservation(); r.setCode(newCode());
         r.setSource(web?Reservation.Source.WEB:walkIn?Reservation.Source.WALK_IN:Reservation.Source.PHONE);
         fill(r,input,web,walkIn); db.save(r); history(r,actor,"CREATED",walkIn?"Khách trực tiếp đã đến":web?"Khách đặt bàn qua web":"Tạo lịch đặt");
         String tableId=text(input,"tableId");
@@ -74,6 +74,15 @@ public class ReservationWorkflow {
             r.setStatus(Reservation.Status.ARRIVED); r.setActualGuests(r.getGuestCount()); r.setArrivedAt(Instant.now());
         }
         replaceItems(r,input,web); return r;
+    }
+    static final String CODE_CHARS="ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+    static final java.security.SecureRandom RANDOM=new java.security.SecureRandom();
+    String newCode() {
+        var used=new HashSet<String>(); db.all(Reservation.class).forEach(x->used.add(x.getCode()));
+        while(true) {
+            var sb=new StringBuilder("RS-"); for(int i=0;i<8;i++) sb.append(CODE_CHARS.charAt(RANDOM.nextInt(CODE_CHARS.length())));
+            if(used.add(sb.toString())) return sb.toString();
+        }
     }
     void fill(Reservation r,Map<String,Object> input,boolean web,boolean walkIn) {
         var customer=web?input:object(input,"customer");
