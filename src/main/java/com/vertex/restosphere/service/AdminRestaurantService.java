@@ -1,5 +1,6 @@
 package com.vertex.restosphere.service;
 
+import com.vertex.restosphere.common.enums.AdminAuditAction;
 import com.vertex.restosphere.common.enums.Role;
 import com.vertex.restosphere.dto.request.RestaurantProfileRequest;
 import com.vertex.restosphere.dto.response.RestaurantProfileResponse;
@@ -78,7 +79,7 @@ public class AdminRestaurantService {
 
         AuditLog log = new AuditLog();
         log.setActor(actor);
-        log.setAction("RESTAURANT_UPDATED");
+        log.setAction(AdminAuditAction.RESTAURANT_UPDATED.name());
         log.setTargetType("SETTINGS");
         log.setTargetId(settings.getId());
         log.setDescription("Restaurant profile updated: " + String.join(", ", changed));

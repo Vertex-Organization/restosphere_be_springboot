@@ -1,5 +1,6 @@
 package com.vertex.restosphere.service;
 
+import com.vertex.restosphere.common.enums.AdminAuditAction;
 import com.vertex.restosphere.common.enums.Role;
 import com.vertex.restosphere.dto.request.SystemSettingsRequest;
 import com.vertex.restosphere.dto.response.SystemSettingsResponse;
@@ -115,7 +116,7 @@ public class AdminSettingsService {
 
         AuditLog log = new AuditLog();
         log.setActor(actor);
-        log.setAction("RESTAURANT_UPDATED");
+        log.setAction(AdminAuditAction.SETTINGS_UPDATED.name());
         log.setTargetType("SETTINGS");
         log.setTargetId(settings.getId());
         log.setDescription("Settings updated: " + String.join(", ", changed.stream().map(Field::name).toList()));

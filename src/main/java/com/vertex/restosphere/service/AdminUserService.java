@@ -1,6 +1,7 @@
 package com.vertex.restosphere.service;
 
 import com.vertex.restosphere.common.enums.AccountStatus;
+import com.vertex.restosphere.common.enums.AdminAuditAction;
 import com.vertex.restosphere.common.enums.Role;
 import com.vertex.restosphere.dto.response.AdminUserResponse;
 import com.vertex.restosphere.entity.AuditLog;
@@ -65,7 +66,7 @@ public class AdminUserService {
 
         AuditLog log = new AuditLog();
         log.setActor(actor);
-        log.setAction(enable ? "ACCOUNT_UNLOCKED" : "ACCOUNT_LOCKED");
+        log.setAction((enable ? AdminAuditAction.ACCOUNT_UNLOCKED : AdminAuditAction.ACCOUNT_LOCKED).name());
         log.setTargetType("USER");
         log.setTargetId(target.getId());
         log.setDescription(target.getEmail());
@@ -102,7 +103,7 @@ public class AdminUserService {
 
         AuditLog log = new AuditLog();
         log.setActor(actor);
-        log.setAction("ROLE_CHANGED");
+        log.setAction(AdminAuditAction.ROLE_CHANGED.name());
         log.setTargetType("USER");
         log.setTargetId(target.getId());
         log.setDescription(target.getEmail() + ": " + oldRole + " → " + role);

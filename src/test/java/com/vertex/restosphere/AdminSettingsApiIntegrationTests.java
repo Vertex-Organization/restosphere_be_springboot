@@ -151,7 +151,7 @@ class AdminSettingsApiIntegrationTests {
                 .andExpect(jsonPath("$.billing.vatPercent").value(10.0))
                 .andExpect(jsonPath("$.billing.bankName").value("ACB"));
         assertThat(auditLogs.findAll()).singleElement().satisfies(a -> {
-            assertThat(a.getAction()).isEqualTo("RESTAURANT_UPDATED");
+            assertThat(a.getAction()).isEqualTo("SETTINGS_UPDATED");
             assertThat(a.getTargetType()).isEqualTo("SETTINGS");
             assertThat(a.getTargetId()).isEqualTo(original.getId());
             assertThat(a.getDescription()).isEqualTo("Settings updated: bufferMinutes, billing.vatPercent, billing.bankName");
