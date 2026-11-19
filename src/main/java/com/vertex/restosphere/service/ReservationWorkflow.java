@@ -111,7 +111,7 @@ public class ReservationWorkflow {
                 require(r,Reservation.Status.ARRIVED); var a=assignment(r);if(a==null||a.getTable().getStatus()!=TableStatus.AVAILABLE)throw ApiException.conflict("Table is not available");
                 if(db.all(TableSession.class).stream().anyMatch(s->s.getTable().equals(a.getTable())&&s.getStatus()!=TableSession.Status.CLOSED))throw ApiException.conflict("Table already has an active session");
                 var session=new TableSession();session.setTable(a.getTable());session.setReservation(r);session.setGuestCount(r.getActualGuests()==null?r.getGuestCount():r.getActualGuests());session.setStartedAt(Instant.now());db.save(session);
-                var bill=new Bill();bill.setSession(session);bill.setCode("B-"+id(session));db.save(bill);a.getTable().setStatus(TableStatus.OCCUPIED);r.setHandedOverAt(Instant.now());r.setStatus(Reservation.Status.SEATED);
+                var bill=new Bill();bill.setSession(session);bill.setCode(code("B",session));db.save(bill);a.getTable().setStatus(TableStatus.OCCUPIED);r.setHandedOverAt(Instant.now());r.setStatus(Reservation.Status.SEATED);
             }
             default -> throw invalid("Unsupported reservation command");
         }
