@@ -6,21 +6,16 @@ BEGIN;
 
 -- Local demo accounts only. Password: 123456 (BCrypt). Existing users are preserved.
 -- Refresh the legacy role constraint; NOT VALID preserves legacy rows until migrated.
--- Must list every value of the Role enum (incl. CUSTOMER), same as migrations/workspace-legacy-constraints.sql.
 ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
 ALTER TABLE users ADD CONSTRAINT users_role_check
 CHECK (role IN ('CUSTOMER', 'ADMIN', 'MANAGER', 'RECEPTIONIST', 'WAITER', 'KITCHEN', 'CASHIER')) NOT VALID;
 
--- Waiter orders: remove columns no longer mapped (Hibernate "update" never drops them)
--- and widen note/reason columns to the 1000-character limit the API accepts. Safe to rerun.
 ALTER TABLE orders DROP COLUMN IF EXISTS status;
 ALTER TABLE orders DROP COLUMN IF EXISTS note;
 ALTER TABLE orders DROP COLUMN IF EXISTS priority_by;
 ALTER TABLE orders ALTER COLUMN priority_reason TYPE varchar(1000);
 ALTER TABLE order_draft ALTER COLUMN note TYPE varchar(1000);
 
--- Bill codes used to embed the full session UUID ("B-f31c8704-3a32-..."); shorten them to the
--- readable form the app now generates ("B-F31C8704"). Only touches old-format codes. Safe to rerun.
 UPDATE bills SET code = 'B-' || upper(substr(session_id::text, 1, 8))
 WHERE code ~ '^B-[0-9a-f]{8}-[0-9a-f]{4}-';
 INSERT INTO users (id, email, password_hash, full_name, role, enabled, created_at, updated_at)
