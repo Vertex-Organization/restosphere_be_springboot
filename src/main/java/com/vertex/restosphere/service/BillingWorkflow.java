@@ -27,7 +27,7 @@ public class BillingWorkflow {
         b.setSubtotal(subtotal);b.setDiscount(discount);b.setServiceCharge(service);b.setTaxAmount(tax);b.setTotal(net.add(service).add(tax));
     }
     public BigDecimal received(Bill b) {return db.all(Payment.class).stream().filter(p->p.getBill().equals(b)&&p.getStatus()==Payment.Status.COMPLETED).map(Payment::getAmount).reduce(BigDecimal.ZERO,BigDecimal::add);}
-    void editable(Bill b) {if(b.getStatus()!=Bill.Status.OPEN||db.all(Payment.class).stream().anyMatch(p->p.getBill().equals(b)&&Set.of(Payment.Status.PENDING,Payment.Status.COMPLETED).contains(p.getStatus())))throw ApiException.conflict("Bill has payments or is closed");}
+    public void editable(Bill b) {if(b.getStatus()!=Bill.Status.OPEN||db.all(Payment.class).stream().anyMatch(p->p.getBill().equals(b)&&Set.of(Payment.Status.PENDING,Payment.Status.COMPLETED).contains(p.getStatus())))throw ApiException.conflict("Bill has payments or is closed");}
     void version(Bill b,Map<String,Object> c) {if(number(c,"billVersion").compareTo(BigDecimal.valueOf(b.getVersion()))!=0)throw ApiException.conflict("Bill changed; refresh before retrying");}
     public String command(String type,Map<String,Object> c,User user) {
         if(type.equals("open-shift")&&!text(c,"scheduledShiftId").isEmpty()) {
