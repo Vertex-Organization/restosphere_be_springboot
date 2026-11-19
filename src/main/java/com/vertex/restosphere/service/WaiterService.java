@@ -23,16 +23,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
-/**
- * Waiter (WAITER role) operations on a table session (TableSession):
- * accept table -> cart -> submit to kitchen -> serve -> request payment -> guests leave -> clean.
- *
- * <p>Two entry points, both running inside the transaction and lock of {@link WorkspaceService}:
- * <ul>
- *   <li>Dedicated REST: {@code WaiterOrderController} calls the public methods below directly.</li>
- *   <li>Generic endpoint {@code POST /api/v1/workspaces/staff/commands}: goes through {@link #handle}.</li>
- * </ul>
- */
 @Service
 @RequiredArgsConstructor
 public class WaiterService {
@@ -52,7 +42,6 @@ public class WaiterService {
     private final BillingWorkflow billing;
     private final ServiceWorkflow events;
 
-    /** Dispatches a {@code type} command from the generic workspace endpoint. */
     public void handle(String type, Map<String, Object> command, User waiter) {
         UUID session = uuid(command, "sessionId");
         switch (type) {
@@ -75,9 +64,6 @@ public class WaiterService {
         }
     }
 
-    // ---- Table acceptance ----
-
-    /** Accepts a table handed over by reception; the guest's pre-ordered items are copied into the cart. */
     public void accept(UUID sessionId, User waiter) {
         TableSession session = db.get(TableSession.class, sessionId.toString());
         if (session.getStatus() != TableSession.Status.OPEN || session.getWaiter() != null) {
@@ -95,8 +81,6 @@ public class WaiterService {
             }
         }
     }
-
-    // ---- Cart ----
 
     public void addDraft(UUID sessionId, UUID menuItemId, User waiter) {
         TableSession session = orderingSession(sessionId, waiter);
@@ -120,7 +104,6 @@ public class WaiterService {
         drafts.delete(ownDraft(session, waiter, draftId));
     }
 
-    /** Sends the whole cart as a new order round; prices are locked at submit time. */
     public void submit(UUID sessionId, User waiter) {
         TableSession session = orderingSession(sessionId, waiter);
         var cart = drafts.findBySessionAndWaiterOrderByCreatedAt(session, waiter);
@@ -151,8 +134,6 @@ public class WaiterService {
         events.notify(Role.KITCHEN, "NEW_ORDER", "New order", session.getTable().getCode(), id(order));
     }
 
-    // ---- Submitted items ----
-
     public void serve(UUID sessionId, UUID itemId, User waiter) {
         TableSession session = ownSession(sessionId, waiter);
         OrderItem item = sessionItem(session, itemId);
@@ -161,7 +142,6 @@ public class WaiterService {
         item.setServedAt(Instant.now());
     }
 
-    /** Items being prepared or ready can only be cancelled with manager approval. */
     public void requestCancel(UUID sessionId, UUID itemId, String reason, User waiter) {
         TableSession session = orderingSession(sessionId, waiter);
         OrderItem item = sessionItem(session, itemId);
@@ -184,9 +164,6 @@ public class WaiterService {
         events.notify(Role.KITCHEN, "PRIORITY", "Priority requested", reason, id(order));
     }
 
-    // ---- Payment ----
-
-    /** Allowed only when the cart is empty, every valid item is served and the bill is non-zero. */
     public void requestPayment(UUID sessionId, User waiter) {
         TableSession session = ownSession(sessionId, waiter);
         if (session.getStatus() != TableSession.Status.OPEN) throw ApiException.conflict("Payment already requested");
@@ -214,9 +191,6 @@ public class WaiterService {
                 session.getTable().getCode(), id(bill));
     }
 
-    // ---- End of service ----
-
-    /** Guests left after paying: the table moves to cleaning. */
     public void guestLeft(UUID sessionId, boolean confirmed, User waiter) {
         TableSession session = ownSession(sessionId, waiter);
         if (!confirmed || session.getGuestLeftAt() != null || billing.bill(session).getStatus() != Bill.Status.PAID) {
@@ -226,7 +200,6 @@ public class WaiterService {
         session.getTable().setStatus(TableStatus.CLEANING);
     }
 
-    /** Cleaning done: closes the session, frees the table and completes the reservation. */
     public void clean(UUID sessionId, boolean confirmed, User waiter) {
         TableSession session = ownSession(sessionId, waiter);
         if (!confirmed || session.getGuestLeftAt() == null || session.getTable().getStatus() != TableStatus.CLEANING) {
@@ -238,9 +211,6 @@ public class WaiterService {
         if (session.getReservation() != null) session.getReservation().setStatus(Reservation.Status.COMPLETED);
     }
 
-    // ---- Shared checks ----
-
-    /** Session accepted by this waiter and not closed yet. */
     private TableSession ownSession(UUID sessionId, User waiter) {
         TableSession session = db.get(TableSession.class, sessionId.toString());
         if (!same(session.getWaiter(), waiter)) {
@@ -250,7 +220,6 @@ public class WaiterService {
         return session;
     }
 
-    /** Ordering is open only before payment is requested, while guests are seated and the bill has no payments. */
     private TableSession orderingSession(UUID sessionId, User waiter) {
         TableSession session = ownSession(sessionId, waiter);
         if (session.getStatus() != TableSession.Status.OPEN || session.getGuestLeftAt() != null) {
@@ -302,7 +271,6 @@ public class WaiterService {
         return Boolean.TRUE.equals(command.get("confirmed"));
     }
 
-    /** Compares by id so Hibernate lazy proxies do not matter. */
     private static boolean same(BaseEntity a, BaseEntity b) {
         return a != null && b != null && a.getId().equals(b.getId());
     }

@@ -31,10 +31,6 @@ public class WorkspaceService {
         if(!user.isEnabled()||!roles.contains(user.getRole()))throw new ApiException(HttpStatus.FORBIDDEN,"Workspace access denied");return user;
     }
     public Map<String,Object> load(String workspace,String subject) {db.lock();return snapshots.snapshot(workspace,authorize(workspace,subject));}
-    /**
-     * Entry point for the waiter REST API ({@code WaiterOrderController}): same lock, revision, audit
-     * and "staff" workspace snapshot response as the generic commands endpoint.
-     */
     public Map<String,Object> waiter(String subject,String action,Consumer<User> operation) {
         var settings=db.lock();var user=authorize("staff",subject);
         if(user.getRole()!=Role.ADMIN&&user.getRole()!=Role.WAITER)throw new ApiException(HttpStatus.FORBIDDEN,"Command not permitted for your role");

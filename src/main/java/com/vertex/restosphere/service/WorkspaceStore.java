@@ -36,7 +36,6 @@ public class WorkspaceStore {
         return result;
     }
     public static String id(BaseEntity entity) { return entity == null ? "" : entity.getId().toString(); }
-    /** Short readable display code: prefix + first 8 id chars, e.g. "R-F6933063" (instead of the full UUID). */
     public static String code(String prefix, BaseEntity entity) {
         return entity == null ? "" : prefix + "-" + entity.getId().toString().substring(0, 8).toUpperCase();
     }
