@@ -14,11 +14,18 @@ import com.vertex.restosphere.exception.ApiException;
 import com.vertex.restosphere.repository.AuditLogRepository;
 import com.vertex.restosphere.repository.MenuCategoryRepository;
 import com.vertex.restosphere.repository.MenuItemRepository;
+import com.vertex.restosphere.repository.OrderDraftRepository;
+import com.vertex.restosphere.repository.OrderItemRepository;
+import com.vertex.restosphere.repository.ReservationItemRepository;
 import com.vertex.restosphere.security.CurrentUserService;
+import java.math.BigDecimal;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
+import java.util.Objects;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,6 +39,9 @@ public class MenuService {
     private final RestaurantLock restaurantLock;
     private final CurrentUserService currentUser;
     private final AuditLogRepository auditLogs;
+    private final OrderItemRepository orderItems;
+    private final OrderDraftRepository orderDrafts;
+    private final ReservationItemRepository reservationItems;
 
     /** includeHidden=false: ban cong khai, chi danh muc dang hien. */
     @Transactional(readOnly = true)
@@ -111,18 +121,60 @@ public class MenuService {
         return result.stream()
                 .filter(i -> includeHidden
                         || (i.getCategory().isVisible() && i.getStatus() != MenuItemStatus.DISCONTINUED))
+                .sorted(Comparator.comparingInt((MenuItem i) -> i.getCategory().getSortOrder())
+                        .thenComparing(MenuItem::getName))
                 .map(MenuItemResponse::from).toList();
     }
 
-    public MenuItemResponse createItem(MenuItemRequest req) {
+    // Ghi mon: cung thu tu nhu danh muc (khoa -> actor trong DB -> kiem tra -> audit).
+    public MenuItemResponse createItem(UUID actorId, MenuItemRequest req) {
+        restaurantLock.acquire();
+        User actor = currentUser.require(actorId, Role.ADMIN, Role.MANAGER);
         MenuItem item = new MenuItem();
-        applyItem(item, req);
-        return MenuItemResponse.from(items.save(item));
+        item.setName(req.name().strip());
+        item.setCategory(visibleCategory(req.categoryId()));
+        item.setPrice(req.price());
+        item.setDescription(blankToNull(req.description()));
+        item.setImageUrl(blankToNull(req.imageUrl()));
+        item.setStatus(req.status() == null ? MenuItemStatus.AVAILABLE : req.status());
+        item.setPriceUnit(req.unit() == null ? "portion" : req.unit());
+        // Flush ngay de response co updatedAt.
+        items.saveAndFlush(item);
+        auditItem(actor, "MENU_ITEM_CREATED", item.getId(), "Thêm món " + item.getName());
+        return MenuItemResponse.from(item);
     }
 
-    public MenuItemResponse updateItem(UUID id, MenuItemRequest req) {
+    public MenuItemResponse updateItem(UUID actorId, UUID id, MenuItemRequest req) {
+        restaurantLock.acquire();
+        User actor = currentUser.require(actorId, Role.ADMIN, Role.MANAGER);
         MenuItem item = findItem(id);
-        applyItem(item, req);
+        // Mon dang o danh muc an van sua duoc; chi chan khi chuyen SANG danh muc an.
+        MenuCategory category = req.categoryId().equals(item.getCategory().getId())
+                ? item.getCategory() : visibleCategory(req.categoryId());
+        String name = req.name().strip();
+        String description = blankToNull(req.description());
+        String imageUrl = blankToNull(req.imageUrl());
+        MenuItemStatus status = req.status() == null ? item.getStatus() : req.status();
+        String unit = req.unit() == null ? item.getPriceUnit() : req.unit();
+        BigDecimal oldPrice = item.getPrice();
+        boolean priceChanged = req.price().compareTo(oldPrice) != 0;
+        if (name.equals(item.getName()) && category == item.getCategory() && !priceChanged
+                && Objects.equals(description, item.getDescription()) && Objects.equals(imageUrl, item.getImageUrl())
+                && status == item.getStatus() && unit.equals(item.getPriceUnit())) {
+            return MenuItemResponse.from(item);
+        }
+        item.setName(name);
+        item.setCategory(category);
+        item.setPrice(req.price());
+        item.setDescription(description);
+        item.setImageUrl(imageUrl);
+        item.setStatus(status);
+        item.setPriceUnit(unit);
+        // Flush de updatedAt trong response la gia tri moi.
+        items.flush();
+        String text = "Cập nhật món " + name
+                + (priceChanged ? " (giá " + vnd(oldPrice) + " → " + vnd(req.price()) + ")" : "");
+        auditItem(actor, "MENU_ITEM_UPDATED", item.getId(), text);
         return MenuItemResponse.from(item);
     }
 
@@ -132,16 +184,44 @@ public class MenuService {
         return MenuItemResponse.from(item);
     }
 
-    public void deleteItem(UUID id) {
-        items.delete(findItem(id));
+    public void deleteItem(UUID actorId, UUID id) {
+        restaurantLock.acquire();
+        User actor = currentUser.require(actorId, Role.ADMIN, Role.MANAGER);
+        MenuItem item = findItem(id);
+        // Mon da vao don / nhap don / dat truoc thi giu lai de lich su va hoa don con tham chieu.
+        if (orderItems.existsByMenuItemId(id) || orderDrafts.existsByMenuItemId(id)
+                || reservationItems.existsByMenuItemId(id)) {
+            throw ApiException.conflict("Menu item is in use, set it to DISCONTINUED instead");
+        }
+        items.delete(item);
+        auditItem(actor, "MENU_ITEM_DELETED", id, "Xóa món " + item.getName());
     }
 
-    private void applyItem(MenuItem item, MenuItemRequest req) {
-        item.setName(req.name().trim());
-        item.setPrice(req.price());
-        item.setDescription(req.description());
-        item.setImageUrl(req.imageUrl());
-        item.setCategory(findCategory(req.categoryId()));
+    private void auditItem(User actor, String action, UUID itemId, String description) {
+        AuditLog log = new AuditLog();
+        log.setActor(actor);
+        log.setAction(action);
+        log.setTargetType("MENU_ITEM");
+        log.setTargetId(itemId);
+        log.setDescription(description);
+        auditLogs.save(log);
+    }
+
+    private MenuCategory visibleCategory(UUID id) {
+        MenuCategory c = findCategory(id);
+        if (!c.isVisible()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Category is hidden");
+        }
+        return c;
+    }
+
+    private static String blankToNull(String s) {
+        return s == null || s.isBlank() ? null : s.strip();
+    }
+
+    /** 250000 -> "250.000đ". */
+    private static String vnd(BigDecimal amount) {
+        return String.format(Locale.ROOT, "%,d", amount.longValue()).replace(',', '.') + "đ";
     }
 
     private MenuCategory findCategory(UUID id) {

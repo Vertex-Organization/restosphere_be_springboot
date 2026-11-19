@@ -4,6 +4,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -110,10 +111,13 @@ class CatalogApiIntegrationTests {
     void publicMenuHidesHiddenCategoriesAndDiscontinuedItems() throws Exception {
         String shown = JsonPath.read(create("/api/v1/menu/categories",
                 "{\"name\":\"Hai san\",\"sortOrder\":1,\"visible\":true}", "MANAGER"), "$.id");
+        // Khong tao mon thang vao danh muc an duoc (400), nen tao khi con hien roi moi an danh muc.
         String hidden = JsonPath.read(create("/api/v1/menu/categories",
-                "{\"name\":\"Noi bo\",\"sortOrder\":2,\"visible\":false}", "MANAGER"), "$.id");
+                "{\"name\":\"Noi bo\",\"sortOrder\":2,\"visible\":true}", "MANAGER"), "$.id");
         create("/api/v1/menu/items", "{\"name\":\"Cua\",\"categoryId\":\"" + shown + "\",\"price\":250000}", "MANAGER");
         create("/api/v1/menu/items", "{\"name\":\"Bi mat\",\"categoryId\":\"" + hidden + "\",\"price\":1000}", "MANAGER");
+        mockMvc.perform(put("/api/v1/menu/categories/" + hidden).with(as("MANAGER"))
+                .contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"Noi bo\",\"sortOrder\":2,\"visible\":false}"));
 
         mockMvc.perform(get("/api/v1/menu/items")).andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(1)).andExpect(jsonPath("$[0].name").value("Cua"));
