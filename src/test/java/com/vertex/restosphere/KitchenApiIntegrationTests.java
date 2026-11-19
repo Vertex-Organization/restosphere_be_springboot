@@ -10,6 +10,10 @@ import com.vertex.restosphere.common.enums.Role;
 import com.vertex.restosphere.common.enums.TableStatus;
 import com.vertex.restosphere.entity.Area;
 import com.vertex.restosphere.entity.AuditLog;
+import com.vertex.restosphere.entity.Bill;
+import com.vertex.restosphere.entity.RestaurantSettings;
+import com.vertex.restosphere.repository.RestaurantSettingsRepository;
+import org.springframework.test.web.servlet.ResultActions;
 import com.vertex.restosphere.entity.MenuCategory;
 import com.vertex.restosphere.entity.MenuItem;
 import com.vertex.restosphere.entity.Order;
@@ -54,6 +58,7 @@ class KitchenApiIntegrationTests {
     @Autowired UserRepository users;
     @Autowired RefreshTokenRepository refreshTokens;
     @Autowired AuditLogRepository auditLogs;
+    @Autowired RestaurantSettingsRepository settings;
     @Autowired EntityManager em;
     @Autowired TransactionTemplate tx;
     @Autowired PasswordEncoder passwordEncoder;
@@ -78,8 +83,14 @@ class KitchenApiIntegrationTests {
     void tearDown() {
         tx.executeWithoutResult(s -> {
             for (int i = created.size() - 1; i >= 0; i--) {
-                em.remove(em.merge(created.get(i)));
+                Object e = em.find(created.get(i).getClass(), idOf(created.get(i)));
+                if (e != null) {
+                    em.remove(e);
+                    em.flush();
+                }
             }
+            // Thong bao do lenh bep tao ra (khong co khoa ngoai toi du lieu test).
+            em.createQuery("delete from Notification where kind in ('READY','ITEM_REJECTED')").executeUpdate();
         });
         created.clear();
         cleanUsers();
@@ -157,6 +168,160 @@ class KitchenApiIntegrationTests {
         assertThat((List<?>) JsonPath.read(list("REJECTED"), "$")).isEmpty();
         mockMvc.perform(get(URL).param("status", "BOGUS").header(HttpHeaders.AUTHORIZATION, kitchenToken))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void startThenCompleteChangesStatusAuditNotifyAndRevision() throws Exception {
+        Fixture f = fixture();
+        OrderItem item = persist(item(persist(order(f.session, 1, Order.Status.SUBMITTED)), f.menu,
+                OrderItem.Status.SUBMITTED));
+        long rev = revision();
+
+        String started = kitchenPost(kitchenToken, "/items/start", items(item)).andExpect(status().isOk()).andReturn()
+                .getResponse().getContentAsString();
+        assertThat((String) JsonPath.read(started, "$[0].status")).isEqualTo("PREPARING");
+        assertThat((String) JsonPath.read(started, "$[0].startedBy")).isEqualTo(kitchen.getId().toString());
+        assertThat((Object) JsonPath.read(started, "$[0].startedAt")).isNotNull();
+        long newVersion = ((Number) JsonPath.read(started, "$[0].version")).longValue();
+        assertThat(newVersion).isGreaterThan(item.getVersion());
+        assertThat((List<?>) JsonPath.read(started, "$[0].history")).hasSize(1);
+        assertThat(revision()).isEqualTo(rev + 1);
+
+        String done = kitchenPost(kitchenToken, "/items/complete", itemsJson(item.getId(), newVersion))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        assertThat((String) JsonPath.read(done, "$[0].status")).isEqualTo("READY");
+        assertThat((Object) JsonPath.read(done, "$[0].readyAt")).isNotNull();
+        assertThat((List<?>) JsonPath.read(done, "$[0].history")).hasSize(2);
+        assertThat(revision()).isEqualTo(rev + 2);
+        assertThat(count("select count(n) from Notification n where n.kind = 'READY' and n.path = '"
+                + f.session.getId() + "'")).isEqualTo(1);
+        assertThat(count("select count(a) from AuditLog a where a.targetId = :p", item.getId()))
+                .isEqualTo(2);
+    }
+
+    @Test
+    void wrongVersionAndInvalidInputs() throws Exception {
+        Fixture f = fixture();
+        OrderItem item = persist(item(persist(order(f.session, 1, Order.Status.SUBMITTED)), f.menu,
+                OrderItem.Status.SUBMITTED));
+        String one = "{\"id\":\"" + item.getId() + "\",\"version\":0}";
+        kitchenPost(kitchenToken, "/items/start", itemsJson(item.getId(), item.getVersion() + 5))
+                .andExpect(status().isConflict());
+        assertThat(reload(item).getStatus()).isEqualTo(OrderItem.Status.SUBMITTED);
+        kitchenPost(kitchenToken, "/items/start", "{\"items\":[]}").andExpect(status().isBadRequest());
+        kitchenPost(kitchenToken, "/items/start", "{\"items\":[{\"id\":\"" + item.getId() + "\"}]}")
+                .andExpect(status().isBadRequest());
+        kitchenPost(kitchenToken, "/items/start", "{\"items\":[" + one + "," + one + "]}")
+                .andExpect(status().isBadRequest());
+        kitchenPost(kitchenToken, "/items/start", itemsJson("not-a-uuid", 0)).andExpect(status().isBadRequest());
+        kitchenPost(kitchenToken, "/items/start", itemsJson(UUID.randomUUID(), 0)).andExpect(status().isNotFound());
+        kitchenPost(kitchenToken, "/items/start",
+                "{\"items\":[" + String.join(",", java.util.Collections.nCopies(51, one)) + "]}")
+                .andExpect(status().isBadRequest());
+        assertThat(reload(item).getStatus()).isEqualTo(OrderItem.Status.SUBMITTED);
+    }
+
+    @Test
+    void wrongStatusIs409() throws Exception {
+        Fixture f = fixture();
+        Order o = persist(order(f.session, 1, Order.Status.SUBMITTED));
+        OrderItem submitted = persist(item(o, f.menu, OrderItem.Status.SUBMITTED));
+        OrderItem preparing = persist(item(o, f.menu, OrderItem.Status.PREPARING));
+        kitchenPost(kitchenToken, "/items/complete", items(submitted)).andExpect(status().isConflict());
+        kitchenPost(kitchenToken, "/items/start", items(preparing)).andExpect(status().isConflict());
+        kitchenPost(kitchenToken, "/items/" + preparing.getId() + "/reject", rejectJson(preparing.getVersion(), "x"))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    void rejectSetsReasonRecalculatesBillAndReturnsRejectedAtBy() throws Exception {
+        Fixture f = fixture();
+        Order o = persist(order(f.session, 1, Order.Status.SUBMITTED));
+        OrderItem item = persist(item(o, f.menu, OrderItem.Status.SUBMITTED));
+        Bill bill = new Bill();
+        bill.setCode("K1-" + UUID.randomUUID().toString().substring(0, 8));
+        bill.setSession(f.session);
+        persist(bill);
+
+        String res = kitchenPost(kitchenToken, "/items/" + item.getId() + "/reject",
+                rejectJson(item.getVersion(), "  Het hang  ")).andExpect(status().isOk()).andReturn().getResponse()
+                .getContentAsString();
+        assertThat((String) JsonPath.read(res, "$[0].status")).isEqualTo("REJECTED");
+        assertThat((String) JsonPath.read(res, "$[0].rejectionReason")).isEqualTo("Het hang");
+        assertThat((Object) JsonPath.read(res, "$[0].rejectedAt")).isNotNull();
+        assertThat((String) JsonPath.read(res, "$[0].rejectedBy")).isEqualTo(kitchen.getId().toString());
+        assertThat(count("select count(n) from Notification n where n.kind = 'ITEM_REJECTED'")).isEqualTo(1);
+        kitchenPost(kitchenToken, "/items/" + item.getId() + "/reject", rejectJson(0, " "))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void oneBadItemRollsBackWholeBatch() throws Exception {
+        Fixture f = fixture();
+        Order o = persist(order(f.session, 1, Order.Status.SUBMITTED));
+        OrderItem good = persist(item(o, f.menu, OrderItem.Status.SUBMITTED));
+        OrderItem bad = persist(item(o, f.menu, OrderItem.Status.PREPARING));
+        long rev = revision();
+        String body = "{\"items\":[{\"id\":\"" + good.getId() + "\",\"version\":" + good.getVersion()
+                + "},{\"id\":\"" + bad.getId() + "\",\"version\":" + bad.getVersion() + "}]}";
+        kitchenPost(kitchenToken, "/items/start", body).andExpect(status().isConflict());
+        assertThat(reload(good).getStatus()).isEqualTo(OrderItem.Status.SUBMITTED);
+        assertThat(reload(good).getChef()).isNull();
+        assertThat(count("select count(a) from AuditLog a where a.targetType = 'ORDER_ITEM'")).isZero();
+        assertThat(revision()).isEqualTo(rev);
+    }
+
+    @Test
+    void waiterCannotChangeItems() throws Exception {
+        Fixture f = fixture();
+        OrderItem item = persist(item(persist(order(f.session, 1, Order.Status.SUBMITTED)), f.menu,
+                OrderItem.Status.SUBMITTED));
+        kitchenPost(waiterToken, "/items/start", items(item)).andExpect(status().isForbidden());
+        kitchenPost(waiterToken, "/items/complete", items(item)).andExpect(status().isForbidden());
+        kitchenPost(waiterToken, "/items/" + item.getId() + "/reject", rejectJson(0, "x"))
+                .andExpect(status().isForbidden());
+        assertThat(reload(item).getStatus()).isEqualTo(OrderItem.Status.SUBMITTED);
+    }
+
+    private ResultActions kitchenPost(String token, String path, String json) throws Exception {
+        return mockMvc.perform(post("/api/v1/kitchen" + path).header(HttpHeaders.AUTHORIZATION, token)
+                .contentType(MediaType.APPLICATION_JSON).content(json));
+    }
+
+    private static String itemsJson(Object id, long version) {
+        return "{\"items\":[{\"id\":\"" + id + "\",\"version\":" + version + "}]}";
+    }
+
+    private String items(OrderItem item) {
+        return itemsJson(item.getId(), reload(item).getVersion());
+    }
+
+    private static String rejectJson(long version, String reason) {
+        return "{\"version\":" + version + ",\"reason\":\"" + reason + "\"}";
+    }
+
+    private OrderItem reload(OrderItem item) {
+        return tx.execute(s -> {
+            OrderItem i = em.find(OrderItem.class, item.getId());
+            if (i.getChef() != null) {
+                i.getChef().getId();
+            }
+            return i;
+        });
+    }
+
+    private long revision() {
+        return settings.findBySingletonKey(1).map(RestaurantSettings::getRevision).orElse(0L);
+    }
+
+    private long count(String jpql, Object... params) {
+        return tx.execute(s -> {
+            var q = em.createQuery(jpql, Long.class);
+            for (Object p : params) {
+                q.setParameter("p", p);
+            }
+            return q.getSingleResult();
+        });
     }
 
     private String list(String itemStatus) throws Exception {

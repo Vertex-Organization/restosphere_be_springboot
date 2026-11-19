@@ -1,25 +1,38 @@
 package com.vertex.restosphere.service;
 
 import com.vertex.restosphere.common.enums.Role;
+import com.vertex.restosphere.dto.request.KitchenItemRef;
 import com.vertex.restosphere.dto.response.KitchenOrderItemResponse;
 import com.vertex.restosphere.dto.response.KitchenOrderResponse;
 import com.vertex.restosphere.entity.AuditLog;
 import com.vertex.restosphere.entity.Order;
 import com.vertex.restosphere.entity.OrderItem;
+import com.vertex.restosphere.entity.RestaurantSettings;
+import com.vertex.restosphere.entity.User;
+import com.vertex.restosphere.exception.ApiException;
 import com.vertex.restosphere.repository.AuditLogRepository;
 import com.vertex.restosphere.repository.OrderItemRepository;
 import com.vertex.restosphere.repository.OrderRepository;
+import com.vertex.restosphere.repository.RestaurantSettingsRepository;
 import com.vertex.restosphere.security.CurrentUserService;
+import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/** Phieu bep (REST). Chi doc; lenh start/complete/reject van o ServiceWorkflow.kitchen. */
+/**
+ * Phieu bep (REST). Doi trang thai mon lam dung nhu ServiceWorkflow.kitchen (start/complete/reject), tai su dung
+ * notify/audit/recalculate cua workflow cu de REST va lenh cu cho cung ket qua.
+ */
 @Service
 @RequiredArgsConstructor
 public class KitchenService {
@@ -27,9 +40,14 @@ public class KitchenService {
     private static final List<String> HISTORY_ACTIONS = List.of("start", "complete", "reject");
 
     private final CurrentUserService currentUser;
+    private final RestaurantLock restaurantLock;
+    private final WorkspaceStore store;
+    private final ServiceWorkflow workflow;
+    private final BillingWorkflow billing;
     private final OrderRepository orders;
     private final OrderItemRepository orderItems;
     private final AuditLogRepository auditLogs;
+    private final RestaurantSettingsRepository settings;
 
     @Transactional(readOnly = true)
     public List<KitchenOrderResponse> listOrders(UUID actorId, OrderItem.Status status) {
@@ -44,15 +62,93 @@ public class KitchenService {
                 .filter(i -> status == null || i.getStatus() == status)
                 .sorted(Comparator.comparing(OrderItem::getCreatedAt))
                 .collect(Collectors.groupingBy(i -> i.getOrder().getId()));
-        List<UUID> itemIds = itemsByOrder.values().stream().flatMap(List::stream).map(OrderItem::getId).toList();
-        Map<UUID, List<AuditLog>> logsByItem = itemIds.isEmpty() ? Map.of()
-                : auditLogs.findByTargetTypeAndTargetIdInAndActionInOrderByCreatedAtAsc("ORDER_ITEM", itemIds,
-                        HISTORY_ACTIONS).stream().collect(Collectors.groupingBy(AuditLog::getTargetId));
+        Map<UUID, List<AuditLog>> logsByItem = history(
+                itemsByOrder.values().stream().flatMap(List::stream).map(OrderItem::getId).toList());
 
         return found.stream()
                 .filter(o -> itemsByOrder.containsKey(o.getId()))
                 .map(o -> toResponse(o, itemsByOrder.get(o.getId()), logsByItem))
                 .toList();
+    }
+
+    /** start: SUBMITTED -> PREPARING, gan dau bep. Loi o bat ky mon nao -> rollback ca lo. */
+    @Transactional
+    public List<KitchenOrderItemResponse> start(UUID actorId, List<KitchenItemRef> refs) {
+        return transition(actorId, "start", refs, null);
+    }
+
+    /** complete: PREPARING -> READY, bao WAITER. */
+    @Transactional
+    public List<KitchenOrderItemResponse> complete(UUID actorId, List<KitchenItemRef> refs) {
+        return transition(actorId, "complete", refs, null);
+    }
+
+    /** reject: SUBMITTED -> REJECTED, tinh lai bill, bao WAITER. */
+    @Transactional
+    public List<KitchenOrderItemResponse> reject(UUID actorId, UUID itemId, long version, String reason) {
+        return transition(actorId, "reject", List.of(new KitchenItemRef(itemId.toString(), version)), reason.trim());
+    }
+
+    private List<KitchenOrderItemResponse> transition(UUID actorId, String type, List<KitchenItemRef> refs,
+            String reason) {
+        User user = currentUser.require(actorId, Role.ADMIN, Role.KITCHEN);
+        if (refs == null || refs.isEmpty()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Select at least one item");
+        }
+        restaurantLock.acquire();
+        OrderItem.Status expected = type.equals("complete") ? OrderItem.Status.PREPARING : OrderItem.Status.SUBMITTED;
+        // Kiem tra het ca lo truoc khi doi gi (id sai 400/404, trung 400, version/trang thai 409).
+        Set<UUID> seen = new HashSet<>();
+        List<OrderItem> items = new ArrayList<>();
+        for (KitchenItemRef ref : refs) {
+            OrderItem item = store.get(OrderItem.class, ref.id());
+            if (!seen.add(item.getId())) {
+                throw new ApiException(HttpStatus.BAD_REQUEST, "Duplicate item");
+            }
+            if (ref.version() != item.getVersion()) {
+                throw ApiException.conflict("Item changed; refresh");
+            }
+            if (item.getStatus() != expected) {
+                throw ApiException.conflict("Invalid item transition");
+            }
+            items.add(item);
+        }
+        for (OrderItem item : items) {
+            String session = item.getOrder().getSession().getId().toString();
+            switch (type) {
+                case "start" -> {
+                    item.setStatus(OrderItem.Status.PREPARING);
+                    item.setChef(user);
+                    item.setStartedAt(Instant.now());
+                }
+                case "complete" -> {
+                    item.setStatus(OrderItem.Status.READY);
+                    item.setReadyAt(Instant.now());
+                    workflow.notify(Role.WAITER, "READY", "Dish ready", item.getItemName(), session);
+                }
+                default -> {
+                    item.setStatus(OrderItem.Status.REJECTED);
+                    item.setRejectionReason(reason);
+                    billing.recalculate(billing.bill(item.getOrder().getSession()));
+                    workflow.notify(Role.WAITER, "ITEM_REJECTED", "Dish rejected", reason, session);
+                }
+            }
+            workflow.audit(user, type, item.getId(), "ORDER_ITEM", type);
+        }
+        // Web bep polling theo revision nen phai tang sau moi lan ghi (giong WorkspaceService.command).
+        RestaurantSettings s = settings.findBySingletonKey(1).orElseGet(() -> store.lock());
+        s.setRevision(s.getRevision() + 1);
+        orderItems.flush();
+        Map<UUID, List<AuditLog>> logs = history(items.stream().map(OrderItem::getId).toList());
+        return items.stream().map(i -> toResponse(i, logs.getOrDefault(i.getId(), List.of()))).toList();
+    }
+
+    private Map<UUID, List<AuditLog>> history(List<UUID> itemIds) {
+        if (itemIds.isEmpty()) {
+            return Map.of();
+        }
+        return auditLogs.findByTargetTypeAndTargetIdInAndActionInOrderByCreatedAtAsc("ORDER_ITEM", itemIds,
+                HISTORY_ACTIONS).stream().collect(Collectors.groupingBy(AuditLog::getTargetId));
     }
 
     private KitchenOrderResponse toResponse(Order o, List<OrderItem> items, Map<UUID, List<AuditLog>> logs) {
