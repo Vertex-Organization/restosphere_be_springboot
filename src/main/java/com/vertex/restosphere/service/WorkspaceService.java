@@ -7,6 +7,7 @@ import com.vertex.restosphere.common.enums.Role;
 import com.vertex.restosphere.exception.ApiException;
 import java.math.BigDecimal;
 import java.util.*;
+import java.util.function.Consumer;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -20,6 +21,7 @@ public class WorkspaceService {
     private final WorkspaceSnapshots snapshots;
     private final ReservationWorkflow reservations;
     private final ServiceWorkflow service;
+    private final WaiterService waiter;
     private final BillingWorkflow billing;
     private final ManagementWorkflow management;
     User authorize(String workspace,String subject) {
@@ -29,6 +31,18 @@ public class WorkspaceService {
         if(!user.isEnabled()||!roles.contains(user.getRole()))throw new ApiException(HttpStatus.FORBIDDEN,"Workspace access denied");return user;
     }
     public Map<String,Object> load(String workspace,String subject) {db.lock();return snapshots.snapshot(workspace,authorize(workspace,subject));}
+    /**
+     * Lối vào cho REST riêng của phục vụ ({@code WaiterOrderController}): cùng khóa, revision, audit
+     * và trả về snapshot workspace "staff" giống endpoint commands chung.
+     */
+    public Map<String,Object> waiter(String subject,String action,Consumer<User> operation) {
+        var settings=db.lock();var user=authorize("staff",subject);
+        if(user.getRole()!=Role.ADMIN&&user.getRole()!=Role.WAITER)throw new ApiException(HttpStatus.FORBIDDEN,"Command not permitted for your role");
+        operation.accept(user);
+        settings.setRevision(settings.getRevision()+1);
+        service.audit(user,action,user.getId(),"WORKSPACE",action);db.flush();
+        return snapshots.snapshot("staff",user);
+    }
     public Map<String,Object> command(String workspace,String subject,Map<String,Object> c) {
         var settings=db.lock();var user=authorize(workspace,subject);String type=required(c,"type",80);String ref=null;
         if(Set.of("read","read-notification","read-notifications","notification.read").contains(type))service.read(c,user);
@@ -42,7 +56,7 @@ public class WorkspaceService {
                 if(user.getRole()!=Role.ADMIN&&user.getRole()!=(reception?Role.RECEPTIONIST:Role.WAITER))throw new ApiException(HttpStatus.FORBIDDEN,"Command not permitted for your role");
                 if(type.equals("create")){var r=reservations.create(object(c,"input"),user,false,Boolean.TRUE.equals(c.get("walkIn")));ref=id(r);}
                 else if(type.equals("request-exception")){var r=db.get(Reservation.class,required(c,"id",100));if(r.getStatus()!=Reservation.Status.PENDING)throw ApiException.conflict("Reservation is not pending");ref=id(billing.request(ApprovalRequest.Type.RESERVATION,"RESERVATION",r.getId(),BigDecimal.ZERO,required(c,"reason",1000),user));}
-                else if(reception)reservations.command(type,c,user);else service.waiter(type,c,user);
+                else if(reception)reservations.command(type,c,user);else waiter.handle(type,c,user);
             }
         }
         settings.setRevision(settings.getRevision()+1);
