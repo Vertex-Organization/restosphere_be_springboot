@@ -41,7 +41,14 @@ public class WorkspaceService {
                 boolean reception=Set.of("create","edit","confirm","reject","cancel","no-show","assign","check-in","handover","request-exception").contains(type);
                 if(user.getRole()!=Role.ADMIN&&user.getRole()!=(reception?Role.RECEPTIONIST:Role.WAITER))throw new ApiException(HttpStatus.FORBIDDEN,"Command not permitted for your role");
                 if(type.equals("create")){var r=reservations.create(object(c,"input"),user,false,Boolean.TRUE.equals(c.get("walkIn")));ref=id(r);}
-                else if(type.equals("request-exception")){var r=db.get(Reservation.class,required(c,"id",100));if(r.getStatus()!=Reservation.Status.PENDING)throw ApiException.conflict("Reservation is not pending");ref=id(billing.request(ApprovalRequest.Type.RESERVATION,"RESERVATION",r.getId(),BigDecimal.ZERO,required(c,"reason",1000),user));}
+                else if(type.equals("request-exception")){
+                    var r=db.get(Reservation.class,required(c,"id",100));String reason=required(c,"reason",200);
+                    if(reason.length()<5)throw invalid("reason must be 5-200 characters");
+                    if(!Set.of(Reservation.Status.PENDING,Reservation.Status.CONFIRMED,Reservation.Status.ARRIVED).contains(r.getStatus()))throw ApiException.conflict("Reservation cannot request an exception");
+                    var request=billing.request(ApprovalRequest.Type.RESERVATION,"RESERVATION",r.getId(),BigDecimal.ZERO,reason,user);ref=id(r);
+                    reservations.history(r,user,"request-exception","Gửi yêu cầu phê duyệt tới quản lý: "+reason);
+                    service.notify(Role.MANAGER,"APPROVAL","Yêu cầu phê duyệt đặt bàn "+r.getCode(),reason,id(request));
+                }
                 else if(reception)reservations.command(type,c,user);else service.waiter(type,c,user);
             }
         }

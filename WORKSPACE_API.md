@@ -24,6 +24,14 @@ Cashier implements `apply-discount`, `remove-discount`, `request-discount`, `req
 
 Reception implements `create`, `edit`, `request-exception`, `confirm`, `reject`, `cancel`, `no-show`, `assign`, `check-in`, `handover`, `read`, matching mobile `ReceptionCommand`.
 
+- `create` with `walkIn:true` requires `input.tableId` of an AVAILABLE table without an open session; result is `ARRIVED`, `actualGuests=guests`, name defaults to "Khách trực tiếp".
+- `edit` uses `input.tableId` as the new table (area may change); a CONFIRMED booking must keep a table; unchanged `startsAt` skips the past-time check.
+- `confirm` on a booking without a table auto-assigns the smallest free table in its area that fits; 409 if none.
+- `check-in` only records `actualGuests`; capacity is enforced by `assign` (uses actualGuests) and `handover`.
+- `assign` on a SEATED reservation moves the open session to an AVAILABLE table, frees the old table and notifies waiters (`TABLE_REASSIGNED`).
+- `request-exception` (PENDING/CONFIRMED/ARRIVED, reason 5-200 chars) creates a RESERVATION approval, a history line and a manager `APPROVAL` notification. Approval confirms a PENDING booking only if it already has a table.
+- Notifications: web booking → receptionist `NEW_WEB_RESERVATION`; public cancel → receptionist `RESERVATION_CANCELLED`; handover → waiter `HANDOVER`; waiter `clean` → receptionist `TABLE_READY`.
+
 Waiter implements `accept`, `add-draft`, `edit-draft`, `remove-draft`, `submit`, `serve`, `request-cancel`, `request-priority`, `request-payment`, `withdraw-payment-request`, `guest-left`, `clean`, `read-notification`, matching mobile `WaiterCommand`. Drafts are persisted per waiter. Accept imports reservation preorders into drafts; submit prices from the current menu. Ownership is enforced. Departure requires payment; cleaning requires departure.
 
 Admin commands:
@@ -40,7 +48,7 @@ Self access changes and removing the last enabled administrator are rejected. Th
 ## Public reservations
 
 - `GET /reservations/settings`: online flag, hold/buffer/no-show minutes, timezone, database `areas:[{id,name}]`.
-- `POST /reservations`: web `ReservationRequest`, **requiring real `areaId`**. Use `startsAt` or local `date` + `time`; optional `durationMinutes` defaults to 120. Returns 201 and web Reservation shape. Preorders use `items:[{dishId,quantity}]`.
+- `POST /reservations`: web `ReservationRequest`, **requiring real `areaId`**; any `tableId` is ignored (staff assigns tables). Use `startsAt` or local `date` + `time`; optional `durationMinutes` defaults to 120. Returns 201 and web Reservation shape. Preorders use `items:[{dishId,quantity}]`.
 - `POST /reservations/lookup`: `{code,phone}`; both must match. Returns Reservation or 404.
 - `POST /reservations/cancel`: `{code,phone,reason}`; both must match, only PENDING/CONFIRMED may be cancelled. Returns Reservation (CANCELLED), 404 or 409.
 
