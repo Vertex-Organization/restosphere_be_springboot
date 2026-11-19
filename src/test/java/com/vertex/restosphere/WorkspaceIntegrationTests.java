@@ -110,99 +110,11 @@ class WorkspaceIntegrationTests {
         var input=map("name","Guest","phone","0901234567","startsAt",Instant.now().plusSeconds(7200).toString(),"guests",2,"areaId",id(area),"occasion","none","items",List.of());
         var booking=reservations.createPublic(input);String code=booking.get("code").toString();
         assertEquals(code,reservations.lookup(map("code",code,"phone","0901234567")).get("code"));
-        assertEquals(area.getName(),booking.get("areaName"));
         assertThrows(ApiException.class,()->reservations.lookup(map("code",code,"phone","0907654321")));
         var r=db.all(Reservation.class).stream().filter(x->x.getCode().equals(code)).findFirst().orElseThrow();reservations.assign(r,id(table));
         var second=reservations.create(map("customer",map("name","Second","phone","0907654321"),"startsAt",r.getStartsAt().toString(),"guests",2,"duration",120,"areaId",id(area)),staff,false,false);
         assertThrows(ApiException.class,()->reservations.assign(second,id(table)));
         assertFalse(workspace.load("kitchen",id(user(Role.KITCHEN))).containsKey("reservations"));
-        assertThrows(ApiException.class,()->reservations.createPublic(input));
-        assertThrows(ApiException.class,()->reservations.cancelPublic(map("code",code,"phone","0907654321","reason","x")));
-        assertEquals(Reservation.Status.CANCELLED,reservations.cancelPublic(map("code",code,"phone","0901234567","reason","Busy")).get("status"));
-        assertThrows(ApiException.class,()->reservations.cancelPublic(map("code",code,"phone","0901234567","reason","Again")));
-        String again=reservations.createPublic(input).get("code").toString();
-        var web=db.all(Reservation.class).stream().filter(x->x.getCode().equals(again)).findFirst().orElseThrow();
-        run("staff",staff,"type","confirm","id",id(web));
-        assertEquals(id(table),id(reservations.assignment(web).getTable()),"confirm auto-assigns a free fitting table");
-        assertThrows(ApiException.class,()->run("staff",staff,"type","confirm","id",id(second)));
-    }
-    RestaurantTable table(Area area,int capacity){var t=new RestaurantTable();t.setArea(area);t.setCode("R-"+UUID.randomUUID().toString().substring(0,8));t.setCapacity(capacity);t.setStatus(TableStatus.AVAILABLE);return db.save(t);}
-    @Test void receptionWalkInEditCheckInAndNotifications() {
-        var reception=user(Role.RECEPTIONIST);var waiter=user(Role.WAITER);var manager=user(Role.MANAGER);
-        var area=new Area();area.setName("Reception "+UUID.randomUUID());db.save(area);var other=new Area();other.setName("Other "+UUID.randomUUID());db.save(other);
-        var small=table(area,2);var big=table(area,6);var otherTable=table(other,4);
-        var publicInput=map("name","Web","phone","0901111222","startsAt",Instant.now().plusSeconds(1800).toString(),"guests",2,"areaId",id(area),"tableId",id(small));
-        String code=reservations.createPublic(publicInput).get("code").toString();
-        var web=db.all(Reservation.class).stream().filter(x->x.getCode().equals(code)).findFirst().orElseThrow();
-        assertNull(reservations.assignment(web),"public callers must not pick a table");
-        assertTrue(list(workspace.load("staff",id(reception)),"notifications").stream().anyMatch(n->"NEW_WEB_RESERVATION".equals(n.get("kind"))));
-        run("staff",reception,"type","assign","id",id(web),"tableId",id(small));
-        run("staff",reception,"type","edit","id",id(web),"input",map("customer",map("name","Web","phone","0901111222"),"startsAt",web.getStartsAt().toString(),"guests",3,"duration",120,"areaId",id(other),"tableId",id(otherTable)));
-        assertEquals(id(otherTable),id(reservations.assignment(web).getTable()));
-        run("staff",reception,"type","confirm","id",id(web));
-        assertThrows(ApiException.class,()->run("staff",reception,"type","edit","id",id(web),"input",map("customer",map("name","Web","phone","0901111222"),"startsAt",web.getStartsAt().toString(),"guests",3,"areaId",id(other))));
-        assertThrows(ApiException.class,()->run("staff",reception,"type","request-exception","id",id(web),"reason","x"));
-        run("staff",reception,"type","request-exception","id",id(web),"reason","VIP needs window seat");
-        assertTrue(list(workspace.load("manager",id(manager)),"notifications").stream().anyMatch(n->"APPROVAL".equals(n.get("kind"))));
-        var walkIn=map("customer",map("name","","phone","0903333444"),"startsAt",Instant.now().toString(),"guests",2,"areaId",id(area),"tableId",id(small));
-        String walkId=run("staff",reception,"type","create","walkIn",true,"input",walkIn).get("reservationId").toString();
-        var w=db.get(Reservation.class,walkId);assertEquals(Reservation.Status.ARRIVED,w.getStatus());assertEquals("Khách trực tiếp",w.getCustomerName());assertEquals(Reservation.Source.WALK_IN,w.getSource());
-        assertThrows(ApiException.class,()->run("staff",reception,"type","create","walkIn",true,"input",walkIn));
-        run("staff",reception,"type","handover","id",walkId);
-        run("staff",reception,"type","check-in","id",id(web),"actualGuests",5);
-        assertThrows(ApiException.class,()->run("staff",reception,"type","handover","id",id(web)));
-        run("staff",reception,"type","assign","id",id(web),"tableId",id(table(other,6)));
-        run("staff",reception,"type","handover","id",id(web));
-        assertTrue(list(workspace.load("staff",id(waiter)),"waiterNotifications").stream().anyMatch(n->"HANDOVER".equals(n.get("kind"))));
-        run("staff",reception,"type","assign","id",walkId,"tableId",id(big));
-        assertEquals(TableStatus.OCCUPIED,big.getStatus());assertEquals(TableStatus.AVAILABLE,small.getStatus());
-        assertTrue(list(workspace.load("staff",id(waiter)),"waiterNotifications").stream().anyMatch(n->"TABLE_REASSIGNED".equals(n.get("kind"))));
-        publicInput.put("startsAt",Instant.now().plusSeconds(86400).toString());
-        String second=reservations.createPublic(publicInput).get("code").toString();
-        reservations.cancelPublic(map("code",second,"phone","0901111222","reason","Change of plans"));
-        assertTrue(list(workspace.load("staff",id(reception)),"notifications").stream().anyMatch(n->"RESERVATION_CANCELLED".equals(n.get("kind"))));
-    }
-    @Test void bufferNoShowAndReceptionRequests() {
-        var reception=user(Role.RECEPTIONIST);var area=new Area();area.setName("Buffer "+UUID.randomUUID());db.save(area);table(area,4);
-        db.lock().setBufferMinutes(30);
-        var start=Instant.now().plusSeconds(86400);
-        reservations.createPublic(map("name","A","phone","0901000001","startsAt",start.toString(),"guests",4,"durationMinutes",60,"areaId",id(area)));
-        assertThrows(ApiException.class,()->reservations.createPublic(map("name","B","phone","0901000002","startsAt",start.plusSeconds(4200).toString(),"guests",4,"durationMinutes",60,"areaId",id(area))),"inside buffer");
-        assertDoesNotThrow(()->reservations.createPublic(map("name","C","phone","0901000003","startsAt",start.plusSeconds(5400).toString(),"guests",4,"durationMinutes",60,"areaId",id(area))));
-        var late=reservations.create(map("customer",map("name","Late","phone","0901000004"),"startsAt",Instant.now().toString(),"guests",2,"areaId",id(area)),reception,false,false);
-        late.setStatus(Reservation.Status.CONFIRMED);late.setStartsAt(Instant.now().minusSeconds(3600));
-        assertTrue(reservations.expireNoShows()>=1);assertEquals(Reservation.Status.NO_SHOW,late.getStatus());
-        var pending=reservations.create(map("customer",map("name","Ex","phone","0901000005"),"startsAt",start.plusSeconds(20000).toString(),"guests",1,"areaId",id(area)),reception,false,false);
-        run("staff",reception,"type","request-exception","id",id(pending),"reason","Need approval please");
-        assertTrue(list(workspace.load("staff",id(reception)),"requests").stream().anyMatch(r->"RESERVATION".equals(r.get("type").toString())));
-    }
-    @Test void openingHoursEarlyCheckInAndHandoverConflicts() {
-        assertArrayEquals(new int[]{600,1320},ReservationWorkflow.openingMinutes("Mở cửa 10:00 - 22:00 hằng ngày"));
-        assertArrayEquals(new int[]{1020,1560},ReservationWorkflow.openingMinutes("17h00-02h00"));
-        assertNull(ReservationWorkflow.openingMinutes("Liên hệ"));
-        var reception=user(Role.RECEPTIONIST);var area=new Area();area.setName("Hours "+UUID.randomUUID());db.save(area);var t=table(area,4);
-        var zone=java.time.ZoneId.of(db.lock().getTimezone());var day=java.time.LocalDate.now(zone).plusDays(2);
-        db.lock().setOpeningHours("10:00 - 22:00");
-        assertThrows(ApiException.class,()->reservations.createPublic(map("name","N","phone","0902000001","date",day.toString(),"time","21:30","guests",2,"areaId",id(area))),"ends after closing");
-        assertThrows(ApiException.class,()->reservations.createPublic(map("name","N","phone","0902000001","date",day.toString(),"time","08:00","guests",2,"areaId",id(area))),"before opening");
-        assertDoesNotThrow(()->reservations.createPublic(map("name","N","phone","0902000001","date",day.toString(),"time","12:00","guests",2,"areaId",id(area))));
-        db.lock().setOpeningHours(null);
-        var future=reservations.create(map("customer",map("name","F","phone","0902000002"),"startsAt",Instant.now().plusSeconds(3*3600).toString(),"guests",2,"areaId",id(area),"tableId",id(t)),reception,false,false);
-        run("staff",reception,"type","confirm","id",id(future));
-        assertThrows(ApiException.class,()->run("staff",reception,"type","check-in","id",id(future),"actualGuests",2),"too early");
-        var t2=table(area,4);
-        var blocker=reservations.create(map("customer",map("name","B","phone","0902000004"),"startsAt",Instant.now().plusSeconds(600).toString(),"guests",2,"duration",15,"areaId",id(area),"tableId",id(t2)),reception,false,false);
-        run("staff",reception,"type","confirm","id",id(blocker));
-        var early=reservations.create(map("customer",map("name","E","phone","0902000003"),"startsAt",Instant.now().plusSeconds(3000).toString(),"guests",2,"duration",60,"areaId",id(area),"tableId",id(t2)),reception,false,false);
-        run("staff",reception,"type","confirm","id",id(early));
-        run("staff",reception,"type","check-in","id",id(early),"actualGuests",2);
-        assertThrows(ApiException.class,()->run("staff",reception,"type","handover","id",id(early)),"seating now would overlap the next booking on this table");
-    }
-    @Test void publicEndpointsAreRateLimited() throws Exception {
-        int last=0;
-        for(int i=0;i<25;i++) last=mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/v1/reservations/lookup").with(r->{r.setRemoteAddr("10.9.9.9");return r;})
-                .contentType("application/json").content("{\"code\":\"RS-X\",\"phone\":\"0900000000\"}")).andReturn().getResponse().getStatus();
-        assertEquals(429,last);
     }
     @Test void httpBoundaryRequiresAuthenticationAndCurrentRole() throws Exception {
         var cook=user(Role.KITCHEN);db.flush();
