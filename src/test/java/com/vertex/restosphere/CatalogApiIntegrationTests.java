@@ -8,10 +8,15 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.jayway.jsonpath.JsonPath;
+import com.vertex.restosphere.common.enums.Role;
+import com.vertex.restosphere.entity.User;
 import com.vertex.restosphere.repository.AreaRepository;
+import com.vertex.restosphere.repository.AuditLogRepository;
 import com.vertex.restosphere.repository.MenuCategoryRepository;
 import com.vertex.restosphere.repository.MenuItemRepository;
 import com.vertex.restosphere.repository.RestaurantTableRepository;
+import com.vertex.restosphere.repository.UserRepository;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,6 +25,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
@@ -34,8 +40,30 @@ class CatalogApiIntegrationTests {
     @Autowired RestaurantTableRepository tables;
     @Autowired AreaRepository areas;
 
-    static RequestPostProcessor as(String role) {
-        return jwt().authorities(new SimpleGrantedAuthority("ROLE_" + role));
+    @Autowired UserRepository users;
+    @Autowired AuditLogRepository auditLogs;
+    @Autowired PasswordEncoder passwordEncoder;
+
+    // Service kiem tra lai user trong DB theo subject, nen token gia phai tro toi user that dung role.
+    RequestPostProcessor as(String role) {
+        String email = "catalog-" + role.toLowerCase() + "@restosphere.test";
+        User user = users.findByEmail(email).orElseGet(() -> {
+            User u = new User();
+            u.setEmail(email);
+            u.setPasswordHash(passwordEncoder.encode("unused-password"));
+            u.setFullName(role);
+            u.setRole(Role.valueOf(role));
+            return users.save(u);
+        });
+        return jwt().jwt(j -> j.subject(user.getId().toString()))
+                .authorities(new SimpleGrantedAuthority("ROLE_" + role));
+    }
+
+    @AfterEach
+    void cleanUsers() {
+        // Audit log tham chieu user nen xoa truoc.
+        auditLogs.deleteAll();
+        users.findAll().stream().filter(u -> u.getEmail().startsWith("catalog-")).forEach(users::delete);
     }
 
     @BeforeEach

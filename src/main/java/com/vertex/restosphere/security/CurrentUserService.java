@@ -28,6 +28,12 @@ public class CurrentUserService {
     }
 
     public static UUID idOf(Jwt jwt) {
-        return UUID.fromString(jwt.getSubject());
+        // Subject khong phai UUID la token khong hop le -> 401, khong de lot thanh 500.
+        String subject = jwt.getSubject();
+        try {
+            return UUID.fromString(subject == null ? "" : subject);
+        } catch (IllegalArgumentException e) {
+            throw new ApiException(HttpStatus.UNAUTHORIZED, "Invalid token subject");
+        }
     }
 }
