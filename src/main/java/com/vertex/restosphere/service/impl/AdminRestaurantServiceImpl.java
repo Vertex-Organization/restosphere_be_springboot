@@ -2,7 +2,7 @@ package com.vertex.restosphere.service.impl;
 
 import com.vertex.restosphere.common.enums.AdminAuditAction;
 import com.vertex.restosphere.common.enums.Role;
-import com.vertex.restosphere.common.util.ImageTypeDetector;
+import com.vertex.restosphere.common.util.Base64ImageDecoder;
 import com.vertex.restosphere.dto.request.RestaurantImageRequest;
 import com.vertex.restosphere.dto.request.RestaurantProfileRequest;
 import com.vertex.restosphere.dto.response.RestaurantProfileResponse;
@@ -16,7 +16,6 @@ import com.vertex.restosphere.service.AdminRestaurantService;
 import com.vertex.restosphere.service.ImageStorageService;
 import com.vertex.restosphere.service.RestaurantSettingsProvider;
 import java.util.ArrayList;
-import java.util.Base64;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -50,8 +49,6 @@ public class AdminRestaurantServiceImpl implements AdminRestaurantService {
             new Field("facebook", RestaurantProfileRequest::facebook, RestaurantSettings::getFacebook, RestaurantSettings::setFacebook, 255, true),
             new Field("instagram", RestaurantProfileRequest::instagram, RestaurantSettings::getInstagram, RestaurantSettings::setInstagram, 255, true),
             new Field("tiktok", RestaurantProfileRequest::tiktok, RestaurantSettings::getTiktok, RestaurantSettings::setTiktok, 255, true));
-
-    private static final int MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
     private final RestaurantSettingsProvider provider;
     private final CurrentUserService currentUser;
@@ -94,21 +91,7 @@ public class AdminRestaurantServiceImpl implements AdminRestaurantService {
         if (!imageStorage.isEnabled()) {
             throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "Image upload is not configured");
         }
-        byte[] bytes;
-        try {
-            bytes = Base64.getDecoder().decode(req.data());
-        } catch (IllegalArgumentException e) {
-            throw invalid("Invalid image data");
-        }
-        if (bytes.length == 0) {
-            throw invalid("Invalid image data");
-        }
-        if (bytes.length > MAX_IMAGE_BYTES) {
-            throw invalid("Image must be at most 5 MB");
-        }
-        if (ImageTypeDetector.detect(bytes).filter(req.contentType()::equals).isEmpty()) {
-            throw invalid("Only PNG, JPEG or WebP images are allowed");
-        }
+        byte[] bytes = Base64ImageDecoder.decode(req.contentType(), req.data());
         String url = imageStorage.uploadRestaurantImage(kind, bytes);
         setImage(settings, kind, url);
         audit(actor, settings, field);
