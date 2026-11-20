@@ -24,6 +24,19 @@ Cashier implements `apply-discount`, `remove-discount`, `request-discount`, `req
 
 Reception implements `create`, `edit`, `request-exception`, `confirm`, `reject`, `cancel`, `no-show`, `assign`, `check-in`, `handover`, `read`, matching mobile `ReceptionCommand`.
 
+- `create` with `walkIn:true` requires `input.tableId` of an AVAILABLE table without an open session; result is `ARRIVED`, `actualGuests=guests`, name defaults to "Khách trực tiếp".
+- `edit` uses `input.tableId` as the new table (area may change); a CONFIRMED booking must keep a table; unchanged `startsAt` skips the past-time check.
+- `confirm` on a booking without a table auto-assigns the smallest free table in its area that fits; 409 if none.
+- `check-in` only records `actualGuests`; capacity is enforced by `assign` (uses actualGuests) and `handover`.
+- `assign` on a SEATED reservation moves the open session to an AVAILABLE table, frees the old table and notifies waiters (`TABLE_REASSIGNED`).
+- `request-exception` (PENDING/CONFIRMED/ARRIVED, reason 5-200 chars) creates a RESERVATION approval, a history line and a manager `APPROVAL` notification. Approval confirms a PENDING booking only if it already has a table.
+- Notifications: web booking → receptionist `NEW_WEB_RESERVATION`; public cancel → receptionist `RESERVATION_CANCELLED`; handover → waiter `HANDOVER`; waiter `clean` → receptionist `TABLE_READY`; auto no-show → receptionist `AUTO_NO_SHOW`.
+- Staff snapshot `requests` contains CANCEL_ITEM and RESERVATION approvals.
+- Opening hours: if admin `openingHours` text contains `HH:mm - HH:mm` (or `17h00-02h00`, overnight allowed), bookings must start and end (start+duration) inside it; walk-ins only need to start inside. Settings expose `openMinutes`/`closeMinutes` (minutes from local midnight, close may exceed 1440) and `earlyCheckInMinutes` (60).
+- `check-in` is rejected earlier than 60 minutes before `startsAt`. `handover` rejects if seating now for the booked duration would overlap another booking on the same table (incl. buffer).
+- A scheduler runs every minute and marks CONFIRMED bookings `NO_SHOW` once `startsAt + noShowMinutes` has passed.
+- Email (plain text) to the booking `email` on web create, confirm, reject, cancel — only when `spring.mail.host` (env `SPRING_MAIL_HOST`) is set and admin `emailNotifications=true`. Sent after commit; failures are logged, never block the command. Env: `SPRING_MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM`.
+
 Waiter implements `accept`, `add-draft`, `edit-draft`, `remove-draft`, `submit`, `serve`, `request-cancel`, `request-priority`, `request-payment`, `withdraw-payment-request`, `guest-left`, `clean`, `read-notification`, matching mobile `WaiterCommand`. Drafts are persisted per waiter. Accept imports reservation preorders into drafts; submit prices from the current menu. Ownership is enforced. Departure requires payment; cleaning requires departure.
 
 Admin commands:
@@ -40,10 +53,12 @@ Self access changes and removing the last enabled administrator are rejected. Th
 ## Public reservations
 
 - `GET /reservations/settings`: online flag, hold/buffer/no-show minutes, timezone, database `areas:[{id,name}]`.
-- `POST /reservations`: web `ReservationRequest`, **requiring real `areaId`**. Use `startsAt` or local `date` + `time`; optional `durationMinutes` defaults to 120. Returns 201 and web Reservation shape. Preorders use `items:[{dishId,quantity}]`.
+- `POST /reservations`: web `ReservationRequest`, **requiring real `areaId`**; any `tableId` is ignored (staff assigns tables). Use `startsAt` or local `date` + `time`; optional `durationMinutes` defaults to 120. Returns 201 and web Reservation shape. Preorders use `items:[{dishId,quantity}]`.
 - `POST /reservations/lookup`: `{code,phone}`; both must match. Returns Reservation or 404.
+- `POST /reservations/cancel`: `{code,phone,reason}`; both must match, only PENDING/CONFIRMED may be cancelled. Returns Reservation (CANCELLED), 404 or 409.
+- `POST` endpoints are rate limited to 20 requests/minute per client IP (429). In-memory, per instance.
 
-Bookings start PENDING. Confirmation requires a table assignment; overlapping assignments include the configured buffer. Public creation validates area capacity but does not guarantee a table until assignment. Lookup requires the random booking code and phone.
+Bookings start PENDING. Confirmation requires a table assignment; overlapping assignments include the configured buffer. Creation checks area capacity minus guests of active bookings overlapping the same time window extended by `bufferMinutes` (sum per area, not per-table fit), but does not guarantee a table until assignment. Lookup requires the random booking code and phone.
 
 ## Concurrency and accounting
 
@@ -51,7 +66,7 @@ Workspace reads/writes and reservation operations acquire a PostgreSQL transacti
 
 ## Known limits / integration follow-up
 
-- No bank callback, card acquiring, email delivery, push/WebSocket delivery, or automated no-show scheduler. Notifications are persisted and available through polling. Email notification settings are stored only.
+- No bank callback, card acquiring, or push/WebSocket delivery. Notifications are persisted and available through polling. Table holds are not auto-expired.
 - Optional `scheduledShiftId` on cashier shift opening is persisted and checked against the cashier assignment and shift time window. Manager approval limits are not configurable; direct cashier discount limit is 10%.
 - Public `area` legacy alias is returned as `main`; clients must use the authoritative `areaId` and settings areas. Booking table holds are configured but not automatically expired.
 - Snapshots load complete datasets and perform repeated database queries. The global lock favors correctness for a single restaurant over throughput; pagination and narrower locks are needed at higher volume.
@@ -61,4 +76,4 @@ Workspace reads/writes and reservation operations acquire a PostgreSQL transacti
 
 ## Verification
 
-`./mvnw.cmd test` runs existing auth/catalog/config/context checks plus `WorkspaceIntegrationTests`: full reservation-to-cleaning workflow, role/ownership denials, stale kitchen versions, idempotent payment replay/payload mismatch, lookup privacy, reservation overlap, money/quantity validation, and HTTP authentication boundaries. No parallel contention/load test has been added.
+`./mvnw.cmd test` runs existing auth/catalog/config/context checks plus `WorkspaceIntegrationTests`: full reservation-to-cleaning workflow, role/ownership denials, stale kitchen versions, idempotent payment replay/payload mismatch, lookup privacy, public cancellation, time-window capacity, reservation overlap, money/quantity validation, and HTTP authentication boundaries. No parallel contention/load test has been added.
