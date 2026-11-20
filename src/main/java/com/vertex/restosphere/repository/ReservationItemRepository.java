@@ -1,5 +1,6 @@
 package com.vertex.restosphere.repository;
 
+import com.vertex.restosphere.entity.Reservation;
 import com.vertex.restosphere.entity.ReservationItem;
 import java.util.Collection;
 import java.util.List;
@@ -13,4 +14,6 @@ public interface ReservationItemRepository extends JpaRepository<ReservationItem
 
     @Query("select i from ReservationItem i join fetch i.menuItem where i.reservation.id in :ids")
     List<ReservationItem> findWithMenuItemByReservationIdIn(Collection<UUID> ids);
+
+    List<ReservationItem> findByReservation(Reservation reservation);
 }

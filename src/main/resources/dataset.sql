@@ -9,6 +9,15 @@ BEGIN;
 ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
 ALTER TABLE users ADD CONSTRAINT users_role_check
 CHECK (role IN ('CUSTOMER', 'ADMIN', 'MANAGER', 'RECEPTIONIST', 'WAITER', 'KITCHEN', 'CASHIER')) NOT VALID;
+
+ALTER TABLE orders DROP COLUMN IF EXISTS status;
+ALTER TABLE orders DROP COLUMN IF EXISTS note;
+ALTER TABLE orders DROP COLUMN IF EXISTS priority_by;
+ALTER TABLE orders ALTER COLUMN priority_reason TYPE varchar(1000);
+ALTER TABLE order_draft ALTER COLUMN note TYPE varchar(1000);
+
+UPDATE bills SET code = 'B-' || upper(substr(session_id::text, 1, 8))
+WHERE code ~ '^B-[0-9a-f]{8}-[0-9a-f]{4}-';
 INSERT INTO users (id, email, password_hash, full_name, role, enabled, created_at, updated_at)
 SELECT md5('restosphere:demo:' || account)::uuid, account || '@restosphere.test',
        '$2b$10$LTsVxyCfFG2CRk86pJ6HKO9vBqu9FVik7RgWPNgT0jYZPLvPxU54W',
@@ -19,7 +28,8 @@ FROM (VALUES
 ('cashier', 'Thu ngân demo', 'CASHIER'),
 ('kitchen', 'Đầu bếp demo', 'KITCHEN'),
 ('receptionist', 'Lễ tân demo', 'RECEPTIONIST'),
-('waiter', 'Phục vụ demo', 'WAITER')
+('waiter', 'Phục vụ demo', 'WAITER'),
+('waiter2', 'Phục vụ demo 2', 'WAITER')
 ) AS accounts(account, full_name, role)
 ON CONFLICT DO NOTHING;
 
