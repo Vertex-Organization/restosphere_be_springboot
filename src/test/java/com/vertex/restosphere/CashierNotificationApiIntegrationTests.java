@@ -12,7 +12,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpMethod;
 
 class CashierNotificationApiIntegrationTests extends CashierApiTestBase {
-
     @Override
     String prefix() {
         return "c9";

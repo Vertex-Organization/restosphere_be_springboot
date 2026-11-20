@@ -15,7 +15,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpMethod;
 
 class CashierTransferApiIntegrationTests extends CashierApiTestBase {
-
     private String oldBank;
 
     @Override
@@ -92,7 +91,6 @@ class CashierTransferApiIntegrationTests extends CashierApiTestBase {
         assertThat(auditCount("create-transfer")).isEqualTo(1);
         assertThat(waiterNotifications()).isZero();
 
-        // A second payment is blocked while the transfer is pending; replay with the same key returns it.
         call(HttpMethod.POST, transferPath(f), cashierToken, json(version(f), 1000, "c4-other"))
                 .andExpect(status().isConflict());
         String replay = ok(call(HttpMethod.POST, transferPath(f), cashierToken, json(0, 100000, "c4-new")));
@@ -136,11 +134,9 @@ class CashierTransferApiIntegrationTests extends CashierApiTestBase {
         assertThat(auditCount("confirm-transfer")).isEqualTo(1);
         assertThat(waiterNotifications()).isEqualTo(1);
 
-        // Already confirmed: no longer pending.
         call(HttpMethod.POST, "/payments/" + paymentId + "/confirm", cashierToken, "{\"bankReference\":\"BANK-002\"}")
                 .andExpect(status().isConflict());
 
-        // The same bank reference cannot confirm another transfer.
         Fixture g = billFixture();
         String second = createTransfer(g, 50000, "c4-confirm2");
         call(HttpMethod.POST, "/payments/" + second + "/confirm", cashierToken, "{\"bankReference\":\"BANK-001\"}")
@@ -204,7 +200,6 @@ class CashierTransferApiIntegrationTests extends CashierApiTestBase {
                 .andExpect(status().isNotFound());
         call(HttpMethod.POST, "/payments/not-a-uuid/cancel", cashierToken, null).andExpect(status().isBadRequest());
 
-        // A completed cash payment is not a pending transfer.
         Fixture g = billFixture();
         ok(call(HttpMethod.POST, "/payments/" + paymentId + "/cancel", cashierToken, null));
         String cash = created(call(HttpMethod.POST, "/bills/" + g.bill().getId() + "/payments/cash", cashierToken,

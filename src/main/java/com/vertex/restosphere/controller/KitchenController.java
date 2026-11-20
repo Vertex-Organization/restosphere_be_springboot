@@ -25,7 +25,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-/** Status sai dinh dang -> 400 qua ResponseEntityExceptionHandler. */
 @Tag(name = "Kitchen - Orders")
 @RestController
 @RequestMapping("/api/v1/kitchen")
@@ -33,7 +32,6 @@ import org.springframework.web.bind.annotation.RestController;
 @PreAuthorize("hasAnyRole('ADMIN','KITCHEN')")
 @RequiredArgsConstructor
 public class KitchenController {
-
     private final KitchenService service;
 
     @GetMapping("/orders")

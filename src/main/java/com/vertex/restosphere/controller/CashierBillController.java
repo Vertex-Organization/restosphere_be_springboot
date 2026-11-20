@@ -27,10 +27,8 @@ import org.springframework.web.bind.annotation.RestController;
 @PreAuthorize("hasAnyRole('ADMIN','CASHIER')")
 @RequiredArgsConstructor
 public class CashierBillController {
-
     private final CashierBillService service;
 
-    /** status: UNPAID, PAYMENT_REQUESTED or PAID (optional). */
     @GetMapping("/bills")
     public List<CashierBillResponse> bills(@AuthenticationPrincipal Jwt jwt,
             @RequestParam(required = false) String status) {

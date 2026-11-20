@@ -11,7 +11,6 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
 public interface AuditLogRepository extends JpaRepository<AuditLog, UUID>, JpaSpecificationExecutor<AuditLog> {
 
-    // Nap actor cung query de doc ten nguoi thuc hien khong bi N+1.
     @Override
     @EntityGraph(attributePaths = "actor")
     Page<AuditLog> findAll(Specification<AuditLog> spec, Pageable pageable);
@@ -20,6 +19,5 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, UUID>, JpaSp
     java.util.List<AuditLog> findByTargetTypeAndTargetIdInAndActionInOrderByCreatedAtAsc(String targetType,
             java.util.Collection<java.util.UUID> targetIds, java.util.Collection<String> actions);
 
-    // Cashier: history of bills (one query for many targets).
     java.util.List<AuditLog> findByTargetIdInOrderByCreatedAtAsc(java.util.Collection<java.util.UUID> targetIds);
 }

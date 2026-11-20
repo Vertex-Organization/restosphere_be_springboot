@@ -12,7 +12,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpMethod;
 
 class CashierBillApiIntegrationTests extends CashierApiTestBase {
-
     @Override
     String prefix() {
         return "c2";
@@ -42,7 +41,6 @@ class CashierBillApiIntegrationTests extends CashierApiTestBase {
         assertThat(this.<List<Object>>json(unpaid, "$[?(@.id=='%s')]".formatted(f.bill().getId()))).isEmpty();
         call(HttpMethod.GET, "/bills?status=BOGUS", cashierToken, null).andExpect(status().isBadRequest());
 
-        // List rows do not carry items and payments.
         assertThat(this.<List<Object>>json(all, "$[?(@.id=='%s' && @.items)]".formatted(f.bill().getId())))
                 .isEmpty();
     }

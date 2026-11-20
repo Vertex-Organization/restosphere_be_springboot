@@ -14,7 +14,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpMethod;
 
 class KitchenMenuApiIntegrationTests extends KitchenApiTestBase {
-
     @Override
     String prefix() {
         return "k3";

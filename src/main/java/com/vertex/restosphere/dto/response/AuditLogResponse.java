@@ -4,7 +4,6 @@ import com.vertex.restosphere.entity.AuditLog;
 import java.time.Instant;
 import java.util.UUID;
 
-/** Dung shape type AuditLog cua FE; chi ghi log khi thao tac thanh cong nen result luon SUCCESS. */
 public record AuditLogResponse(UUID id, Instant at, String actor, String action, String target, String result) {
 
     public static AuditLogResponse from(AuditLog a) {

@@ -34,12 +34,33 @@ spring:
       # Tu dong start compose.yaml khi chay app, va giu database chay khi app tat.
       lifecycle-management: start-only
 
+  mail:
+    host: ${MAIL_HOST:}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    default-encoding: UTF-8
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+          connectiontimeout: 10000
+          timeout: 10000
+          writetimeout: 10000
+
 app:
   cloudinary:
     enabled: ${CLOUDINARY_ENABLED:false}
     cloud-name: ${CLOUDINARY_CLOUD_NAME:}
     api-key: ${CLOUDINARY_API_KEY:}
     api-secret: ${CLOUDINARY_API_SECRET:}
+
+  mail:
+    enabled: ${MAIL_ENABLED:false}
+    from: ${MAIL_FROM:}
+    login-url: ${STAFF_LOGIN_URL:http://localhost:5173/staff/login}
 
   security:
     jwt:

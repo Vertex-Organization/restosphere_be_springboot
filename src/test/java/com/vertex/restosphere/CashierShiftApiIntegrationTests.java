@@ -14,7 +14,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpMethod;
 
 class CashierShiftApiIntegrationTests extends CashierApiTestBase {
-
     @Override
     String prefix() {
         return "c1";

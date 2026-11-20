@@ -39,12 +39,10 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.transaction.support.TransactionTemplate;
 
-/** Ha tang chung cho test REST bep K3-K5: user bep/waiter, token, du lieu tu tao va don dep. */
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest
 @AutoConfigureMockMvc
 abstract class KitchenApiTestBase {
-
     static final String PASSWORD = "correct-horse-battery";
     static final String BASE = "/api/v1/kitchen";
 
@@ -62,7 +60,7 @@ abstract class KitchenApiTestBase {
     String kitchenToken;
     String waiterToken;
     final List<User> testUsers = new ArrayList<>();
-    // Du lieu tu tao, xoa nguoc thu tu tao de dung khoa ngoai.
+
     final List<Object> created = new ArrayList<>();
 
     abstract String prefix();
@@ -80,7 +78,6 @@ abstract class KitchenApiTestBase {
     void tearDown() {
         tx.executeWithoutResult(s -> {
             if (!testUsers.isEmpty()) {
-                // Du lieu do API tao ra (khong nam trong created) va tham chieu toi user test.
                 em.createQuery("delete from NotificationRead r where r.user in :u").setParameter("u", testUsers)
                         .executeUpdate();
                 em.createQuery("delete from Incident i where i.reporter in :u").setParameter("u", testUsers)
@@ -103,7 +100,6 @@ abstract class KitchenApiTestBase {
     }
 
     void cleanUsers() {
-        // audit_logs va refresh_tokens tham chieu users nen xoa truoc.
         auditLogs.deleteAll();
         refreshTokens.deleteAll();
         users.deleteAll();

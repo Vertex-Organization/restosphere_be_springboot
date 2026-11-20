@@ -36,10 +36,8 @@ import org.springframework.web.bind.annotation.RestController;
 @PreAuthorize("hasAnyRole('ADMIN','CASHIER')")
 @RequiredArgsConstructor
 public class CashierPaymentController {
-
     private final CashierPaymentService service;
 
-    /** Transaction history. from/to are ISO date-times (inclusive); status is PENDING, SUCCEEDED, and so on. */
     @GetMapping("/payments")
     public List<CashierPaymentResponse> history(@AuthenticationPrincipal Jwt jwt,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
@@ -48,14 +46,12 @@ public class CashierPaymentController {
         return service.history(CurrentUserService.idOf(jwt), from, to, method, status);
     }
 
-    /** 201 for a new payment, 200 when the same idempotency key returned the earlier payment. */
     @PostMapping("/bills/{id}/payments/cash")
     public ResponseEntity<CashierPaymentResponse> payCash(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID id,
             @Valid @RequestBody CashierPayCashRequest req) {
         return respond(service.payCash(CurrentUserService.idOf(jwt), id, req));
     }
 
-    /** Creates a PENDING transfer; same 201 / 200 rule as cash. */
     @PostMapping("/bills/{id}/payments/transfer")
     public ResponseEntity<CashierPaymentResponse> transfer(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID id,
             @Valid @RequestBody CashierCreateTransferRequest req) {

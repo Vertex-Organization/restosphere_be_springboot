@@ -18,7 +18,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpMethod;
 
 class KitchenNotificationApiIntegrationTests extends KitchenApiTestBase {
-
     @Override
     String prefix() {
         return "k5";
@@ -104,10 +103,9 @@ class KitchenNotificationApiIntegrationTests extends KitchenApiTestBase {
         assertThat(revision()).isEqualTo(rev + 1);
         assertThat(auditCount("read-notifications")).isEqualTo(1);
 
-        // Doc lai khong ghi trung (unique notification+user) va khong loi.
         ok(call(HttpMethod.POST, "/notifications/read", kitchenToken, "{\"ids\":[\"" + a.getId() + "\"]}"));
         assertThat(readsBy(kitchen)).isEqualTo(1);
-        // Chi co id rac: khong doc gi (khong bi hieu nham thanh doc het).
+
         ok(call(HttpMethod.POST, "/notifications/read", kitchenToken, "{\"ids\":[\"garbage\"]}"));
         assertThat(readsBy(kitchen)).isEqualTo(1);
         assertThat(readsBy(waiter)).isZero();

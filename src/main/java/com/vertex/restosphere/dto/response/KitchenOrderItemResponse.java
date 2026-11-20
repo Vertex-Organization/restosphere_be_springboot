@@ -6,7 +6,6 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
-/** Mon trong phieu bep, khop KitchenOrderItem cua FE. */
 public record KitchenOrderItemResponse(
         UUID id,
         UUID orderId,
@@ -26,6 +25,5 @@ public record KitchenOrderItemResponse(
         UUID rejectedBy,
         String rejectionReason,
         List<History> history) {
-
     public record History(Instant at, OrderItem.Status status, UUID by, String note) {}
 }

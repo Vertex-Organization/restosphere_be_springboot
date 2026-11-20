@@ -13,7 +13,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpMethod;
 
 class CashierTransactionReceiptApiIntegrationTests extends CashierApiTestBase {
-
     @Override
     String prefix() {
         return "c7";

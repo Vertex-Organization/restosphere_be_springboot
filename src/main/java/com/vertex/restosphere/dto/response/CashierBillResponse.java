@@ -8,16 +8,11 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
-/**
- * Matches the FE Bill type plus table info and a money summary. items and payments are only filled by the detail
- * endpoint and are omitted from the list.
- */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record CashierBillResponse(UUID id, String code, UUID sessionId, String status, long version,
         Instant createdAt, Instant requestedAt, Instant paidAt, BigDecimal amount, Discount discount,
         Totals totals, BigDecimal paid, BigDecimal remaining, String tableCode, String area, int guests,
         List<Event> history, List<CashierItemResponse> items, List<CashierPaymentResponse> payments) {
-
     public record Discount(String mode, BigDecimal value, String reason, String appliedBy, Instant appliedAt) {}
 
     public record Totals(BigDecimal subtotal, BigDecimal discount, BigDecimal serviceCharge, BigDecimal tax,
@@ -25,7 +20,6 @@ public record CashierBillResponse(UUID id, String code, UUID sessionId, String s
 
     public record Event(Instant at, String by, String text) {}
 
-    /** UNPAID, PAYMENT_REQUESTED or PAID, as the FE expects. */
     public static String statusOf(Bill b) {
         if (b.getStatus() == Bill.Status.PAID) {
             return "PAID";

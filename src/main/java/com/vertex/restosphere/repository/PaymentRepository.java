@@ -20,7 +20,6 @@ public interface PaymentRepository extends JpaRepository<Payment, UUID> {
 
     boolean existsByTransactionReference(String transactionReference);
 
-    // Payments of many bills in one query (no N+1).
     List<Payment> findByBillIdInOrderByCreatedAtAsc(Collection<UUID> billIds);
 
     @Query("select coalesce(sum(p.amount), 0) from Payment p where p.cashierShift.id = :shiftId "
@@ -28,7 +27,6 @@ public interface PaymentRepository extends JpaRepository<Payment, UUID> {
             + "and p.status = com.vertex.restosphere.entity.Payment.Status.COMPLETED")
     BigDecimal sumCompletedCash(@Param("shiftId") UUID shiftId);
 
-    // Transaction history; callers pass full value sets / wide bounds instead of nulls.
     @Query("select p from Payment p where p.createdAt >= :from and p.createdAt <= :to and p.method in :methods "
             + "and p.status in :statuses order by p.createdAt desc, p.id")
     List<Payment> search(@Param("from") java.time.Instant from, @Param("to") java.time.Instant to,

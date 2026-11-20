@@ -32,7 +32,6 @@ import org.springframework.web.bind.annotation.RestController;
 @PreAuthorize("hasAnyRole('ADMIN','CASHIER')")
 @RequiredArgsConstructor
 public class CashierShiftController {
-
     private final CashierShiftService service;
 
     @GetMapping("/shifts")

@@ -13,7 +13,6 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
-/** Ban kem phien dang phuc vu va lich dat dang giu, cho trang "Ban & khu vuc" cua Manager. */
 @Tag(name = "Manager - Tables")
 @RestController
 @RequestMapping("/api/v1/manager/tables")

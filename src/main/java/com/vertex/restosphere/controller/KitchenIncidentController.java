@@ -28,7 +28,6 @@ import org.springframework.web.bind.annotation.RestController;
 @PreAuthorize("hasAnyRole('ADMIN','KITCHEN')")
 @RequiredArgsConstructor
 public class KitchenIncidentController {
-
     private final KitchenIncidentService service;
 
     @GetMapping

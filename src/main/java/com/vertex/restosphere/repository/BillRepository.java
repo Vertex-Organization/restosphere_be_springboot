@@ -8,7 +8,6 @@ public interface BillRepository extends JpaRepository<Bill, UUID> {
 
     boolean existsByStatus(Bill.Status status);
 
-    // Cashier: bills with session, table and area in one query.
     @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"session", "session.table",
             "session.table.area"})
     java.util.List<Bill> findAllByOrderByCreatedAtAsc();
@@ -17,6 +16,5 @@ public interface BillRepository extends JpaRepository<Bill, UUID> {
             "session.table.area", "session.waiter"})
     java.util.Optional<Bill> findDetailedById(UUID id);
 
-    // Cashier: bills of many sessions in one query.
     java.util.List<Bill> findBySessionIdIn(java.util.Collection<UUID> sessionIds);
 }

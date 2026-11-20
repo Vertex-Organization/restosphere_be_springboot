@@ -27,7 +27,6 @@ import org.springframework.web.bind.annotation.RestController;
 @PreAuthorize("hasAnyRole('ADMIN','KITCHEN')")
 @RequiredArgsConstructor
 public class KitchenNotificationController {
-
     private final KitchenNotificationService service;
 
     @GetMapping("/notifications")
@@ -35,7 +34,6 @@ public class KitchenNotificationController {
         return service.list(CurrentUserService.idOf(jwt));
     }
 
-    /** Khong co body hoac khong co ids = doc het; tra danh sach thong bao da cap nhat readBy. */
     @PostMapping("/notifications/read")
     public List<KitchenNotificationResponse> read(@AuthenticationPrincipal Jwt jwt,
             @Valid @RequestBody(required = false) KitchenReadNotificationsRequest req) {

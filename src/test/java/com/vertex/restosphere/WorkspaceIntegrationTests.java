@@ -1,11 +1,13 @@
 package com.vertex.restosphere;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static com.vertex.restosphere.service.WorkspaceStore.*;
+import static com.vertex.restosphere.service.impl.WorkspaceStoreImpl.*;
 import com.vertex.restosphere.common.enums.*;
 import com.vertex.restosphere.entity.*;
 import com.vertex.restosphere.exception.ApiException;
 import com.vertex.restosphere.service.*;
+import com.vertex.restosphere.service.impl.BillingWorkflowImpl;
+import com.vertex.restosphere.service.impl.ReservationWorkflowImpl;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.*;
@@ -99,10 +101,10 @@ class WorkspaceIntegrationTests {
         assertNull(list(workspace.load("kitchen",id(cook)),"notifications").getFirst().get("orderId"));
     }
     @Test void moneyAndQuantityRejectFractionalDongAndPortions() {
-        assertThrows(ApiException.class,()->BillingWorkflow.money(map("amount",1.5),"amount"));
-        var item=new MenuItem();assertThrows(ApiException.class,()->ReservationWorkflow.validateQuantity(item,new BigDecimal("1.5")));
-        item.setPriceUnit("kg");assertDoesNotThrow(()->ReservationWorkflow.validateQuantity(item,new BigDecimal("1.125")));
-        assertEquals(new BigDecimal("125001"),BillingWorkflow.whole(new BigDecimal("100001").multiply(new BigDecimal("1.25"))));
+        assertThrows(ApiException.class,()->BillingWorkflowImpl.money(map("amount",1.5),"amount"));
+        var item=new MenuItem();assertThrows(ApiException.class,()->ReservationWorkflowImpl.validateQuantity(item,new BigDecimal("1.5")));
+        item.setPriceUnit("kg");assertDoesNotThrow(()->ReservationWorkflowImpl.validateQuantity(item,new BigDecimal("1.125")));
+        assertEquals(new BigDecimal("125001"),BillingWorkflowImpl.whole(new BigDecimal("100001").multiply(new BigDecimal("1.25"))));
     }
     @Test void reservationLookupRequiresPhoneAndOverlappingAssignmentsFail() {
         var staff=user(Role.RECEPTIONIST);var area=new Area();area.setName("Bookings "+UUID.randomUUID());db.save(area);

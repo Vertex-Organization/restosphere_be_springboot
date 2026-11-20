@@ -12,7 +12,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpMethod;
 
 class CashierCashPaymentApiIntegrationTests extends CashierApiTestBase {
-
     @Override
     String prefix() {
         return "c3";
@@ -72,7 +71,6 @@ class CashierCashPaymentApiIntegrationTests extends CashierApiTestBase {
         assertThat(this.<Number>json(bill, "$.paid").longValue()).isEqualTo(100000L);
         assertThat(this.<Number>json(bill, "$.remaining").longValue()).isZero();
 
-        // The closing shift now expects opening float + the cash received.
         String close = ok(call(HttpMethod.POST, "/shifts/" + shiftId + "/close", cashierToken,
                 "{\"countedCash\":100000}"));
         assertThat(this.<Number>json(close, "$.expectedCash").longValue()).isEqualTo(100000L);
@@ -89,7 +87,6 @@ class CashierCashPaymentApiIntegrationTests extends CashierApiTestBase {
         String bill = ok(call(HttpMethod.GET, "/bills/" + f.bill().getId(), cashierToken, null));
         assertThat(this.<Number>json(bill, "$.remaining").longValue()).isEqualTo(60000L);
 
-        // The rest cannot exceed the outstanding amount.
         call(HttpMethod.POST, payPath(f), cashierToken, cashJson(version(f), 60001, 70000, "c3-over"))
                 .andExpect(status().isBadRequest());
         created(call(HttpMethod.POST, payPath(f), cashierToken, cashJson(version(f), 60000, 60000, "c3-rest")));
@@ -111,7 +108,6 @@ class CashierCashPaymentApiIntegrationTests extends CashierApiTestBase {
         assertThat(revision()).isEqualTo(revisionAfterFirst);
         assertThat(count("select count(p) from Payment p where p.bill.id = :p0", f.bill().getId())).isEqualTo(1);
 
-        // Different amount, different tendered or different bill with the same key is a conflict.
         call(HttpMethod.POST, payPath(f), cashierToken, cashJson(version(f), 31000, 31000, "c3-idem"))
                 .andExpect(status().isConflict());
         call(HttpMethod.POST, payPath(f), cashierToken, cashJson(version(f), 30000, 35000, "c3-idem"))

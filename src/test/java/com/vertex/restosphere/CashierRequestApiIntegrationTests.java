@@ -14,7 +14,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpMethod;
 
 class CashierRequestApiIntegrationTests extends CashierApiTestBase {
-
     @Override
     String prefix() {
         return "c6";
@@ -155,7 +154,6 @@ class CashierRequestApiIntegrationTests extends CashierApiTestBase {
         call(HttpMethod.POST, "/requests/" + UUID.randomUUID() + "/withdraw", cashierToken, null)
                 .andExpect(status().isNotFound());
 
-        // After withdrawing, the same line can be requested again.
         created(call(HttpMethod.POST, adjustmentPath(f), cashierToken,
                 adjustment(f, f.item().getId().toString(), "retry")));
     }

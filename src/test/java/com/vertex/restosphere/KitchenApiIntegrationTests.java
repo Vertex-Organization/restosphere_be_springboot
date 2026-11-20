@@ -48,7 +48,6 @@ import org.springframework.transaction.support.TransactionTemplate;
 @SpringBootTest
 @AutoConfigureMockMvc
 class KitchenApiIntegrationTests {
-
     private static final String KITCHEN_EMAIL = "k1-kitchen@restosphere.test";
     private static final String WAITER_EMAIL = "k1-waiter@restosphere.test";
     private static final String PASSWORD = "correct-horse-battery";
@@ -67,7 +66,7 @@ class KitchenApiIntegrationTests {
     User waiter;
     String kitchenToken;
     String waiterToken;
-    // Du lieu tu tao, xoa nguoc thu tu tao de dung khoa ngoai.
+
     final List<Object> created = new ArrayList<>();
 
     @BeforeEach
@@ -89,7 +88,7 @@ class KitchenApiIntegrationTests {
                     em.flush();
                 }
             }
-            // Thong bao do lenh bep tao ra (khong co khoa ngoai toi du lieu test).
+
             em.createQuery("delete from Notification where kind in ('READY','ITEM_REJECTED')").executeUpdate();
         });
         created.clear();
@@ -97,7 +96,6 @@ class KitchenApiIntegrationTests {
     }
 
     void cleanUsers() {
-        // audit_logs va refresh_tokens tham chieu users nen xoa truoc.
         auditLogs.deleteAll();
         refreshTokens.deleteAll();
         users.deleteAll();
@@ -126,11 +124,11 @@ class KitchenApiIntegrationTests {
         OrderItem submitted = persist(item(o2, f.menu, OrderItem.Status.SUBMITTED));
         persist(item(draft, f.menu, OrderItem.Status.SUBMITTED));
         persist(log(preparing, "start"));
-        persist(log(preparing, "request-cancel")); // khong thuoc 3 action cua bep
+        persist(log(preparing, "request-cancel"));
 
         String body = list(null);
         List<Map<String, Object>> orders = JsonPath.read(body, "$");
-        // Chi thay order cua session nay, theo thu tu cu truoc.
+
         List<String> ids = orders.stream().map(o -> (String) o.get("id")).toList();
         assertThat(ids).containsExactly(o1.getId().toString(), o2.getId().toString());
 
@@ -389,7 +387,7 @@ class KitchenApiIntegrationTests {
         a.setTargetType("ORDER_ITEM");
         a.setTargetId(item.getId());
         a.setDescription(action);
-        // audit_logs duoc don trong cleanUsers, khong dua vao created.
+
         return auditLogs.save(a);
     }
 

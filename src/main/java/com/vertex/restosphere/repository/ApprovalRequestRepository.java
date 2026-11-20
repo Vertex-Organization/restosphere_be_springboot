@@ -8,10 +8,8 @@ public interface ApprovalRequestRepository extends JpaRepository<ApprovalRequest
 
     boolean existsByTypeAndTargetIdAndStatus(ApprovalRequest.Type type, UUID targetId, ApprovalRequest.Status status);
 
-    // Menu cua bep: nap requestedBy/decidedBy cung query.
     @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"requestedBy", "decidedBy"})
     java.util.List<ApprovalRequest> findByTypeOrderByCreatedAtAsc(ApprovalRequest.Type type);
 
-    // Cashier: requests of the given types, oldest first.
     java.util.List<ApprovalRequest> findByTypeInOrderByCreatedAtAsc(java.util.Collection<ApprovalRequest.Type> types);
 }

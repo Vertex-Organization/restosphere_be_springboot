@@ -32,7 +32,6 @@ import org.springframework.web.bind.annotation.RestController;
 @PreAuthorize("hasAnyRole('ADMIN','KITCHEN')")
 @RequiredArgsConstructor
 public class KitchenMenuController {
-
     private final KitchenMenuService service;
 
     @GetMapping("/menu-items")

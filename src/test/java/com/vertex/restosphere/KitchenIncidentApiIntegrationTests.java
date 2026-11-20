@@ -15,7 +15,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpMethod;
 
 class KitchenIncidentApiIntegrationTests extends KitchenApiTestBase {
-
     @Override
     String prefix() {
         return "k4";
@@ -76,7 +75,6 @@ class KitchenIncidentApiIntegrationTests extends KitchenApiTestBase {
         assertThat((String) json(ok, "$.itemId")).isEqualTo(item.getId().toString());
         assertThat((String) json(ok, "$.orderId")).isEqualTo(o1.getId().toString());
 
-        // Chi co itemId: orderId suy ra tu mon. Chi co orderId (khong itemId): bi bo qua nhu lenh cu.
         String itemOnly = created(call(HttpMethod.POST, "/incidents", kitchenToken,
                 "{\"type\":\"OTHER\",\"severity\":\"LOW\",\"description\":\"a\",\"itemId\":\"" + item.getId()
                         + "\"}"));
@@ -119,7 +117,6 @@ class KitchenIncidentApiIntegrationTests extends KitchenApiTestBase {
         assertThat(revision()).isEqualTo(rev);
         assertThat(auditCount("report-incident")).isZero();
 
-        // CRITICAL va do dai toi da van hop le nhu lenh cu.
         created(call(HttpMethod.POST, "/incidents", kitchenToken, body("OUT_OF_STOCK", "CRITICAL", "x".repeat(2000))));
         assertThat(incidentCount()).isEqualTo(1);
     }

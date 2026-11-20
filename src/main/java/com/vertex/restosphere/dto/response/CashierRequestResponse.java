@@ -6,13 +6,11 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
 
-/** Matches the FE CashierRequest type. */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record CashierRequestResponse(UUID id, String code, ApprovalRequest.Type type, ApprovalRequest.Status status,
         UUID billId, String targetType, UUID targetId, BigDecimal amount, UUID paymentId, UUID itemId,
         Discount discount, String reason, UUID requestedBy, Instant requestedAt, UUID decidedBy, Instant decidedAt,
         String decisionNote) {
-
     public record Discount(String mode, BigDecimal value, BigDecimal amount) {}
 
     public static CashierRequestResponse from(ApprovalRequest r, UUID billId, UUID paymentId, UUID itemId) {

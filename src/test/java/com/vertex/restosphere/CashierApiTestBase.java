@@ -40,12 +40,10 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.transaction.support.TransactionTemplate;
 
-/** Shared infrastructure for the cashier REST tests: cashier/waiter users, tokens, fixtures and cleanup. */
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest
 @AutoConfigureMockMvc
 abstract class CashierApiTestBase {
-
     static final String PASSWORD = "correct-horse-battery";
     static final String BASE = "/api/v1/cashier";
 
@@ -63,7 +61,7 @@ abstract class CashierApiTestBase {
     String cashierToken;
     String waiterToken;
     final List<User> testUsers = new ArrayList<>();
-    // Data created by tests, removed in reverse order to respect foreign keys.
+
     final List<Object> created = new ArrayList<>();
 
     abstract String prefix();
@@ -81,7 +79,6 @@ abstract class CashierApiTestBase {
     void tearDown() {
         tx.executeWithoutResult(s -> {
             if (!testUsers.isEmpty()) {
-                // Rows created through the API are not in "created" and reference test users.
                 em.createQuery("delete from NotificationRead r where r.user in :u").setParameter("u", testUsers)
                         .executeUpdate();
                 em.createQuery("delete from Payment p where p.cashierShift.cashier in :u")
@@ -105,7 +102,6 @@ abstract class CashierApiTestBase {
     }
 
     void cleanUsers() {
-        // audit_logs and refresh_tokens reference users, delete them first.
         auditLogs.deleteAll();
         refreshTokens.deleteAll();
         users.deleteAll();
@@ -153,7 +149,6 @@ abstract class CashierApiTestBase {
         return count("select count(a) from AuditLog a where a.targetType = 'WORKSPACE' and a.action = :p0", action);
     }
 
-    /** Opens a shift through the API and returns its id. */
     String openShift(String token, long openingFloat) throws Exception {
         String body = created(call(HttpMethod.POST, "/shifts/open", token,
                 "{\"openingFloat\":%d}".formatted(openingFloat)));
@@ -163,10 +158,6 @@ abstract class CashierApiTestBase {
     record Fixture(Area area, RestaurantTable table, TableSession session, MenuItem menu, Order order, OrderItem item,
             Bill bill) {}
 
-    /**
-     * A table session awaiting payment with one SERVED line of 100000 and an OPEN bill of 100000 (restaurant tax
-     * and service rates are zero unless the test changes them).
-     */
     Fixture billFixture() {
         Area area = new Area();
         area.setName(prefix() + " Area " + UUID.randomUUID());
@@ -235,7 +226,7 @@ abstract class CashierApiTestBase {
             em.flush();
             return merged;
         });
-        // Re-saving an entity keeps its original position so the reverse cleanup order stays valid.
+
         for (int i = 0; i < created.size(); i++) {
             Object c = created.get(i);
             if (c.getClass() == saved.getClass() && idOf(c).equals(idOf(saved))) {

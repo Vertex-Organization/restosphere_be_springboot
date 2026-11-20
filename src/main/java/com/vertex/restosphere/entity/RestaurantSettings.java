@@ -5,6 +5,7 @@ import java.math.BigDecimal;
 import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.Check;
+import org.hibernate.annotations.ColumnDefault;
 
 @Getter
 @Setter
@@ -44,4 +45,10 @@ public class RestaurantSettings extends BaseEntity {
     private String bankName;
     private String bankAccountNumber;
     private String bankAccountName;
+    @ColumnDefault("10")
+    @Column(nullable = false)
+    private int cashierDiscountPercent = 10;
+    @ColumnDefault("10000000")
+    @Column(nullable = false)
+    private long managerApprovalLimit = 10_000_000L;
 }

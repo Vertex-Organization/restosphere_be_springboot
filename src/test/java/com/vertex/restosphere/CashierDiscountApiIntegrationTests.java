@@ -10,7 +10,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpMethod;
 
 class CashierDiscountApiIntegrationTests extends CashierApiTestBase {
-
     @Override
     String prefix() {
         return "c5";

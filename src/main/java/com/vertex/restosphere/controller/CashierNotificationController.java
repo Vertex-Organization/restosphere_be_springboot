@@ -27,7 +27,6 @@ import org.springframework.web.bind.annotation.RestController;
 @PreAuthorize("hasAnyRole('ADMIN','CASHIER')")
 @RequiredArgsConstructor
 public class CashierNotificationController {
-
     private final CashierNotificationService service;
 
     @GetMapping("/notifications")
@@ -35,7 +34,6 @@ public class CashierNotificationController {
         return service.list(CurrentUserService.idOf(jwt));
     }
 
-    /** No body or no ids reads everything; returns the updated list. */
     @PostMapping("/notifications/read")
     public List<CashierNotificationResponse> read(@AuthenticationPrincipal Jwt jwt,
             @Valid @RequestBody(required = false) CashierReadNotificationsRequest req) {

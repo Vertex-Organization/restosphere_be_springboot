@@ -19,7 +19,6 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
-/** Ngay/status sai dinh dang -> 400 qua ResponseEntityExceptionHandler (giong A5). */
 @Tag(name = "Manager - Reservations")
 @RestController
 @RequestMapping("/api/v1/manager/reservations")
