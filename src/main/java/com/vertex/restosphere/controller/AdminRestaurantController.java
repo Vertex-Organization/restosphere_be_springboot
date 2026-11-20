@@ -1,6 +1,7 @@
 package com.vertex.restosphere.controller;
 
 import com.vertex.restosphere.config.OpenApiConfig;
+import com.vertex.restosphere.dto.request.RestaurantImageRequest;
 import com.vertex.restosphere.dto.request.RestaurantProfileRequest;
 import com.vertex.restosphere.dto.response.RestaurantProfileResponse;
 import com.vertex.restosphere.security.CurrentUserService;
@@ -14,7 +15,6 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
-/** Role trong token chi la lop chan ngoai; service con kiem tra lai user trong DB. */
 @Tag(name = "Admin - Restaurant")
 @RestController
 @RequestMapping("/api/v1/admin/restaurant")
@@ -34,5 +34,16 @@ public class AdminRestaurantController {
     public RestaurantProfileResponse update(@AuthenticationPrincipal Jwt jwt,
             @Valid @RequestBody RestaurantProfileRequest req) {
         return service.update(CurrentUserService.idOf(jwt), req);
+    }
+
+    @PostMapping("/images/{kind}")
+    public RestaurantProfileResponse uploadImage(@AuthenticationPrincipal Jwt jwt, @PathVariable String kind,
+            @Valid @RequestBody RestaurantImageRequest req) {
+        return service.uploadImage(CurrentUserService.idOf(jwt), kind, req);
+    }
+
+    @DeleteMapping("/images/{kind}")
+    public RestaurantProfileResponse removeImage(@AuthenticationPrincipal Jwt jwt, @PathVariable String kind) {
+        return service.removeImage(CurrentUserService.idOf(jwt), kind);
     }
 }
