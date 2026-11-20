@@ -2,6 +2,7 @@ package com.vertex.restosphere.service;
 
 import static com.vertex.restosphere.service.WorkspaceStore.*;
 import static com.vertex.restosphere.service.ReservationWorkflow.*;
+import com.vertex.restosphere.common.enums.Role;
 import com.vertex.restosphere.entity.*;
 import com.vertex.restosphere.exception.ApiException;
 import java.math.*;
@@ -58,7 +59,7 @@ public class BillingWorkflow {
             case "apply-discount", "request-discount" -> {
                 editable(b);var d=object(c,"discount");String mode=required(d,"mode",20);var value=money(d,"value");if(!Set.of("PERCENT","AMOUNT").contains(mode)||value.signum()==0||(mode.equals("PERCENT")&&value.compareTo(BigDecimal.valueOf(100))>0))throw invalid("Invalid discount");var amount=mode.equals("PERCENT")?whole(b.getSubtotal().multiply(value).movePointLeft(2)):value;if(amount.compareTo(b.getSubtotal())>0)throw invalid("Discount exceeds subtotal");String reason=required(d,"reason",1000);
                 if(type.equals("request-discount")) {var r=request(ApprovalRequest.Type.DISCOUNT,"BILL",b.getId(),amount,reason,user);r.setDiscountMode(mode);r.setDiscountValue(value);return id(r);}
-                if(amount.compareTo(whole(b.getSubtotal().multiply(new BigDecimal("0.10"))))>0)throw ApiException.conflict("Discount requires manager approval");applyDiscount(b,mode,value,reason,user);return id(b);
+                if(amount.compareTo(whole(b.getSubtotal().multiply(BigDecimal.valueOf(db.lock().getCashierDiscountPercent())).movePointLeft(2)))>0)throw ApiException.conflict("Discount requires manager approval");applyDiscount(b,mode,value,reason,user);return id(b);
             }
             case "remove-discount" -> {editable(b);b.setDiscountValue(null);b.setDiscountMode(null);recalculate(b);return id(b);}
             case "return-payment-request" -> {editable(b);required(c,"reason",1000);if(b.getSession().getStatus()!=TableSession.Status.PAYMENT_REQUESTED)throw ApiException.conflict("Payment was not requested");b.getSession().setStatus(TableSession.Status.OPEN);b.setRequestedAt(null);return id(b);}
@@ -85,6 +86,7 @@ public class BillingWorkflow {
     public void decide(Map<String,Object> c,User user) {
         var r=db.get(ApprovalRequest.class,required(c,"id",100));if(r.getStatus()!=ApprovalRequest.Status.PENDING)throw ApiException.conflict("Request already decided");if(r.getRequestedBy().equals(user))throw ApiException.conflict("Cannot approve your own request");String reason=required(c,"reason",1000);
         if(!(c.get("approve") instanceof Boolean))throw invalid("approve must be boolean");
+        if(Boolean.TRUE.equals(c.get("approve"))&&user.getRole()==Role.MANAGER&&r.getAmount()!=null&&r.getAmount().compareTo(BigDecimal.valueOf(db.lock().getManagerApprovalLimit()))>0)throw ApiException.conflict("Approval exceeds manager limit");
         if(Boolean.TRUE.equals(c.get("approve")))switch(r.getType()) {
             case DISCOUNT -> {var b=db.get(Bill.class,r.getTargetId().toString());editable(b);recalculate(b);applyDiscount(b,r.getDiscountMode(),r.getDiscountValue(),r.getReason(),user);}
             case CANCEL_ITEM, BILL_ADJUSTMENT -> {var item=db.get(OrderItem.class,r.getTargetId().toString());var b=bill(item.getOrder().getSession());editable(b);if(Set.of(OrderItem.Status.CANCELLED,OrderItem.Status.REJECTED,OrderItem.Status.VOIDED).contains(item.getStatus()))throw ApiException.conflict("Line already removed");item.setStatus(r.getType()==ApprovalRequest.Type.CANCEL_ITEM?OrderItem.Status.CANCELLED:OrderItem.Status.VOIDED);item.setRejectionReason(r.getReason());recalculate(b);}
