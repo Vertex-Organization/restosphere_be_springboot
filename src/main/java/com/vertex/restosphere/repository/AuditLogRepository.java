@@ -14,4 +14,10 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, UUID>, JpaSp
     @Override
     @EntityGraph(attributePaths = "actor")
     Page<AuditLog> findAll(Specification<AuditLog> spec, Pageable pageable);
+
+    @EntityGraph(attributePaths = "actor")
+    java.util.List<AuditLog> findByTargetTypeAndTargetIdInAndActionInOrderByCreatedAtAsc(String targetType,
+            java.util.Collection<java.util.UUID> targetIds, java.util.Collection<String> actions);
+
+    java.util.List<AuditLog> findByTargetIdInOrderByCreatedAtAsc(java.util.Collection<java.util.UUID> targetIds);
 }
