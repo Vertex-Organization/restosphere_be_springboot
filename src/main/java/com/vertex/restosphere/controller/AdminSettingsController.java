@@ -14,7 +14,6 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
-/** Role trong token chi la lop chan ngoai; service con kiem tra lai user trong DB. */
 @Tag(name = "Admin - Settings")
 @RestController
 @RequestMapping("/api/v1/admin/settings")

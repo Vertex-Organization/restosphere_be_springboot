@@ -10,7 +10,6 @@ import jakarta.validation.constraints.Size;
 import java.util.List;
 import java.util.UUID;
 
-/** Ngay khong ton tai (30/02), end <= start, ca > 12 gio, id trung: kiem tra o service. */
 public record ShiftRequest(
         @NotBlank @Size(max = 100) String name,
         @NotNull @Pattern(regexp = "\\d{4}-\\d{2}-\\d{2}") String date,

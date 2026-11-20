@@ -4,7 +4,6 @@ import com.vertex.restosphere.entity.RestaurantSettings;
 import java.math.BigDecimal;
 import java.util.Objects;
 
-/** Cung shape voi SystemSettingsRequest; field chu tra "" thay cho null. */
 public record SystemSettingsResponse(boolean onlineReservations, int tableHoldMinutes, int noShowMinutes,
         int bufferMinutes, Billing billing, String timezone, String currency, boolean emailNotifications) {
 

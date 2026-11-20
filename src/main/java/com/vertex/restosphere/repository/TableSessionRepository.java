@@ -12,7 +12,6 @@ public interface TableSessionRepository extends JpaRepository<TableSession, UUID
 
     boolean existsByTableIdAndStatusNot(UUID tableId, TableSession.Status status);
 
-    /** Moi dong la [tableId, sessionId] cua phien chua dong. */
     @Query("select s.table.id, s.id from TableSession s where s.status <> com.vertex.restosphere.entity.TableSession.Status.CLOSED")
     List<Object[]> findOpenSessionIdsByTable();
 }

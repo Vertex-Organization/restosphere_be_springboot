@@ -30,7 +30,6 @@ public class ManagerNotificationController {
         return service.list(CurrentUserService.idOf(jwt));
     }
 
-    /** Khong body / {} / ids rong = doc tat ca. */
     @PostMapping("/read")
     public List<ManagerNotificationResponse> markRead(@AuthenticationPrincipal Jwt jwt,
             @Valid @RequestBody(required = false) ManagerReadNotificationsRequest req) {

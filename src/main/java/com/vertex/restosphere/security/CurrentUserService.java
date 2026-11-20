@@ -11,10 +11,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 
-/**
- * Doc lai user tu DB o moi request: access token song 15 phut, nen tai khoan vua bi khoa
- * hoac doi vai tro phai mat quyen ngay chu khong doi token het han.
- */
 @Service
 @RequiredArgsConstructor
 public class CurrentUserService {
@@ -28,7 +24,6 @@ public class CurrentUserService {
     }
 
     public static UUID idOf(Jwt jwt) {
-        // Subject khong phai UUID la token khong hop le -> 401, khong de lot thanh 500.
         String subject = jwt.getSubject();
         try {
             return UUID.fromString(subject == null ? "" : subject);

@@ -17,7 +17,6 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
-/** status/type sai -> 400 qua ResponseEntityExceptionHandler (giong M4). */
 @Tag(name = "Manager - Approvals")
 @RestController
 @RequestMapping("/api/v1/manager/approvals")

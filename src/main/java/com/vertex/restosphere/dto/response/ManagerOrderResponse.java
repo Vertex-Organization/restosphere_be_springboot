@@ -7,7 +7,6 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
-/** Giong order(Order) cua snapshot cu; paid = hoa don cua phien da PAID. */
 public record ManagerOrderResponse(UUID id, String code, UUID sessionId, UUID tableId, String tableCode,
         String areaName, int guests, UUID waiterId, String waiterName, int round, Order.Status status, Instant at,
         boolean paid, List<ManagerOrderItemResponse> items) {
@@ -16,7 +15,6 @@ public record ManagerOrderResponse(UUID id, String code, UUID sessionId, UUID ta
         return "O-" + o.getId().toString().substring(0, 8).toUpperCase();
     }
 
-    /** Can nap san session.table.area va waiter (OrderRepository.findForManager EntityGraph). */
     public static ManagerOrderResponse from(Order o, List<ManagerOrderItemResponse> items, boolean paid) {
         TableSession s = o.getSession();
         RestaurantTable t = s.getTable();

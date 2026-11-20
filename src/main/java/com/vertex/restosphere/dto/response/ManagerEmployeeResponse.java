@@ -5,7 +5,6 @@ import com.vertex.restosphere.entity.Area;
 import com.vertex.restosphere.entity.User;
 import java.util.UUID;
 
-/** department/status map giong WorkspaceSnapshots.staff; chua co khu -> areaId, areaName la "". */
 public record ManagerEmployeeResponse(UUID id, String name, String email, Role role, String department,
         String position, String status, String areaId, String areaName) {
 

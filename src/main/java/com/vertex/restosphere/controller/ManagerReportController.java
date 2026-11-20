@@ -15,7 +15,6 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
-/** Chi doc. Ngay/method sai dinh dang -> 400 qua handler co san (giong M4); shift kiem tra trong service. */
 @Tag(name = "Manager - Reports")
 @RestController
 @RequestMapping("/api/v1/manager/reports")

@@ -13,7 +13,6 @@ public interface ReservationTableRepository extends JpaRepository<ReservationTab
 
     boolean existsByTableIdAndReservationStatusIn(UUID tableId, Collection<Reservation.Status> statuses);
 
-    // Danh sach ban cua Manager: 1 query cho tat ca ban co lich dang hieu luc.
     @Query("select distinct rt.table.id from ReservationTable rt where rt.reservation.status in :statuses")
     Set<UUID> findTableIdsByReservationStatusIn(Collection<Reservation.Status> statuses);
 

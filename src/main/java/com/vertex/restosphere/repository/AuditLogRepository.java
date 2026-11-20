@@ -11,7 +11,6 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
 public interface AuditLogRepository extends JpaRepository<AuditLog, UUID>, JpaSpecificationExecutor<AuditLog> {
 
-    // Nap actor cung query de doc ten nguoi thuc hien khong bi N+1.
     @Override
     @EntityGraph(attributePaths = "actor")
     Page<AuditLog> findAll(Specification<AuditLog> spec, Pageable pageable);

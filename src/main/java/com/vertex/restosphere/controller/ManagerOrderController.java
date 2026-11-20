@@ -15,7 +15,6 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
-/** Chi doc. Khong gui date = hom nay theo gio nha hang; date sai dinh dang -> 400 (giong M4). */
 @Tag(name = "Manager - Orders")
 @RestController
 @RequestMapping("/api/v1/manager/orders")

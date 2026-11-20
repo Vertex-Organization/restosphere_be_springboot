@@ -16,11 +16,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 
-/**
- * Doc yeu cau phe duyet cho trang Manager. Dat ten khac ApprovalRequestRepository vi nhanh feat/waiter-order-flow
- * se them file do (tranh conflict khi merge); co the gop vao repository do sau khi merge.
- * Cac query theo danh sach id de gom doi tuong lien quan, so query khong phu thuoc so yeu cau.
- */
 public interface ApprovalQueryRepository extends JpaRepository<ApprovalRequest, UUID>,
         JpaSpecificationExecutor<ApprovalRequest> {
 

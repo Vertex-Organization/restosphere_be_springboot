@@ -5,7 +5,6 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
 
-/** billId/paymentId/itemId tinh giong WorkspaceSnapshots.approval. */
 public record ApprovalResponse(UUID id, String code, ApprovalRequest.Type type, ApprovalRequest.Status status,
         String targetType, UUID targetId, String targetLabel, UUID billId, UUID paymentId, UUID itemId,
         BigDecimal amount, String menuStatus, String reason, UUID requestedBy, Instant requestedAt, UUID decidedBy,

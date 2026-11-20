@@ -3,7 +3,6 @@ package com.vertex.restosphere.dto.response;
 import com.vertex.restosphere.entity.RestaurantSettings;
 import java.util.Objects;
 
-/** Tra "" thay cho null de frontend khong phai xu ly null. */
 public record RestaurantProfileResponse(String name, String description, String address, String hotline,
         String email, String openingHours, String facebook, String instagram, String tiktok,
         String logoUrl, String coverUrl) {
