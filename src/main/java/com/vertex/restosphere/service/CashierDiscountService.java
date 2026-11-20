@@ -1,0 +1,115 @@
+package com.vertex.restosphere.service;
+
+import com.vertex.restosphere.common.enums.Role;
+import com.vertex.restosphere.dto.request.CashierDiscountRequest;
+import com.vertex.restosphere.dto.response.CashierBillResponse;
+import com.vertex.restosphere.dto.response.CashierRequestResponse;
+import com.vertex.restosphere.entity.ApprovalRequest;
+import com.vertex.restosphere.entity.Bill;
+import com.vertex.restosphere.entity.User;
+import com.vertex.restosphere.exception.ApiException;
+import com.vertex.restosphere.security.CurrentUserService;
+import java.math.BigDecimal;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+/**
+ * Bill discounts (REST): apply (up to 10% of the subtotal), remove, and ask a manager to approve a bigger one.
+ * Same validation order as the legacy commands; money rules come from BillingWorkflow.
+ */
+@Service
+@RequiredArgsConstructor
+public class CashierDiscountService {
+
+    private static final BigDecimal SELF_APPROVE_RATE = new BigDecimal("0.10");
+
+    private record Parsed(String mode, BigDecimal value, BigDecimal amount, String reason) {}
+
+    private final CurrentUserService currentUser;
+    private final RestaurantLock restaurantLock;
+    private final WorkspaceStore store;
+    private final BillingWorkflow billing;
+    private final CashierWriteSupport writes;
+    private final CashierBillService billViews;
+
+    @Transactional
+    public CashierBillResponse apply(UUID actorId, UUID billId, CashierDiscountRequest req) {
+        User user = currentUser.require(actorId, Role.ADMIN, Role.CASHIER);
+        restaurantLock.acquire();
+        Bill bill = prepare(billId, req.billVersion());
+        Parsed d = parse(bill, req.discount());
+        if (d.amount().compareTo(BillingWorkflow.whole(bill.getSubtotal().multiply(SELF_APPROVE_RATE))) > 0) {
+            throw ApiException.conflict("Discount requires manager approval");
+        }
+        billing.applyDiscount(bill, d.mode(), d.value(), d.reason(), user);
+        writes.commit(user, "apply-discount");
+        store.flush();
+        return billViews.view(billId);
+    }
+
+    @Transactional
+    public CashierBillResponse remove(UUID actorId, UUID billId, long billVersion) {
+        User user = currentUser.require(actorId, Role.ADMIN, Role.CASHIER);
+        restaurantLock.acquire();
+        Bill bill = prepare(billId, billVersion);
+        bill.setDiscountValue(null);
+        bill.setDiscountMode(null);
+        billing.recalculate(bill);
+        writes.commit(user, "remove-discount");
+        store.flush();
+        return billViews.view(billId);
+    }
+
+    @Transactional
+    public CashierRequestResponse request(UUID actorId, UUID billId, CashierDiscountRequest req) {
+        User user = currentUser.require(actorId, Role.ADMIN, Role.CASHIER);
+        restaurantLock.acquire();
+        Bill bill = prepare(billId, req.billVersion());
+        Parsed d = parse(bill, req.discount());
+        ApprovalRequest r = billing.request(ApprovalRequest.Type.DISCOUNT, "BILL", bill.getId(), d.amount(),
+                d.reason(), user);
+        r.setDiscountMode(d.mode());
+        r.setDiscountValue(d.value());
+        writes.commit(user, "request-discount");
+        store.flush();
+        return CashierRequestResponse.from(r, bill.getId(), null, null);
+    }
+
+    /** Load, check the version the caller saw, refresh totals, and require an editable bill (no payments). */
+    private Bill prepare(UUID billId, long billVersion) {
+        Bill bill = store.get(Bill.class, billId.toString());
+        billing.version(bill, Map.of("billVersion", billVersion));
+        billing.recalculate(bill);
+        billing.editable(bill);
+        return bill;
+    }
+
+    private Parsed parse(Bill bill, CashierDiscountRequest.Discount d) {
+        String mode = d.mode() == null ? "" : d.mode().trim();
+        if (mode.isEmpty() || mode.length() > 20) {
+            throw WorkspaceStore.invalid("mode is required (max 20)");
+        }
+        if (d.value() == null) {
+            throw WorkspaceStore.invalid("Invalid value");
+        }
+        BigDecimal value = CashierWriteSupport.money(d.value(), "value");
+        if (!Set.of("PERCENT", "AMOUNT").contains(mode) || value.signum() == 0
+                || (mode.equals("PERCENT") && value.compareTo(BigDecimal.valueOf(100)) > 0)) {
+            throw WorkspaceStore.invalid("Invalid discount");
+        }
+        BigDecimal amount = mode.equals("PERCENT")
+                ? BillingWorkflow.whole(bill.getSubtotal().multiply(value).movePointLeft(2)) : value;
+        if (amount.compareTo(bill.getSubtotal()) > 0) {
+            throw WorkspaceStore.invalid("Discount exceeds subtotal");
+        }
+        String reason = d.reason() == null ? "" : d.reason().trim();
+        if (reason.isEmpty() || reason.length() > 1000) {
+            throw WorkspaceStore.invalid("reason is required (max 1000)");
+        }
+        return new Parsed(mode, value, amount, reason);
+    }
+}

@@ -1,6 +1,8 @@
 package com.vertex.restosphere.controller;
 
 import com.vertex.restosphere.config.OpenApiConfig;
+import com.vertex.restosphere.dto.request.CashierConfirmTransferRequest;
+import com.vertex.restosphere.dto.request.CashierCreateTransferRequest;
 import com.vertex.restosphere.dto.request.CashierPayCashRequest;
 import com.vertex.restosphere.dto.response.CashierPaymentResponse;
 import com.vertex.restosphere.security.CurrentUserService;
@@ -35,7 +37,28 @@ public class CashierPaymentController {
     @PostMapping("/bills/{id}/payments/cash")
     public ResponseEntity<CashierPaymentResponse> payCash(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID id,
             @Valid @RequestBody CashierPayCashRequest req) {
-        var outcome = service.payCash(CurrentUserService.idOf(jwt), id, req);
+        return respond(service.payCash(CurrentUserService.idOf(jwt), id, req));
+    }
+
+    /** Creates a PENDING transfer; same 201 / 200 rule as cash. */
+    @PostMapping("/bills/{id}/payments/transfer")
+    public ResponseEntity<CashierPaymentResponse> transfer(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID id,
+            @Valid @RequestBody CashierCreateTransferRequest req) {
+        return respond(service.createTransfer(CurrentUserService.idOf(jwt), id, req));
+    }
+
+    @PostMapping("/payments/{id}/confirm")
+    public CashierPaymentResponse confirm(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID id,
+            @RequestBody CashierConfirmTransferRequest req) {
+        return service.confirmTransfer(CurrentUserService.idOf(jwt), id, req);
+    }
+
+    @PostMapping("/payments/{id}/cancel")
+    public CashierPaymentResponse cancel(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID id) {
+        return service.cancelTransfer(CurrentUserService.idOf(jwt), id);
+    }
+
+    private static ResponseEntity<CashierPaymentResponse> respond(CashierPaymentService.Outcome outcome) {
         return ResponseEntity.status(outcome.created() ? HttpStatus.CREATED : HttpStatus.OK)
                 .body(outcome.payment());
     }

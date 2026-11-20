@@ -64,6 +64,11 @@ public class CashierBillService {
     @Transactional(readOnly = true)
     public CashierBillResponse detail(UUID actorId, UUID billId) {
         currentUser.require(actorId, Role.ADMIN, Role.CASHIER);
+        return view(billId);
+    }
+
+    /** Detail without auth or transaction of its own: for write services returning the updated bill. */
+    CashierBillResponse view(UUID billId) {
         Bill bill = bills.findDetailedById(billId).orElseThrow(() -> ApiException.notFound("Bill"));
         List<Payment> billPayments = payments.findByBillIdInOrderByCreatedAtAsc(List.of(billId));
         List<CashierItemResponse> items = orderItems
