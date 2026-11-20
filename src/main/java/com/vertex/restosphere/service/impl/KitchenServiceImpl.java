@@ -53,7 +53,7 @@ public class KitchenServiceImpl implements KitchenService {
     @Override
     public List<KitchenOrderResponse> listOrders(UUID actorId, OrderItem.Status status) {
         currentUser.require(actorId, Role.ADMIN, Role.KITCHEN);
-        List<Order> found = orders.findByStatusNotOrderByCreatedAtAsc(Order.Status.DRAFT);
+        List<Order> found = orders.findAllWithTable();
         if (found.isEmpty()) {
             return List.of();
         }
@@ -155,7 +155,7 @@ public class KitchenServiceImpl implements KitchenService {
     private KitchenOrderResponse toResponse(Order o, List<OrderItem> items, Map<UUID, List<AuditLog>> logs) {
         var table = o.getSession().getTable();
         var priority = o.getPriorityAt() == null ? null
-                : new KitchenOrderResponse.Priority(o.getPriorityAt(), o.getPriorityBy(), o.getPriorityReason());
+                : new KitchenOrderResponse.Priority(o.getPriorityAt(), o.getPriorityBy() == null ? null : o.getPriorityBy().getId().toString(), o.getPriorityReason());
         return new KitchenOrderResponse(o.getId(), "O-" + o.getId(), o.getSession().getId(), table.getCode(),
                 table.getArea().getName(), o.getSession().getGuestCount(), o.getWaiter().getId(), o.getRoundNumber(),
                 o.getCreatedAt(), priority,

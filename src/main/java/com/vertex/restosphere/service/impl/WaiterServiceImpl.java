@@ -1,11 +1,11 @@
 package com.vertex.restosphere.service.impl;
 
-import static com.vertex.restosphere.service.ReservationWorkflow.number;
-import static com.vertex.restosphere.service.ReservationWorkflow.required;
-import static com.vertex.restosphere.service.ReservationWorkflow.text;
-import static com.vertex.restosphere.service.ReservationWorkflow.validateQuantity;
-import static com.vertex.restosphere.service.WorkspaceStore.id;
-import static com.vertex.restosphere.service.WorkspaceStore.invalid;
+import static com.vertex.restosphere.service.impl.ReservationWorkflowImpl.number;
+import static com.vertex.restosphere.service.impl.ReservationWorkflowImpl.required;
+import static com.vertex.restosphere.service.impl.ReservationWorkflowImpl.text;
+import static com.vertex.restosphere.service.impl.ReservationWorkflowImpl.validateQuantity;
+import static com.vertex.restosphere.service.impl.WorkspaceStoreImpl.id;
+import static com.vertex.restosphere.service.impl.WorkspaceStoreImpl.invalid;
 
 import com.vertex.restosphere.common.enums.MenuItemStatus;
 import com.vertex.restosphere.common.enums.Role;
@@ -163,7 +163,7 @@ public class WaiterServiceImpl implements WaiterService {
                 ApprovalRequest.Type.CANCEL_ITEM, item.getId(), ApprovalRequest.Status.PENDING)) {
             throw ApiException.conflict("A cancel request is already pending");
         }
-        BigDecimal amount = BillingWorkflow.whole(item.getUnitPrice().multiply(item.getQuantity()));
+        BigDecimal amount = BillingWorkflowImpl.whole(item.getUnitPrice().multiply(item.getQuantity()));
         billing.request(ApprovalRequest.Type.CANCEL_ITEM, "ORDER_ITEM", item.getId(), amount, reason, waiter);
     }
 
@@ -227,6 +227,7 @@ public class WaiterServiceImpl implements WaiterService {
         session.setStatus(TableSession.Status.CLOSED);
         session.getTable().setStatus(TableStatus.AVAILABLE);
         if (session.getReservation() != null) session.getReservation().setStatus(Reservation.Status.COMPLETED);
+        events.notify(Role.RECEPTIONIST, "TABLE_READY", "Bàn " + session.getTable().getCode() + " đã sẵn sàng", "Đã dọn xong", id(session.getTable()));
     }
 
     private TableSession ownSession(UUID sessionId, User waiter) {

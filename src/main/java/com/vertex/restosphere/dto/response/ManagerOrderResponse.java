@@ -8,7 +8,7 @@ import java.util.List;
 import java.util.UUID;
 
 public record ManagerOrderResponse(UUID id, String code, UUID sessionId, UUID tableId, String tableCode,
-        String areaName, int guests, UUID waiterId, String waiterName, int round, Order.Status status, Instant at,
+        String areaName, int guests, UUID waiterId, String waiterName, int round, String status, Instant at,
         boolean paid, List<ManagerOrderItemResponse> items) {
 
     public static String code(Order o) {
@@ -20,6 +20,6 @@ public record ManagerOrderResponse(UUID id, String code, UUID sessionId, UUID ta
         RestaurantTable t = s.getTable();
         return new ManagerOrderResponse(o.getId(), code(o), s.getId(), t.getId(), t.getCode(), t.getArea().getName(),
                 s.getGuestCount(), o.getWaiter().getId(), o.getWaiter().getFullName(), o.getRoundNumber(),
-                o.getStatus(), o.getCreatedAt(), paid, items);
+                "SUBMITTED", o.getCreatedAt(), paid, items);
     }
 }

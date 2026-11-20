@@ -13,11 +13,16 @@ import org.springframework.stereotype.Component;
 public class WorkspaceStoreImpl implements WorkspaceStore {
     @PersistenceContext EntityManager em;
     @Override public <T> List<T> all(Class<T> type) { return em.createQuery("from " + type.getSimpleName(), type).getResultList(); }
+    @Override public <T> List<T> query(Class<T> type, String jpql, Object... params) {
+        var q = em.createQuery(jpql, type);
+        for (int i = 0; i < params.length; i++) q.setParameter(i + 1, params[i]);
+        return q.getResultList();
+    }
     @Override public <T> T get(Class<T> type, String id) {
         UUID uuid;
-        try { uuid = UUID.fromString(id); } catch (Exception e) { throw invalid("Invalid " + type.getSimpleName() + " id"); }
+        try { uuid = UUID.fromString(id); } catch (Exception e) { throw invalid("Không tìm thấy dữ liệu. Vui lòng tải lại."); }
         T value = em.find(type, uuid);
-        if (value == null) throw ApiException.notFound(type.getSimpleName());
+        if (value == null) throw new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy dữ liệu. Có thể đã bị xóa hoặc thay đổi, vui lòng tải lại.");
         return value;
     }
     @Override public <T> T save(T value) { em.persist(value); return value; }
@@ -35,6 +40,9 @@ public class WorkspaceStoreImpl implements WorkspaceStore {
         Map<String,Object> result = new LinkedHashMap<>();
         for (int i=0;i<pairs.length;i+=2) if(pairs[i+1]!=null) result.put(pairs[i].toString(), pairs[i+1]);
         return result;
+    }
+    public static String code(String prefix, BaseEntity entity) {
+        return entity == null ? "" : prefix + "-" + entity.getId().toString().substring(0, 8).toUpperCase();
     }
     public static String id(BaseEntity entity) { return entity == null ? "" : entity.getId().toString(); }
 }

@@ -7,6 +7,7 @@ import com.vertex.restosphere.service.ManagementWorkflow;
 import com.vertex.restosphere.service.ReservationWorkflow;
 import com.vertex.restosphere.service.ServiceWorkflow;
 import com.vertex.restosphere.service.WorkspaceService;
+import com.vertex.restosphere.service.WaiterService;
 import com.vertex.restosphere.service.WorkspaceSnapshots;
 import com.vertex.restosphere.service.WorkspaceStore;
 import com.vertex.restosphere.entity.*;
@@ -14,6 +15,7 @@ import com.vertex.restosphere.common.enums.Role;
 import com.vertex.restosphere.exception.ApiException;
 import java.math.BigDecimal;
 import java.util.*;
+import java.util.function.Consumer;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -29,11 +31,23 @@ public class WorkspaceServiceImpl implements WorkspaceService {
     private final ServiceWorkflow service;
     private final BillingWorkflow billing;
     private final ManagementWorkflow management;
+    private final WaiterService waiter;
+    static final Map<String,String> SUMMARIES=Map.ofEntries(Map.entry("create","Đã tạo lịch đặt."),Map.entry("edit","Đã cập nhật lịch đặt."),Map.entry("confirm","Đã xác nhận và giữ bàn."),
+            Map.entry("reject","Đã từ chối lịch đặt."),Map.entry("cancel","Đã hủy lịch đặt."),Map.entry("no-show","Đã đánh dấu khách không đến."),Map.entry("assign","Đã cập nhật bàn."),
+            Map.entry("check-in","Đã ghi nhận khách đến."),Map.entry("handover","Đã bàn giao cho phục vụ."),Map.entry("request-exception","Đã gửi yêu cầu tới quản lý."));
     User authorize(String workspace,String subject) {
         User user;
         try {user=db.get(User.class,subject);}catch(ApiException e){throw new ApiException(HttpStatus.FORBIDDEN,"Account unavailable");}
         Set<Role> roles=switch(workspace){case "admin"->Set.of(Role.ADMIN);case "manager"->Set.of(Role.MANAGER,Role.ADMIN);case "kitchen"->Set.of(Role.KITCHEN,Role.ADMIN);case "cashier"->Set.of(Role.CASHIER,Role.ADMIN);case "staff"->Set.of(Role.RECEPTIONIST,Role.WAITER,Role.ADMIN);default->throw ApiException.notFound("Workspace");};
         if(!user.isEnabled()||!roles.contains(user.getRole()))throw new ApiException(HttpStatus.FORBIDDEN,"Workspace access denied");return user;
+    }
+    @Override public Map<String,Object> waiter(String subject,String action,Consumer<User> operation) {
+        var settings=db.lock();var user=authorize("staff",subject);
+        if(user.getRole()!=Role.ADMIN&&user.getRole()!=Role.WAITER)throw new ApiException(HttpStatus.FORBIDDEN,"Command not permitted for your role");
+        operation.accept(user);
+        settings.setRevision(settings.getRevision()+1);
+        service.audit(user,action,user.getId(),"WORKSPACE",action);db.flush();
+        return snapshots.snapshot("staff",user);
     }
     @Override public Map<String,Object> load(String workspace,String subject) {db.lock();return snapshots.snapshot(workspace,authorize(workspace,subject));}
     @Override public Map<String,Object> command(String workspace,String subject,Map<String,Object> c) {
@@ -46,16 +60,23 @@ public class WorkspaceServiceImpl implements WorkspaceService {
             case "cashier" -> ref=billing.command(type,c,user);
             case "staff" -> {
                 boolean reception=Set.of("create","edit","confirm","reject","cancel","no-show","assign","check-in","handover","request-exception").contains(type);
-                if(user.getRole()!=Role.ADMIN&&user.getRole()!=(reception?Role.RECEPTIONIST:Role.WAITER))throw new ApiException(HttpStatus.FORBIDDEN,"Command not permitted for your role");
+                if(user.getRole()!=Role.ADMIN&&user.getRole()!=(reception?Role.RECEPTIONIST:Role.WAITER))throw new ApiException(HttpStatus.FORBIDDEN,"Tài khoản của bạn không có quyền thực hiện thao tác này.");
                 if(type.equals("create")){var r=reservations.create(object(c,"input"),user,false,Boolean.TRUE.equals(c.get("walkIn")));ref=id(r);}
-                else if(type.equals("request-exception")){var r=db.get(Reservation.class,required(c,"id",100));if(r.getStatus()!=Reservation.Status.PENDING)throw ApiException.conflict("Reservation is not pending");ref=id(billing.request(ApprovalRequest.Type.RESERVATION,"RESERVATION",r.getId(),BigDecimal.ZERO,required(c,"reason",1000),user));}
-                else if(reception)reservations.command(type,c,user);else service.waiter(type,c,user);
+                else if(type.equals("request-exception")){
+                    var r=db.get(Reservation.class,required(c,"id",100));String reason=required(c,"reason",200);
+                    if(reason.length()<5)throw invalid("Lý do cần từ 5 đến 200 ký tự.");
+                    if(!Set.of(Reservation.Status.PENDING,Reservation.Status.CONFIRMED,Reservation.Status.ARRIVED).contains(r.getStatus()))throw ApiException.conflict("Lịch ở trạng thái này không thể gửi yêu cầu.");
+                    var request=billing.request(ApprovalRequest.Type.RESERVATION,"RESERVATION",r.getId(),BigDecimal.ZERO,reason,user);ref=id(r);
+                    reservations.history(r,user,"request-exception","Gửi yêu cầu phê duyệt tới quản lý: "+reason);
+                    service.notify(Role.MANAGER,"APPROVAL","Yêu cầu phê duyệt đặt bàn "+r.getCode(),reason,id(request));
+                }
+                else if(reception)reservations.command(type,c,user);else waiter.handle(type,c,user);
             }
         }
         settings.setRevision(settings.getRevision()+1);
         if(type.equals("approval.decide")) {
             var request=db.get(ApprovalRequest.class,required(c,"id",100));
-            service.notify(request.getRequestedBy().getRole(),"REQUEST_DECIDED","Request decided",request.getStatus().name(),id(request));
+            service.notify(request.getRequestedBy().getRole(),"REQUEST_DECIDED",request.getStatus()==ApprovalRequest.Status.APPROVED?"Quản lý đã duyệt yêu cầu":"Quản lý đã từ chối yêu cầu",request.getDecisionNote(),id(request));
         }
         if(Set.of("pay-cash","confirm-transfer").contains(type)&&ref!=null) {
             var payment=db.get(Payment.class,ref);
@@ -64,6 +85,6 @@ public class WorkspaceServiceImpl implements WorkspaceService {
         service.audit(user,type,user.getId(),"WORKSPACE",type);db.flush();
         var data=snapshots.snapshot(workspace,user);
         if(workspace.equals("admin")||workspace.equals("manager"))return data;
-        return map("data",data,"state",workspace.equals("staff")?data:null,"summary","Command completed","ref",ref,"reservationId",workspace.equals("staff")&&type.equals("create")?ref:null);
+        return map("data",data,"state",workspace.equals("staff")?data:null,"summary",SUMMARIES.getOrDefault(type,"Đã lưu thay đổi."),"ref",ref,"reservationId",workspace.equals("staff")&&type.equals("create")?ref:null);
     }
 }

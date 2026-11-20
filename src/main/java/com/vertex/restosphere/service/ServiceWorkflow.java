@@ -8,8 +8,6 @@ import java.util.UUID;
 /** Lenh cua phuc vu, bep; thong bao va audit chung. */
 public interface ServiceWorkflow {
 
-    void waiter(String type, Map<String, Object> c, User user);
-
     void kitchen(String type, Map<String, Object> c, User user);
 
     void notify(Role role, String kind, String title, String body, String target);

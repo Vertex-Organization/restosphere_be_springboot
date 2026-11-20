@@ -19,6 +19,10 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
     List<Order> findForManager(@Param("closed") TableSession.Status closed,
             @Param("from") Instant from, @Param("to") Instant to);
 
+    @EntityGraph(attributePaths = {"session.table.area", "waiter"})
+    @Query("select o from Order o order by o.createdAt asc")
+    List<Order> findAllWithTable();
+
     @Query("select coalesce(max(o.roundNumber), 0) from Order o where o.session = :session")
     int findLastRoundNumber(TableSession session);
 }

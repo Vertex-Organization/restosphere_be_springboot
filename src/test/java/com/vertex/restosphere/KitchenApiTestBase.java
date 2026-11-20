@@ -184,7 +184,6 @@ abstract class KitchenApiTestBase {
         o.setSession(session);
         o.setWaiter(waiter);
         o.setRoundNumber(round);
-        o.setStatus(Order.Status.SUBMITTED);
         return persist(o);
     }
 

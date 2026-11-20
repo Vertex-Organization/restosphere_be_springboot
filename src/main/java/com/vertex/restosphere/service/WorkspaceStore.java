@@ -8,6 +8,8 @@ public interface WorkspaceStore {
 
     <T> List<T> all(Class<T> type);
 
+    <T> List<T> query(Class<T> type, String jpql, Object... params);
+
     <T> T get(Class<T> type, String id);
 
     <T> T save(T value);

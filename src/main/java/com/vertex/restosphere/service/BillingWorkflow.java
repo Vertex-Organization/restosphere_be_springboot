@@ -1,6 +1,7 @@
 package com.vertex.restosphere.service;
 
 import com.vertex.restosphere.entity.ApprovalRequest;
+import com.vertex.restosphere.entity.AuditLog;
 import com.vertex.restosphere.entity.Bill;
 import com.vertex.restosphere.entity.OrderItem;
 import com.vertex.restosphere.entity.Payment;
@@ -34,6 +35,8 @@ public interface BillingWorkflow {
     void decide(Map<String, Object> c, User user);
 
     Map<String, Object> view(Bill b);
+
+    Map<String, Object> view(Bill b, List<AuditLog> history);
 
     Map<String, Object> payment(Payment p);
 }

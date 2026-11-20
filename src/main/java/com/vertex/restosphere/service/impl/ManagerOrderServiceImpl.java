@@ -43,7 +43,7 @@ public class ManagerOrderServiceImpl implements ManagerOrderService {
         ZoneId zone = settings.findBySingletonKey(1).map(RestaurantSettings::getTimezone).map(ZoneId::of)
                 .orElse(ZoneId.of("Asia/Ho_Chi_Minh"));
         LocalDate day = date == null ? LocalDate.now(zone) : date;
-        List<Order> list = orders.findForManager(Order.Status.DRAFT, TableSession.Status.CLOSED,
+        List<Order> list = orders.findForManager(TableSession.Status.CLOSED,
                 day.atStartOfDay(zone).toInstant(), day.plusDays(1).atStartOfDay(zone).toInstant());
         if (list.isEmpty()) {
             return List.of();

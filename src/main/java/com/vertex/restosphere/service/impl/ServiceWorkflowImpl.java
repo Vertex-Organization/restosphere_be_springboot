@@ -19,44 +19,6 @@ import org.springframework.stereotype.Service;
 public class ServiceWorkflowImpl implements ServiceWorkflow {
     private final WorkspaceStore db;
     private final BillingWorkflow billing;
-    @Override public void waiter(String type,Map<String,Object> c,User user) {
-        var session=db.get(TableSession.class,required(c,"sessionId",100));
-        if(type.equals("accept")) {
-            if(session.getStatus()!=TableSession.Status.OPEN||session.getWaiter()!=null)throw ApiException.conflict("Session cannot be accepted");
-            session.setWaiter(user);session.setAcceptedAt(Instant.now());
-            for(var p:db.all(ReservationItem.class).stream().filter(p->p.getReservation().equals(session.getReservation())).toList()) {var d=new OrderDraft();d.setSession(session);d.setWaiter(user);d.setMenuItem(p.getMenuItem());d.setQuantity(p.getQuantity());d.setNote(p.getNote());db.save(d);}return;
-        }
-        if(!user.equals(session.getWaiter()))throw new ApiException(org.springframework.http.HttpStatus.FORBIDDEN,"Session belongs to another waiter");
-        if(session.getStatus()==TableSession.Status.CLOSED)throw ApiException.conflict("Session is closed");
-        var bill=billing.bill(session);
-        switch(type) {
-            case "add-draft", "edit-draft", "remove-draft", "submit" -> {
-                if(session.getStatus()!=TableSession.Status.OPEN||session.getGuestLeftAt()!=null)throw ApiException.conflict("Ordering is closed");billing.editable(bill);
-                if(type.equals("add-draft")) {var menu=db.get(MenuItem.class,required(c,"menuItemId",100));available(menu);var d=new OrderDraft();d.setSession(session);d.setWaiter(user);d.setMenuItem(menu);db.save(d);}
-                else if(!type.equals("submit")) {var d=db.get(OrderDraft.class,required(c,"draftId",100));if(!d.getSession().equals(session)||!d.getWaiter().equals(user))throw invalid("Draft does not belong to this session");if(type.equals("remove-draft"))db.remove(d);else {var q=number(c,"quantity");validateQuantity(d.getMenuItem(),q);String note=text(c,"note");if(note.length()>1000)throw invalid("Note too long");d.setQuantity(q);d.setNote(note);}}
-                else {
-                    var drafts=db.all(OrderDraft.class).stream().filter(d->d.getSession().equals(session)&&d.getWaiter().equals(user)).toList();if(drafts.isEmpty())throw invalid("No draft items");
-                    var order=new Order();order.setSession(session);order.setWaiter(user);order.setRoundNumber(db.all(Order.class).stream().filter(o->o.getSession().equals(session)).mapToInt(Order::getRoundNumber).max().orElse(0)+1);order.setStatus(Order.Status.SUBMITTED);db.save(order);
-                    for(var d:drafts) {available(d.getMenuItem());var i=new OrderItem();i.setOrder(order);i.setMenuItem(d.getMenuItem());i.setItemName(d.getMenuItem().getName());i.setUnit(d.getMenuItem().getPriceUnit());i.setUnitPrice(d.getMenuItem().getPrice());i.setQuantity(d.getQuantity());i.setNote(d.getNote());db.save(i);db.remove(d);}db.flush();billing.recalculate(bill);
-                    notify(Role.KITCHEN,"NEW_ORDER","New order",session.getTable().getCode(),id(order));
-                }
-            }
-            case "serve" -> {var i=item(c,session);if(i.getStatus()!=OrderItem.Status.READY)throw ApiException.conflict("Item is not ready");i.setStatus(OrderItem.Status.SERVED);i.setServedAt(Instant.now());}
-            case "request-cancel" -> {var i=item(c,session);billing.editable(bill);if(Set.of(OrderItem.Status.CANCELLED,OrderItem.Status.VOIDED,OrderItem.Status.REJECTED).contains(i.getStatus()))throw ApiException.conflict("Item is already removed");billing.request(ApprovalRequest.Type.CANCEL_ITEM,"ORDER_ITEM",i.getId(),BillingWorkflowImpl.whole(i.getUnitPrice().multiply(i.getQuantity())),required(c,"reason",1000),user);}
-            case "request-priority" -> {var o=db.get(Order.class,required(c,"orderId",100));if(!o.getSession().equals(session))throw invalid("Order belongs to another session");o.setPriorityAt(Instant.now());o.setPriorityBy(id(user));o.setPriorityReason(required(c,"reason",1000));notify(Role.KITCHEN,"PRIORITY","Priority requested",o.getPriorityReason(),id(o));}
-            case "request-payment" -> {
-                if(session.getStatus()!=TableSession.Status.OPEN)throw ApiException.conflict("Payment already requested");
-                if(db.all(OrderDraft.class).stream().anyMatch(d->d.getSession().equals(session))||billing.items(bill).stream().anyMatch(i->Set.of(OrderItem.Status.SUBMITTED,OrderItem.Status.PREPARING,OrderItem.Status.READY).contains(i.getStatus())))throw ApiException.conflict("Submit drafts and serve or resolve all items first");
-                billing.recalculate(bill);if(bill.getTotal().signum()<=0)throw ApiException.conflict("Bill has no payable items");session.setStatus(TableSession.Status.PAYMENT_REQUESTED);bill.setRequestedAt(Instant.now());notify(Role.CASHIER,"PAYMENT_REQUEST","Payment requested",session.getTable().getCode(),id(bill));
-            }
-            case "withdraw-payment-request" -> {billing.editable(bill);if(session.getStatus()!=TableSession.Status.PAYMENT_REQUESTED)throw ApiException.conflict("Payment not requested");session.setStatus(TableSession.Status.OPEN);bill.setRequestedAt(null);notify(Role.CASHIER,"PAYMENT_REQUEST_WITHDRAWN","Payment request withdrawn",session.getTable().getCode(),id(bill));}
-            case "guest-left" -> {if(!Boolean.TRUE.equals(c.get("confirmed"))||bill.getStatus()!=Bill.Status.PAID||session.getGuestLeftAt()!=null)throw ApiException.conflict("Confirm departure after payment");session.setGuestLeftAt(Instant.now());session.getTable().setStatus(TableStatus.CLEANING);}
-            case "clean" -> {if(!Boolean.TRUE.equals(c.get("confirmed"))||session.getGuestLeftAt()==null||session.getTable().getStatus()!=TableStatus.CLEANING)throw ApiException.conflict("Guests must leave before cleaning");session.setEndedAt(Instant.now());session.setStatus(TableSession.Status.CLOSED);session.getTable().setStatus(TableStatus.AVAILABLE);if(session.getReservation()!=null)session.getReservation().setStatus(Reservation.Status.COMPLETED);}
-            default -> throw invalid("Unsupported waiter command");
-        }
-    }
-    OrderItem item(Map<String,Object> c,TableSession session) {var i=db.get(OrderItem.class,required(c,"itemId",100));if(!i.getOrder().getSession().equals(session))throw invalid("Item belongs to another session");return i;}
-    void available(MenuItem item) {if(item.getStatus()!=MenuItemStatus.AVAILABLE||!item.getCategory().isVisible())throw ApiException.conflict("Menu item unavailable");}
     @Override public void kitchen(String type,Map<String,Object> c,User user) {
         switch(type) {
             case "start", "complete", "reject" -> {

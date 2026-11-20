@@ -112,17 +112,15 @@ class KitchenApiIntegrationTests {
     }
 
     @Test
-    void kitchenSeesItemsWithHistoryAndSkipsDraftOrders() throws Exception {
+    void kitchenSeesItemsWithHistory() throws Exception {
         Fixture f = fixture();
-        Order o1 = persist(order(f.session, 1, Order.Status.SUBMITTED));
-        Order o2 = persist(order(f.session, 2, Order.Status.SUBMITTED));
-        Order draft = persist(order(f.session, 3, Order.Status.DRAFT));
+        Order o1 = persist(order(f.session, 1));
+        Order o2 = persist(order(f.session, 2));
         OrderItem preparing = persist(item(o1, f.menu, OrderItem.Status.PREPARING));
         preparing.setChef(kitchen);
         preparing.setStartedAt(Instant.now());
         preparing = persist(preparing);
         OrderItem submitted = persist(item(o2, f.menu, OrderItem.Status.SUBMITTED));
-        persist(item(draft, f.menu, OrderItem.Status.SUBMITTED));
         persist(log(preparing, "start"));
         persist(log(preparing, "request-cancel"));
 
@@ -152,8 +150,8 @@ class KitchenApiIntegrationTests {
     @Test
     void statusFilterKeepsOnlyMatchingItemsAndDropsEmptyOrders() throws Exception {
         Fixture f = fixture();
-        Order o1 = persist(order(f.session, 1, Order.Status.SUBMITTED));
-        Order o2 = persist(order(f.session, 2, Order.Status.SUBMITTED));
+        Order o1 = persist(order(f.session, 1));
+        Order o2 = persist(order(f.session, 2));
         persist(item(o1, f.menu, OrderItem.Status.PREPARING));
         OrderItem ready = persist(item(o2, f.menu, OrderItem.Status.READY));
 
@@ -171,7 +169,7 @@ class KitchenApiIntegrationTests {
     @Test
     void startThenCompleteChangesStatusAuditNotifyAndRevision() throws Exception {
         Fixture f = fixture();
-        OrderItem item = persist(item(persist(order(f.session, 1, Order.Status.SUBMITTED)), f.menu,
+        OrderItem item = persist(item(persist(order(f.session, 1)), f.menu,
                 OrderItem.Status.SUBMITTED));
         long rev = revision();
 
@@ -200,7 +198,7 @@ class KitchenApiIntegrationTests {
     @Test
     void wrongVersionAndInvalidInputs() throws Exception {
         Fixture f = fixture();
-        OrderItem item = persist(item(persist(order(f.session, 1, Order.Status.SUBMITTED)), f.menu,
+        OrderItem item = persist(item(persist(order(f.session, 1)), f.menu,
                 OrderItem.Status.SUBMITTED));
         String one = "{\"id\":\"" + item.getId() + "\",\"version\":0}";
         kitchenPost(kitchenToken, "/items/start", itemsJson(item.getId(), item.getVersion() + 5))
@@ -222,7 +220,7 @@ class KitchenApiIntegrationTests {
     @Test
     void wrongStatusIs409() throws Exception {
         Fixture f = fixture();
-        Order o = persist(order(f.session, 1, Order.Status.SUBMITTED));
+        Order o = persist(order(f.session, 1));
         OrderItem submitted = persist(item(o, f.menu, OrderItem.Status.SUBMITTED));
         OrderItem preparing = persist(item(o, f.menu, OrderItem.Status.PREPARING));
         kitchenPost(kitchenToken, "/items/complete", items(submitted)).andExpect(status().isConflict());
@@ -234,7 +232,7 @@ class KitchenApiIntegrationTests {
     @Test
     void rejectSetsReasonRecalculatesBillAndReturnsRejectedAtBy() throws Exception {
         Fixture f = fixture();
-        Order o = persist(order(f.session, 1, Order.Status.SUBMITTED));
+        Order o = persist(order(f.session, 1));
         OrderItem item = persist(item(o, f.menu, OrderItem.Status.SUBMITTED));
         Bill bill = new Bill();
         bill.setCode("K1-" + UUID.randomUUID().toString().substring(0, 8));
@@ -256,7 +254,7 @@ class KitchenApiIntegrationTests {
     @Test
     void oneBadItemRollsBackWholeBatch() throws Exception {
         Fixture f = fixture();
-        Order o = persist(order(f.session, 1, Order.Status.SUBMITTED));
+        Order o = persist(order(f.session, 1));
         OrderItem good = persist(item(o, f.menu, OrderItem.Status.SUBMITTED));
         OrderItem bad = persist(item(o, f.menu, OrderItem.Status.PREPARING));
         long rev = revision();
@@ -272,7 +270,7 @@ class KitchenApiIntegrationTests {
     @Test
     void waiterCannotChangeItems() throws Exception {
         Fixture f = fixture();
-        OrderItem item = persist(item(persist(order(f.session, 1, Order.Status.SUBMITTED)), f.menu,
+        OrderItem item = persist(item(persist(order(f.session, 1)), f.menu,
                 OrderItem.Status.SUBMITTED));
         kitchenPost(waiterToken, "/items/start", items(item)).andExpect(status().isForbidden());
         kitchenPost(waiterToken, "/items/complete", items(item)).andExpect(status().isForbidden());
@@ -359,12 +357,11 @@ class KitchenApiIntegrationTests {
         return new Fixture(area, table, session, menu);
     }
 
-    private Order order(TableSession session, int round, Order.Status status) {
+    private Order order(TableSession session, int round) {
         Order o = new Order();
         o.setSession(session);
         o.setWaiter(waiter);
         o.setRoundNumber(round);
-        o.setStatus(status);
         return o;
     }
 
