@@ -14,4 +14,9 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, UUID> {
 
     // Cashier: every line of a table session (all orders), oldest first.
     java.util.List<OrderItem> findByOrderSessionIdOrderByCreatedAtAsc(UUID sessionId);
+
+    // Cashier: lines with their order loaded (to reach the session without N+1).
+    @org.springframework.data.jpa.repository.Query("select i from OrderItem i join fetch i.order where i.id in :ids")
+    java.util.List<OrderItem> findWithOrderByIdIn(
+            @org.springframework.data.repository.query.Param("ids") java.util.Collection<UUID> ids);
 }

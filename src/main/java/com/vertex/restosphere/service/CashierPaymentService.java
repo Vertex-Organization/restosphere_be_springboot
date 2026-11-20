@@ -19,6 +19,7 @@ import com.vertex.restosphere.repository.RestaurantSettingsRepository;
 import com.vertex.restosphere.security.CurrentUserService;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -46,6 +47,30 @@ public class CashierPaymentService {
     private final PaymentRepository payments;
     private final CashierShiftRepository shifts;
     private final RestaurantSettingsRepository settings;
+
+    /**
+     * Payment history, newest first. from/to bound the creation time (inclusive); status uses the FE names
+     * (PENDING, SUCCEEDED, FAILED, CANCELLED, VOIDED).
+     */
+    @Transactional(readOnly = true)
+    public List<CashierPaymentResponse> history(UUID actorId, Instant from, Instant to, Payment.Method method,
+            String status) {
+        currentUser.require(actorId, Role.ADMIN, Role.CASHIER);
+        Payment.Status wanted = null;
+        if (status != null && !status.isBlank()) {
+            String name = status.trim().toUpperCase();
+            try {
+                wanted = Payment.Status.valueOf(name.equals("SUCCEEDED") ? "COMPLETED" : name);
+            } catch (IllegalArgumentException e) {
+                throw WorkspaceStore.invalid("Invalid status");
+            }
+        }
+        return payments.search(from == null ? Instant.EPOCH : from,
+                to == null ? Instant.parse("9999-12-31T00:00:00Z") : to,
+                method == null ? List.of(Payment.Method.values()) : List.of(method),
+                wanted == null ? List.of(Payment.Status.values()) : List.of(wanted))
+                .stream().map(CashierPaymentResponse::from).toList();
+    }
 
     @Transactional
     public Outcome payCash(UUID actorId, UUID billId, CashierPayCashRequest req) {

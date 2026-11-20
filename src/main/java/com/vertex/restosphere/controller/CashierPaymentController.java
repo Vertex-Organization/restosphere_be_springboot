@@ -9,18 +9,24 @@ import com.vertex.restosphere.security.CurrentUserService;
 import com.vertex.restosphere.service.CashierPaymentService;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import com.vertex.restosphere.entity.Payment;
 import jakarta.validation.Valid;
+import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @Tag(name = "Cashier - Payments")
@@ -32,6 +38,15 @@ import org.springframework.web.bind.annotation.RestController;
 public class CashierPaymentController {
 
     private final CashierPaymentService service;
+
+    /** Transaction history. from/to are ISO date-times (inclusive); status is PENDING, SUCCEEDED, and so on. */
+    @GetMapping("/payments")
+    public List<CashierPaymentResponse> history(@AuthenticationPrincipal Jwt jwt,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to,
+            @RequestParam(required = false) Payment.Method method, @RequestParam(required = false) String status) {
+        return service.history(CurrentUserService.idOf(jwt), from, to, method, status);
+    }
 
     /** 201 for a new payment, 200 when the same idempotency key returned the earlier payment. */
     @PostMapping("/bills/{id}/payments/cash")

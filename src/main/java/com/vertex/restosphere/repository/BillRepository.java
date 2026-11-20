@@ -14,6 +14,9 @@ public interface BillRepository extends JpaRepository<Bill, UUID> {
     java.util.List<Bill> findAllByOrderByCreatedAtAsc();
 
     @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"session", "session.table",
-            "session.table.area"})
+            "session.table.area", "session.waiter"})
     java.util.Optional<Bill> findDetailedById(UUID id);
+
+    // Cashier: bills of many sessions in one query.
+    java.util.List<Bill> findBySessionIdIn(java.util.Collection<UUID> sessionIds);
 }

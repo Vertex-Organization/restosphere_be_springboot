@@ -11,4 +11,7 @@ public interface ApprovalRequestRepository extends JpaRepository<ApprovalRequest
     // Menu cua bep: nap requestedBy/decidedBy cung query.
     @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"requestedBy", "decidedBy"})
     java.util.List<ApprovalRequest> findByTypeOrderByCreatedAtAsc(ApprovalRequest.Type type);
+
+    // Cashier: requests of the given types, oldest first.
+    java.util.List<ApprovalRequest> findByTypeInOrderByCreatedAtAsc(java.util.Collection<ApprovalRequest.Type> types);
 }

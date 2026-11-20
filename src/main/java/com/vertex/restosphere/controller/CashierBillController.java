@@ -3,6 +3,7 @@ package com.vertex.restosphere.controller;
 import com.vertex.restosphere.config.OpenApiConfig;
 import com.vertex.restosphere.dto.response.CashierBillResponse;
 import com.vertex.restosphere.dto.response.CashierConfigResponse;
+import com.vertex.restosphere.dto.response.CashierReceiptResponse;
 import com.vertex.restosphere.security.CurrentUserService;
 import com.vertex.restosphere.service.CashierBillService;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -39,6 +40,11 @@ public class CashierBillController {
     @GetMapping("/bills/{id}")
     public CashierBillResponse bill(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID id) {
         return service.detail(CurrentUserService.idOf(jwt), id);
+    }
+
+    @GetMapping("/bills/{id}/receipt")
+    public CashierReceiptResponse receipt(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID id) {
+        return service.receipt(CurrentUserService.idOf(jwt), id);
     }
 
     @GetMapping("/config")

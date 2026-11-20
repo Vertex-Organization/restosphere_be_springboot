@@ -5,10 +5,13 @@ import com.vertex.restosphere.dto.response.CashierBillResponse;
 import com.vertex.restosphere.dto.response.CashierConfigResponse;
 import com.vertex.restosphere.dto.response.CashierItemResponse;
 import com.vertex.restosphere.dto.response.CashierPaymentResponse;
+import com.vertex.restosphere.dto.response.CashierReceiptResponse;
 import com.vertex.restosphere.entity.AuditLog;
 import com.vertex.restosphere.entity.Bill;
+import com.vertex.restosphere.entity.OrderItem;
 import com.vertex.restosphere.entity.Payment;
 import com.vertex.restosphere.entity.RestaurantSettings;
+import com.vertex.restosphere.entity.User;
 import com.vertex.restosphere.exception.ApiException;
 import com.vertex.restosphere.repository.AuditLogRepository;
 import com.vertex.restosphere.repository.BillRepository;
@@ -77,6 +80,38 @@ public class CashierBillService {
         return CashierBillResponse.from(bill, paid(billPayments),
                 history(List.of(billId)).getOrDefault(billId, List.of()), items,
                 billPayments.stream().map(CashierPaymentResponse::from).toList());
+    }
+
+    /** Print data for a bill: restaurant, table, served lines, money summary and successful payments. */
+    @Transactional(readOnly = true)
+    public CashierReceiptResponse receipt(UUID actorId, UUID billId) {
+        User user = currentUser.require(actorId, Role.ADMIN, Role.CASHIER);
+        Bill bill = bills.findDetailedById(billId).orElseThrow(() -> ApiException.notFound("Bill"));
+        RestaurantSettings cfg = settings.findBySingletonKey(1).orElseGet(RestaurantSettings::new);
+        List<Payment> done = payments.findByBillIdInOrderByCreatedAtAsc(List.of(billId)).stream()
+                .filter(p -> p.getStatus() == Payment.Status.COMPLETED).toList();
+        BigDecimal paid = paid(done);
+        var lines = orderItems.findByOrderSessionIdOrderByCreatedAtAsc(bill.getSession().getId()).stream()
+                .filter(i -> !Set.of(OrderItem.Status.CANCELLED, OrderItem.Status.REJECTED,
+                        OrderItem.Status.VOIDED).contains(i.getStatus()))
+                .map(i -> new CashierReceiptResponse.Line(i.getItemName(), i.getQuantity(), i.getUnitPrice(),
+                        BillingWorkflow.whole(i.getUnitPrice().multiply(i.getQuantity()))))
+                .toList();
+        var table = bill.getSession().getTable();
+        CashierBillResponse.Discount discount = bill.getDiscountValue() == null ? null
+                : new CashierBillResponse.Discount(bill.getDiscountMode(), bill.getDiscountValue(),
+                        bill.getDiscountReason(), bill.getDiscountAppliedBy(), bill.getDiscountAppliedAt());
+        var receiptPayments = done.stream().map(p -> new CashierReceiptResponse.Payment("P-" + p.getId(),
+                p.getMethod().name(), p.getAmount(), p.getTendered(),
+                p.getTendered() == null ? null : p.getTendered().subtract(p.getAmount()),
+                p.getTransactionReference(), p.getPaidAt())).toList();
+        return new CashierReceiptResponse(cfg.getName(), cfg.getAddress(), cfg.getPhone(), bill.getCode(),
+                CashierBillResponse.statusOf(bill), table.getCode(), table.getArea().getName(),
+                bill.getSession().getGuestCount(), bill.getSession().getWaiter().getFullName(), user.getFullName(),
+                bill.getCreatedAt(), bill.getPaidAt(), lines,
+                new CashierBillResponse.Totals(bill.getSubtotal(), bill.getDiscount(), bill.getServiceCharge(),
+                        bill.getTaxAmount(), bill.getTotal()),
+                discount, paid, bill.getTotal().subtract(paid).max(BigDecimal.ZERO), receiptPayments);
     }
 
     @Transactional(readOnly = true)
