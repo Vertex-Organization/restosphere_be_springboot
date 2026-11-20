@@ -19,4 +19,7 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, UUID>, JpaSp
     @EntityGraph(attributePaths = "actor")
     java.util.List<AuditLog> findByTargetTypeAndTargetIdInAndActionInOrderByCreatedAtAsc(String targetType,
             java.util.Collection<java.util.UUID> targetIds, java.util.Collection<String> actions);
+
+    // Cashier: history of bills (one query for many targets).
+    java.util.List<AuditLog> findByTargetIdInOrderByCreatedAtAsc(java.util.Collection<java.util.UUID> targetIds);
 }

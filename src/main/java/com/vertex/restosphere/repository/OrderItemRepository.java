@@ -11,4 +11,7 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, UUID> {
     // Nap san menuItem va chef de phieu bep khong bi N+1.
     @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"menuItem", "chef"})
     java.util.List<OrderItem> findByOrderIdIn(java.util.Collection<UUID> orderIds);
+
+    // Cashier: every line of a table session (all orders), oldest first.
+    java.util.List<OrderItem> findByOrderSessionIdOrderByCreatedAtAsc(UUID sessionId);
 }

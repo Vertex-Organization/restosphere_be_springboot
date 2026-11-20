@@ -7,4 +7,9 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface CashierShiftRepository extends JpaRepository<CashierShift, UUID> {
 
     boolean existsByCashierIdAndClosedAtIsNull(UUID cashierId);
+
+    // Cashier: all shifts in opening order.
+    java.util.List<CashierShift> findAllByOrderByOpenedAtAsc();
+
+    java.util.Optional<CashierShift> findFirstByCashierIdAndClosedAtIsNull(UUID cashierId);
 }

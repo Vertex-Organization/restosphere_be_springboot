@@ -14,4 +14,11 @@ public interface ShiftAssignmentRepository extends JpaRepository<ShiftAssignment
     @Query("select s.name from ShiftAssignment a join a.shift s "
             + "where a.user.id = :userId and s.startsAt < :now and s.endsAt > :now order by s.startsAt, s.id")
     List<String> findCurrentShiftNames(@Param("userId") UUID userId, @Param("now") Instant now);
+
+    boolean existsByShiftIdAndUserId(UUID shiftId, UUID userId);
+
+    // Cashier: schedule of every cashier, shift and user loaded in the same query.
+    @Query("select a from ShiftAssignment a join fetch a.shift s join fetch a.user u "
+            + "where u.role = com.vertex.restosphere.common.enums.Role.CASHIER order by s.startsAt, a.id")
+    List<ShiftAssignment> findCashierAssignments();
 }
