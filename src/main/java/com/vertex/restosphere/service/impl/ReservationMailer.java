@@ -29,8 +29,8 @@ public class ReservationMailer {
     private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("dd/MM/yyyy");
     private static final String LOGO_CID = "restaurant-logo";
     private static final ClassPathResource DEFAULT_LOGO = new ClassPathResource("mail/logo.png");
-    private static final String SERIF =
-            "'Playfair Display','Cormorant Garamond',Georgia,'Times New Roman',serif";
+    // Georgia lacks stacked Vietnamese diacritics (ầ, ặ, ệ); every fallback here covers them.
+    private static final String SERIF = "'Playfair Display','Times New Roman',Times,serif";
     private static final String SANS = "'Helvetica Neue',Arial,sans-serif";
 
     private final ObjectProvider<JavaMailSender> sender;

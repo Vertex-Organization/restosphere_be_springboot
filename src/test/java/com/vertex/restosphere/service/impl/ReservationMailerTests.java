@@ -35,6 +35,9 @@ class ReservationMailerTests {
         assertTrue(mail.text().contains("Mã đặt bàn: RS-211126-001"));
         assertTrue(mail.text().contains("Khu vực: Khu A"));
         assertTrue(mail.text().contains("Điện thoại: 0901234567"));
+        assertTrue(mail.html().contains("Hẹn gặp bạn!"), "Vietnamese text is kept as UTF-8");
+        assertTrue(mail.html().contains("Khu A"));
+        assertFalse(mail.html().contains("Georgia"), "Georgia breaks Vietnamese diacritics");
         assertTrue(mail.inlineLogo(), "falls back to the bundled logo");
         assertTrue(mail.html().contains("cid:restaurant-logo"));
     }
