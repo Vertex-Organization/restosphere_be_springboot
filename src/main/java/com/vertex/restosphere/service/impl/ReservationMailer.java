@@ -1,5 +1,6 @@
 package com.vertex.restosphere.service.impl;
 
+import com.vertex.restosphere.common.enums.PriceUnit;
 import com.vertex.restosphere.common.util.Values;
 import com.vertex.restosphere.entity.Reservation;
 import com.vertex.restosphere.entity.ReservationItem;
@@ -120,7 +121,7 @@ public class ReservationMailer {
 
     static String quantity(ReservationItem i) {
         String q = i.getQuantity().stripTrailingZeros().toPlainString();
-        return "kg".equals(i.getMenuItem().getPriceUnit()) ? q + " kg" : "× " + q;
+        return i.getMenuItem().getPriceUnit() == PriceUnit.KG ? q + " kg" : "× " + q;
     }
 
     static String money(BigDecimal value) {

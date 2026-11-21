@@ -2,6 +2,7 @@ package com.vertex.restosphere.service.impl;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.vertex.restosphere.common.enums.PriceUnit;
 import com.vertex.restosphere.entity.Area;
 import com.vertex.restosphere.entity.MenuItem;
 import com.vertex.restosphere.entity.Reservation;
@@ -74,7 +75,7 @@ class ReservationMailerTests {
         r.setGuestCount(2);
         var crab = new MenuItem();
         crab.setName("Cua hoàng đế");
-        crab.setPriceUnit("kg");
+        crab.setPriceUnit(PriceUnit.KG);
         crab.setImageUrl("https://cdn.example.com/crab.jpg");
         var shrimp = new MenuItem();
         shrimp.setName("Tôm sốt tỏi");
