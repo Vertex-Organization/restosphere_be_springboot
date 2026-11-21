@@ -124,122 +124,86 @@ public class ReservationMailer {
             String body,
             List<String[]> rows,
             List<String> contact) {
-        String code = rows.getFirst()[1];
-        var grid = new StringBuilder();
-        var cells = rows.subList(1, rows.size());
-        for (int i = 0; i < cells.size(); i += 2) {
-            grid.append("<tr>").append(cell(cells.get(i)));
-            grid.append(i + 1 < cells.size() ? cell(cells.get(i + 1)) : "<td width=\"50%\"></td>");
-            grid.append("</tr>");
-        }
+        var details = new StringBuilder();
+        for (var row : rows)
+            details.append(
+                    """
+                    <tr><td style="padding:12px 0;border-bottom:1px solid #f1e4c6;\
+                    font-family:%s;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;\
+                    color:#9a7b4f;width:130px">%s</td>\
+                    <td style="padding:12px 0;border-bottom:1px solid #f1e4c6;font-family:%s;\
+                    font-size:18px;color:#5c0000">%s</td></tr>
+                    """
+                            .formatted(SANS, esc(row[0]), SERIF, esc(row[1])));
         var footer = new StringBuilder();
         for (var line : contact) footer.append(esc(line)).append("<br>");
         return """
                 <!DOCTYPE html>
                 <html lang="vi"><head><meta charset="UTF-8">
-                <meta name="viewport" content="width=device-width,initial-scale=1">
                 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,700;1,500&display=swap" rel="stylesheet">
                 </head>
-                <body style="margin:0;padding:0;background:#efe4d2">
-                <div style="display:none;max-height:0;overflow:hidden;opacity:0">%s · %s</div>
+                <body style="margin:0;padding:0;background:#f7efe3">
                 <table role="presentation" width="100%%" cellpadding="0" cellspacing="0" \
-                style="background:#efe4d2;padding:36px 12px">
+                style="background:#f7efe3;padding:32px 12px">
                 <tr><td align="center">
                 <table role="presentation" width="100%%" cellpadding="0" cellspacing="0" \
-                style="max-width:600px;background:#fffdf8;border:1px solid #d9bf86;\
-                box-shadow:0 12px 32px rgba(92,0,0,.18)">
-                <tr><td style="height:6px;background:#c9a24a;font-size:0;line-height:0">&nbsp;</td></tr>
+                style="max-width:580px;background:#fffdf8;border:1px solid #e8d5a8">
                 <tr><td align="center" style="background:#870000;\
-                background-image:radial-gradient(circle at 50%% 0%%,#b40000 0%%,#870000 55%%,\
-                #5c0000 100%%);padding:40px 24px 34px">
-                <img src="%s" alt="%s" width="170" \
-                style="display:block;width:170px;max-width:60%%;height:auto;border:0">
-                <div style="font-family:%s;font-size:12px;letter-spacing:6px;\
-                text-transform:uppercase;color:#e8c872;margin-top:18px">%s</div>
-                <div style="font-family:%s;font-size:14px;color:#c9a24a;letter-spacing:8px;\
-                margin-top:10px">&#9670; &#9670; &#9670;</div>
+                background-image:linear-gradient(180deg,#980000 0%%,#6b0000 100%%);\
+                padding:32px 24px 26px;border-bottom:4px solid #c9a24a">
+                <img src="%s" alt="%s" width="150" \
+                style="display:block;width:150px;max-width:60%%;height:auto;border:0">
+                <div style="font-family:%s;font-size:13px;letter-spacing:4px;\
+                text-transform:uppercase;color:#e8c872;margin-top:14px">%s</div>
                 </td></tr>
-                <tr><td style="height:2px;background:#c9a24a;font-size:0;line-height:0">&nbsp;</td></tr>
-                <tr><td align="center" style="padding:44px 44px 6px">
-                <div style="font-family:%s;font-size:11px;letter-spacing:4px;\
-                text-transform:uppercase;color:#a8854f">Thông báo đặt bàn</div>
-                <h1 style="margin:12px 0 0;font-family:%s;font-weight:700;font-size:32px;\
-                line-height:1.25;color:#870000">%s</h1>
-                <div style="font-family:%s;font-size:14px;color:#c9a24a;margin-top:14px;\
-                letter-spacing:6px">&#8212;&#8212; &#9670; &#8212;&#8212;</div>
+                <tr><td align="center" style="padding:36px 40px 8px">
+                <div style="font-family:%s;font-size:12px;letter-spacing:3px;\
+                text-transform:uppercase;color:#9a7b4f">Thư xác nhận</div>
+                <h1 style="margin:10px 0 0;font-family:%s;font-weight:700;font-size:28px;\
+                line-height:1.3;color:#870000">%s</h1>
+                <div style="width:64px;height:2px;background:#c9a24a;margin:18px auto 0;\
+                line-height:2px;font-size:0">&nbsp;</div>
                 </td></tr>
-                <tr><td style="padding:22px 52px 8px;font-family:%s;font-size:17px;\
-                line-height:1.75;color:#3b2a1a;text-align:center">
-                <p style="margin:0 0 10px">Kính gửi quý khách \
-                <span style="font-style:italic;color:#870000;font-weight:700">%s</span>,</p>
+                <tr><td style="padding:24px 40px 8px;font-family:%s;font-size:17px;\
+                line-height:1.7;color:#3b2a1a">
+                <p style="margin:0 0 12px">Kính gửi quý khách <em style="color:#870000">%s</em>,</p>
                 <p style="margin:0">%s</p>
                 </td></tr>
-                <tr><td align="center" style="padding:28px 44px 8px">
-                <table role="presentation" cellpadding="0" cellspacing="0" \
-                style="border:2px dashed #c9a24a;background:#fff6e6">
-                <tr><td align="center" style="padding:16px 36px">
-                <div style="font-family:%s;font-size:11px;letter-spacing:4px;\
-                text-transform:uppercase;color:#a8854f">Mã đặt bàn</div>
-                <div style="font-family:%s;font-size:30px;font-weight:700;letter-spacing:3px;\
-                color:#870000;margin-top:6px">%s</div>
-                </td></tr></table>
-                </td></tr>
-                <tr><td style="padding:24px 44px 8px">
+                <tr><td style="padding:16px 40px 8px">
                 <table role="presentation" width="100%%" cellpadding="0" cellspacing="0" \
-                style="border-collapse:separate;border-spacing:8px">%s</table>
+                style="border-top:1px solid #e8d5a8">
+                %s</table>
                 </td></tr>
-                <tr><td align="center" style="padding:18px 52px 40px;font-family:%s;font-size:13px;\
-                line-height:1.7;color:#7a6650">Vui lòng giữ mã đặt bàn để tra cứu hoặc hủy lịch \
-                trên trang web của nhà hàng.<br>\
-                <span style="font-family:%s;font-style:italic;font-size:16px;color:#870000">\
-                Rất hân hạnh được đón tiếp quý khách.</span></td></tr>
-                <tr><td style="height:2px;background:#c9a24a;font-size:0;line-height:0">&nbsp;</td></tr>
-                <tr><td align="center" style="background:#5c0000;padding:28px 24px">
-                <div style="font-family:%s;font-size:20px;font-style:italic;color:#e8c872">%s</div>
-                <div style="font-family:%s;font-size:12px;line-height:1.8;color:#f3dcc0;\
-                margin-top:8px">%s</div>
-                <div style="font-family:%s;font-size:11px;color:#b98f8f;margin-top:14px">\
-                Email được gửi tự động, vui lòng không trả lời thư này.</div>
+                <tr><td style="padding:20px 40px 36px;font-family:%s;font-size:13px;\
+                line-height:1.6;color:#7a6650">Vui lòng giữ mã đặt bàn để tra cứu hoặc hủy lịch \
+                trên trang web của nhà hàng. Rất hân hạnh được đón tiếp quý khách.</td></tr>
+                <tr><td align="center" style="background:#5c0000;padding:22px 24px;\
+                border-top:3px solid #c9a24a">
+                <div style="font-family:%s;font-size:18px;font-style:italic;color:#e8c872">%s</div>
+                <div style="font-family:%s;font-size:12px;line-height:1.7;color:#f3dcc0;\
+                margin-top:6px">%s</div>
                 </td></tr>
                 </table>
                 </td></tr></table>
                 </body></html>
                 """
                 .formatted(
-                        esc(title),
-                        esc(code),
                         esc(logo),
                         esc(restaurant),
-                        SANS,
+                        SERIF,
                         esc(restaurant),
-                        SANS,
                         SANS,
                         SERIF,
                         esc(title),
-                        SANS,
                         SERIF,
                         esc(customer),
                         esc(body),
+                        details,
                         SANS,
-                        SERIF,
-                        esc(code),
-                        grid,
-                        SANS,
-                        SERIF,
                         SERIF,
                         esc(restaurant),
                         SANS,
-                        footer,
-                        SANS);
-    }
-
-    private static String cell(String[] row) {
-        return """
-                <td width="50%%" valign="top" style="background:#fbf3e4;border-left:3px solid #c9a24a;\
-                padding:14px 16px"><div style="font-family:%s;font-size:11px;letter-spacing:2px;\
-                text-transform:uppercase;color:#a8854f">%s</div><div style="font-family:%s;\
-                font-size:19px;color:#5c0000;margin-top:4px">%s</div></td>"""
-                .formatted(SANS, esc(row[0]), SERIF, esc(row[1]));
+                        footer);
     }
 
     private static String esc(String value) {
