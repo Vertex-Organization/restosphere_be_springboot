@@ -12,6 +12,7 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
@@ -76,15 +77,17 @@ public class ReservationMailer {
                         log.warn("Reservation email to {} failed: {}", code, e.getMessage());
                     }
                 };
+        // SMTP can take tens of seconds; never make the HTTP request wait for it.
+        Runnable background = () -> CompletableFuture.runAsync(task);
         if (TransactionSynchronizationManager.isSynchronizationActive())
             TransactionSynchronizationManager.registerSynchronization(
                     new TransactionSynchronization() {
                         @Override
                         public void afterCommit() {
-                            task.run();
+                            background.run();
                         }
                     });
-        else task.run();
+        else background.run();
     }
 
     static Content render(
