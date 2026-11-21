@@ -140,7 +140,7 @@ public class WorkspaceServiceImpl implements WorkspaceService {
         var r = db.get(Reservation.class, required(c, "id", 100));
         String reason = required(c, "reason", 200);
         if (reason.length() < 5) {
-            throw invalid("Lý do cần từ 5 đến 200 ký tự.");
+            throw invalid("reason", "Lý do cần từ 5 đến 200 ký tự.");
         }
         var allowed =
                 Set.of(

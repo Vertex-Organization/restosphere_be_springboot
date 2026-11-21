@@ -28,7 +28,9 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(ApiException.class)
     ProblemDetail handleApi(ApiException ex) {
-        return ProblemDetail.forStatusAndDetail(ex.getStatus(), ex.getMessage());
+        ProblemDetail body = ProblemDetail.forStatusAndDetail(ex.getStatus(), ex.getMessage());
+        if (ex.getField() != null) body.setProperty("field", ex.getField());
+        return body;
     }
 
     // Lưới an toàn khi hai request cùng qua existsBy... rồi va unique constraint.

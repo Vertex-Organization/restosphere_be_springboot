@@ -483,6 +483,86 @@ class ReceptionWorkflowTests {
     }
 
     @Test
+    void reservationInputErrorsExposeFieldsOverHttp() throws Exception {
+        db.lock().setOpeningHours(null);
+        db.lock().setOnlineReservations(true);
+        var area = area("Validation");
+        table(area, 200);
+        var staff = user(Role.RECEPTIONIST);
+        var day = LocalDate.now(ZoneId.of(db.lock().getTimezone())).plusDays(2).toString();
+        for (boolean web : List.of(true, false)) {
+            var cases = new LinkedHashMap<String, Object>();
+            cases.put("name", "");
+            cases.put("phone", "abc");
+            cases.put("email", "invalid");
+            cases.put("date", "2026-99-99");
+            cases.put("time", "99:00");
+            cases.put("startsAt", "invalid");
+            cases.put("guests", 0);
+            cases.put(web ? "durationMinutes" : "duration", 14);
+            cases.put(web ? "note" : "notes", "x".repeat(1001));
+            cases.put("occasion", "x".repeat(151));
+            cases.put("specialRequests", "x".repeat(256));
+            cases.put(web ? "items" : "preorder", "invalid");
+            for (var invalid : cases.entrySet()) {
+                var input = hoursInput(day, "12:00", area);
+                input.put(invalid.getKey(), invalid.getValue());
+                if (!web) {
+                    input.put(
+                            "customer",
+                            map("name", input.remove("name"), "phone", input.remove("phone")));
+                }
+                assertFieldError(
+                        web ? null : staff,
+                        web ? input : map("type", "create", "input", input),
+                        invalid.getKey());
+            }
+        }
+        var booking = staffBooking(staff, area, table(area, 4), 1800, 120, "0902000099");
+        assertFieldError(staff, map("type", "assign", "id", id(booking), "tableId", ""), "tableId");
+        assertFieldError(staff, map("type", "cancel", "id", id(booking), "reason", ""), "reason");
+        assertFieldError(
+                staff,
+                map("type", "request-exception", "id", id(booking), "reason", "x"),
+                "reason");
+        booking.setStatus(Reservation.Status.CONFIRMED);
+        assertFieldError(
+                staff,
+                map("type", "check-in", "id", id(booking), "actualGuests", 0),
+                "actualGuests");
+        assertEquals(Reservation.Status.CONFIRMED, booking.getStatus());
+    }
+
+    void assertFieldError(User staff, Map<String, Object> body, String field) throws Exception {
+        var request =
+                MockMvcRequestBuilders.post(
+                                staff == null
+                                        ? "/api/v1/reservations"
+                                        : "/api/v1/workspaces/staff/commands")
+                        .contentType("application/json")
+                        .content(
+                                new tools.jackson.databind.ObjectMapper().writeValueAsString(body));
+        if (staff != null) {
+            request.with(
+                    org.springframework.security.test.web.servlet.request
+                            .SecurityMockMvcRequestPostProcessors.jwt()
+                            .jwt(j -> j.subject(id(staff))));
+        }
+        mvc.perform(request)
+                .andExpect(
+                        org.springframework.test.web.servlet.result.MockMvcResultMatchers.status()
+                                .isBadRequest())
+                .andExpect(
+                        org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                                        "$.field")
+                                .value(field))
+                .andExpect(
+                        org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                                        "$.detail")
+                                .isNotEmpty());
+    }
+
+    @Test
     void publicEndpointsAreRateLimited() throws Exception {
         int last = 0;
         for (int i = 0; i < 25; i++) {

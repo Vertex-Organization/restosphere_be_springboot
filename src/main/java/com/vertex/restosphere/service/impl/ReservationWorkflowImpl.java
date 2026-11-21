@@ -123,7 +123,8 @@ public class ReservationWorkflowImpl implements ReservationWorkflow {
                 "CREATED",
                 walkIn ? "Khách trực tiếp đã đến" : web ? "Khách đặt bàn qua web" : "Tạo lịch đặt");
         String tableId = text(input, "tableId");
-        if (walkIn && tableId.isEmpty()) throw invalid("Chọn bàn trống cho khách trực tiếp.");
+        if (walkIn && tableId.isEmpty())
+            throw invalid("tableId", "Chọn bàn trống cho khách trực tiếp.");
         if (!web && !tableId.isEmpty()) assign(r, tableId);
         if (walkIn) {
             var table = assignment(r).getTable();
@@ -173,37 +174,44 @@ public class ReservationWorkflowImpl implements ReservationWorkflow {
         String name = text(customer, "name");
         if (name.isEmpty() && walkIn) name = "Khách trực tiếp";
         if (name.isEmpty() || name.length() > 150)
-            throw invalid("Vui lòng nhập tên khách (tối đa 150 ký tự).");
+            throw invalid("name", "Vui lòng nhập tên khách (tối đa 150 ký tự).");
         r.setCustomerName(name);
         String phone = phone(customer);
-        if (!phone.matches("\\+?[0-9]{8,15}")) throw invalid("Số điện thoại không hợp lệ.");
+        if (!phone.matches("\\+?[0-9]{8,15}"))
+            throw invalid("phone", "Số điện thoại không hợp lệ.");
         r.setPhone(phone);
         String email = text(input, "email");
         if (!email.isEmpty()
                 && (!email.matches("[^\\s@]+@[^\\s@]+\\.[^\\s@]+") || email.length() > 254))
-            throw invalid("Email không hợp lệ.");
+            throw invalid("email", "Email không hợp lệ.");
         r.setEmail(email);
         r.setGuestCount(integer(input, "guests", 1, 200));
         String areaId = required(input, "areaId", 100);
         r.setArea(db.get(Area.class, areaId));
         Instant start;
+        String startField = text(input, "startsAt").isEmpty() ? "date" : "startsAt";
         try {
-            start =
-                    text(input, "startsAt").isEmpty()
-                            ? LocalDateTime.parse(
-                                            required(input, "date", 10)
-                                                    + "T"
-                                                    + required(input, "time", 5))
-                                    .atZone(ZoneId.of(db.lock().getTimezone()))
-                                    .toInstant()
-                            : Instant.parse(text(input, "startsAt"));
+            if (startField.equals("date")) {
+                String date = required(input, "date", 10);
+                String time = required(input, "time", 5);
+                LocalDate.parse(date);
+                startField = "time";
+                start =
+                        LocalDateTime.parse(date + "T" + time)
+                                .atZone(ZoneId.of(db.lock().getTimezone()))
+                                .toInstant();
+            } else {
+                start = Instant.parse(text(input, "startsAt"));
+            }
         } catch (DateTimeException e) {
-            throw invalid("Ngày giờ đặt bàn không hợp lệ.");
+            throw invalid(startField, "Ngày giờ đặt bàn không hợp lệ.");
         }
         boolean moved = r.getStartsAt() == null || !start.equals(r.getStartsAt());
         if (moved && start.isBefore(Instant.now().minusSeconds(walkIn ? 1800 : 60))
                 || start.isAfter(Instant.now().plus(Duration.ofDays(365))))
-            throw invalid("Không đặt bàn vào thời điểm đã qua hoặc quá 365 ngày tới.");
+            throw invalid(
+                    text(input, "startsAt").isEmpty() ? "date" : "startsAt",
+                    "Không đặt bàn vào thời điểm đã qua hoặc quá 365 ngày tới.");
         int duration =
                 input.containsKey(web ? "durationMinutes" : "duration")
                         ? integer(input, web ? "durationMinutes" : "duration", 15, 720)
@@ -215,6 +223,7 @@ public class ReservationWorkflowImpl implements ReservationWorkflow {
             if (m < hours[0] && hours[1] > 1440) m += 1440;
             if (m < hours[0] || (walkIn ? m + 1 : m + duration) > hours[1])
                 throw invalid(
+                        startField,
                         "Giờ đến và thời lượng phải nằm trong giờ mở cửa ("
                                 + db.lock().getOpeningHours()
                                 + ").");
@@ -222,11 +231,14 @@ public class ReservationWorkflowImpl implements ReservationWorkflow {
         r.setStartsAt(start);
         r.setEndsAt(start.plusSeconds(duration * 60L));
         String note = text(input, web ? "note" : "notes");
-        if (note.length() > 1000) throw invalid("Ghi chú tối đa 1000 ký tự.");
+        if (note.length() > 1000)
+            throw invalid(web ? "note" : "notes", "Ghi chú tối đa 1000 ký tự.");
         r.setNote(note);
         String occasion = text(input, "occasion"), special = text(input, "specialRequests");
         if (occasion.length() > 150 || special.length() > 255)
-            throw invalid("Dịp đặc biệt tối đa 150 ký tự, yêu cầu đặc biệt tối đa 255 ký tự.");
+            throw invalid(
+                    occasion.length() > 150 ? "occasion" : "specialRequests",
+                    "Dịp đặc biệt tối đa 150 ký tự, yêu cầu đặc biệt tối đa 255 ký tự.");
         r.setOccasion(occasion);
         r.setSpecialRequests(special);
         int capacity =
@@ -264,20 +276,29 @@ public class ReservationWorkflowImpl implements ReservationWorkflow {
         if (r.getId() != null)
             db.query(ReservationItem.class, "from ReservationItem i where i.reservation=?1", r)
                     .forEach(db::remove);
-        for (var line : lines(input, web ? "items" : "preorder")) {
-            var menu = db.get(MenuItem.class, required(line, web ? "dishId" : "menuItemId", 100));
-            if (menu.getStatus() != MenuItemStatus.AVAILABLE || !menu.getCategory().isVisible())
-                throw ApiException.conflict("Có món đặt trước đã hết hoặc ngừng bán.");
-            var quantity = number(line, "quantity");
-            validateQuantity(menu, quantity);
-            var item = new ReservationItem();
-            item.setReservation(r);
-            item.setMenuItem(menu);
-            item.setQuantity(quantity);
-            item.setUnitPrice(menu.getPrice());
-            if (text(line, "note").length() > 1000) throw invalid("Ghi chú tối đa 1000 ký tự.");
-            item.setNote(text(line, "note"));
-            db.save(item);
+        String field = web ? "items" : "preorder";
+        try {
+            for (var line : lines(input, field)) {
+                var menu =
+                        db.get(MenuItem.class, required(line, web ? "dishId" : "menuItemId", 100));
+                if (menu.getStatus() != MenuItemStatus.AVAILABLE || !menu.getCategory().isVisible())
+                    throw ApiException.conflict("Có món đặt trước đã hết hoặc ngừng bán.");
+                var quantity = number(line, "quantity");
+                validateQuantity(menu, quantity);
+                var item = new ReservationItem();
+                item.setReservation(r);
+                item.setMenuItem(menu);
+                item.setQuantity(quantity);
+                item.setUnitPrice(menu.getPrice());
+                if (text(line, "note").length() > 1000) throw invalid("Ghi chú tối đa 1000 ký tự.");
+                item.setNote(text(line, "note"));
+                db.save(item);
+            }
+        } catch (ApiException e) {
+            if (e.getStatus() == org.springframework.http.HttpStatus.BAD_REQUEST) {
+                throw invalid(field, e.getMessage());
+            }
+            throw e;
         }
     }
 

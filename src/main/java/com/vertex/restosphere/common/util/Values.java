@@ -38,6 +38,10 @@ public final class Values {
         return ApiException.badRequest(message);
     }
 
+    public static ApiException invalid(String field, String message) {
+        return ApiException.badRequest(field, message);
+    }
+
     /** Dựng Map giữ thứ tự chèn, bỏ các cặp có giá trị null. */
     public static Map<String, Object> map(Object... pairs) {
         Map<String, Object> result = new LinkedHashMap<>();
@@ -81,10 +85,10 @@ public final class Values {
     public static String required(Map<String, Object> input, String key, int max) {
         String value = text(input, key);
         if (value.isBlank()) {
-            throw invalid("Vui lòng nhập " + label(key).toLowerCase() + ".");
+            throw invalid(key, "Vui lòng nhập " + label(key).toLowerCase() + ".");
         }
         if (value.length() > max) {
-            throw invalid(label(key) + " tối đa " + max + " ký tự.");
+            throw invalid(key, label(key) + " tối đa " + max + " ký tự.");
         }
         return value;
     }
@@ -93,7 +97,7 @@ public final class Values {
         try {
             return new BigDecimal(input.get(key).toString());
         } catch (Exception e) {
-            throw invalid(label(key) + " không hợp lệ.");
+            throw invalid(key, label(key) + " không hợp lệ.");
         }
     }
 
@@ -101,18 +105,18 @@ public final class Values {
         try {
             int n = number(input, key).intValueExact();
             if (n < min || n > max) {
-                throw invalid(label(key) + " phải từ " + min + " đến " + max + ".");
+                throw invalid(key, label(key) + " phải từ " + min + " đến " + max + ".");
             }
             return n;
         } catch (ArithmeticException e) {
-            throw invalid(label(key) + " phải là số nguyên.");
+            throw invalid(key, label(key) + " phải là số nguyên.");
         }
     }
 
     @SuppressWarnings("unchecked")
     public static Map<String, Object> object(Map<String, Object> input, String key) {
         if (!(input.get(key) instanceof Map)) {
-            throw invalid("Thiếu thông tin " + label(key).toLowerCase() + ".");
+            throw invalid(key, "Thiếu thông tin " + label(key).toLowerCase() + ".");
         }
         return (Map<String, Object>) input.get(key);
     }
