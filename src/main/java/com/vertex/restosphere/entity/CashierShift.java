@@ -10,7 +10,12 @@ import org.hibernate.annotations.Check;
 @Getter
 @Setter
 @Entity
-@Table(name = "cashier_shifts")
+@Table(
+        name = "cashier_shifts",
+        indexes = {
+            @Index(name = "idx_cashier_shifts_c", columnList = "a"),
+            @Index(name = "idx_cashier_shifts_c", columnList = "a")
+        })
 @Check(
         constraints =
                 "opening_cash >= 0 and (counted_cash is null or counted_cash >= 0) and (closed_at"

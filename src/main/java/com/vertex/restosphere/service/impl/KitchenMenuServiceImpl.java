@@ -93,7 +93,7 @@ public class KitchenMenuServiceImpl implements KitchenMenuService {
         r.setTargetId(menu.getId());
         r.setAmount(BigDecimal.ZERO);
         r.setReason("Menu availability: " + status);
-        r.setMenuStatus(status.name());
+        r.setMenuStatus(status);
         r.setRequestedBy(user);
         approvals.save(r);
         writes.commit(user, "request-menu-status");

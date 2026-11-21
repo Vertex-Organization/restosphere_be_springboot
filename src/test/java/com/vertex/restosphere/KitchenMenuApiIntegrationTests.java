@@ -178,7 +178,7 @@ class KitchenMenuApiIntegrationTests extends KitchenApiTestBase {
         assertThat(stored.getType()).isEqualTo(ApprovalRequest.Type.MENU_STATUS);
         assertThat(stored.getTargetType()).isEqualTo("MENU_ITEM");
         assertThat(stored.getReason()).isEqualTo("Menu availability: SOLD_OUT");
-        assertThat(stored.getMenuStatus()).isEqualTo("SOLD_OUT");
+        assertThat(stored.getMenuStatus()).isEqualTo(MenuItemStatus.SOLD_OUT);
         assertThat(stored.getAmount()).isEqualByComparingTo(BigDecimal.ZERO);
     }
 
@@ -247,7 +247,7 @@ class KitchenMenuApiIntegrationTests extends KitchenApiTestBase {
         decided.setTargetType("MENU_ITEM");
         decided.setTargetId(a.getId());
         decided.setReason("Menu availability: SOLD_OUT");
-        decided.setMenuStatus("SOLD_OUT");
+        decided.setMenuStatus(MenuItemStatus.SOLD_OUT);
         decided.setRequestedBy(kitchen);
         decided.setStatus(ApprovalRequest.Status.APPROVED);
         decided.setDecidedBy(waiter);

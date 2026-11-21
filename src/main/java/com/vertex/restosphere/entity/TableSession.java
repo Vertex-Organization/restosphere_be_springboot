@@ -9,7 +9,12 @@ import org.hibernate.annotations.Check;
 @Getter
 @Setter
 @Entity
-@Table(name = "table_sessions")
+@Table(
+        name = "table_sessions",
+        indexes = {
+            @Index(name = "idx_table_sessions_table_status", columnList = "table_id, status"),
+            @Index(name = "idx_table_sessions_waiter_status", columnList = "waiter_id, status")
+        })
 @Check(constraints = "guest_count > 0 and (ended_at is null or ended_at >= started_at)")
 public class TableSession extends BaseEntity {
     private Instant acceptedAt;

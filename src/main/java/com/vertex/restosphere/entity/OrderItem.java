@@ -10,7 +10,13 @@ import org.hibernate.annotations.Check;
 @Getter
 @Setter
 @Entity
-@Table(name = "order_items")
+@Table(
+        name = "order_items",
+        indexes = {
+            @Index(name = "idx_order_items_order_id", columnList = "order_id"),
+            @Index(name = "idx_order_items_menu_item_id", columnList = "menu_item_id"),
+            @Index(name = "idx_order_items_status", columnList = "status")
+        })
 @Check(constraints = "quantity > 0 and unit_price >= 0")
 public class OrderItem extends BaseEntity {
     public enum Status {

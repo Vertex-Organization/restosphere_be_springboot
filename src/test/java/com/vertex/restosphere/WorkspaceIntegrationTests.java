@@ -234,7 +234,7 @@ class WorkspaceIntegrationTests {
         var item = new MenuItem();
         assertThrows(
                 ApiException.class, () -> Values.validateQuantity(item, new BigDecimal("1.5")));
-        item.setPriceUnit("kg");
+        item.setPriceUnit(PriceUnit.KG);
         assertDoesNotThrow(() -> Values.validateQuantity(item, new BigDecimal("1.125")));
         assertEquals(
                 new BigDecimal("125001"),

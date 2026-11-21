@@ -3,8 +3,8 @@ package com.vertex.restosphere.mapper;
 import static com.vertex.restosphere.common.util.Values.id;
 import static com.vertex.restosphere.common.util.Values.map;
 
+import com.vertex.restosphere.entity.AuditLog;
 import com.vertex.restosphere.entity.Reservation;
-import com.vertex.restosphere.entity.ReservationHistory;
 import com.vertex.restosphere.entity.ReservationItem;
 import com.vertex.restosphere.entity.ReservationTable;
 import java.time.Duration;
@@ -19,16 +19,15 @@ import org.springframework.stereotype.Component;
 @Component
 public class ReservationMapper {
 
-    public static final Comparator<ReservationHistory> HISTORY_ORDER =
-            Comparator.comparing(ReservationHistory::getCreatedAt)
-                    .thenComparing(h -> h.getId().toString());
+    public static final Comparator<AuditLog> HISTORY_ORDER =
+            Comparator.comparing(AuditLog::getCreatedAt).thenComparing(h -> h.getId().toString());
 
     /** Bản đầy đủ cho nhân viên; {@code history} phải đã sắp theo {@link #HISTORY_ORDER}. */
     public Map<String, Object> toStaffMap(
             Reservation r,
             ReservationTable assignment,
             List<ReservationItem> preorder,
-            List<ReservationHistory> history) {
+            List<AuditLog> history) {
         return map(
                 "id",
                 id(r),

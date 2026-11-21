@@ -20,7 +20,7 @@ INSERT INTO areas (id, name, created_at, updated_at) VALUES
 ('10000000-0000-0000-0000-000000000002', 'Khu B · Tầng 1', now(), now())
 ON CONFLICT DO NOTHING;
 
-INSERT INTO tables (id, code, area_id, capacity, status, created_at, updated_at)
+INSERT INTO restaurant_tables (id, code, area_id, capacity, status, created_at, updated_at)
 SELECT md5('restosphere:table:' || zone || n)::uuid,
        zone || lpad(n::text, 2, '0'), a.id,
        CASE WHEN (n - 1) % 3 = 0 THEN 6 ELSE 4 END,
@@ -102,10 +102,10 @@ FROM (VALUES
 ) AS photos(slug, version)
 WHERE m.id = md5('restosphere:menu:' || photos.slug)::uuid AND m.image_url IS NULL;
 
-INSERT INTO audit_logs (id, actor_id, action, target_type, target_id, description, created_at, updated_at)
+INSERT INTO audit_logs (id, actor_id, action, target_type, target_id, description, created_at)
 VALUES (md5('restosphere:seed:anchor')::uuid, md5('restosphere:demo:admin')::uuid,
         'DEMO_SEED', 'USER', md5('restosphere:demo:admin')::uuid,
-        'Seven-day demo anchor; retain this row when reapplying the dataset.', now(), now())
+        'Seven-day demo anchor; retain this row when reapplying the dataset.', now())
 ON CONFLICT DO NOTHING;
 
 CREATE TEMP TABLE demo_cases ON COMMIT DROP AS
@@ -136,10 +136,10 @@ SELECT md5('restosphere:seed:shift:' || d)::uuid, 'DEMO · Ca phục vụ ' || (
 FROM demo_cases CROSS JOIN generate_series(-6, 0) d WHERE n = 1
 ON CONFLICT DO NOTHING;
 
-INSERT INTO shift_assignments (id, shift_id, user_id, created_at, updated_at)
+INSERT INTO shift_assignments (id, shift_id, user_id, created_at)
 SELECT md5('restosphere:seed:staff:' || d || ':' || account)::uuid,
        md5('restosphere:seed:shift:' || d)::uuid, md5('restosphere:demo:' || account)::uuid,
-       anchor - interval '7 days', anchor - interval '7 days'
+       anchor - interval '7 days'
 FROM demo_cases CROSS JOIN generate_series(-6, 0) d
 CROSS JOIN unnest(ARRAY['manager','cashier','kitchen','receptionist','waiter','waiter2']) account WHERE n = 1
 ON CONFLICT DO NOTHING;
@@ -167,7 +167,7 @@ SELECT md5('restosphere:seed:reservation:' || n)::uuid, 'DEMO-R-' || lpad(n::tex
        CASE WHEN n % 3 = 0 THEN 'Sinh nhật' ELSE 'Bữa ăn gia đình' END,
        CASE WHEN n % 3 = 0 THEN 'Không dùng đậu phộng' ELSE 'Ít cay' END,
        c.starts_at - interval '1 day', c.starts_at
-FROM demo_cases c JOIN tables t ON t.id = md5('restosphere:table:' || left(table_code, 1) || substring(table_code from 2)::int)::uuid
+FROM demo_cases c JOIN restaurant_tables t ON t.id = md5('restosphere:table:' || left(table_code, 1) || substring(table_code from 2)::int)::uuid
 ON CONFLICT DO NOTHING;
 
 INSERT INTO reservations
@@ -184,13 +184,13 @@ FROM demo_cases CROSS JOIN (VALUES
 ) extra(k, status, hours, reason) WHERE n = 1
 ON CONFLICT DO NOTHING;
 
-INSERT INTO reservation_tables (id, reservation_id, table_id, created_at, updated_at)
+INSERT INTO reservation_tables (id, reservation_id, table_id, created_at)
 SELECT md5('restosphere:seed:assignment:' || n)::uuid, md5('restosphere:seed:reservation:' || n)::uuid,
-       md5('restosphere:table:' || left(table_code, 1) || substring(table_code from 2)::int)::uuid, starts_at - interval '1 day', starts_at - interval '1 day'
+       md5('restosphere:table:' || left(table_code, 1) || substring(table_code from 2)::int)::uuid, starts_at - interval '1 day'
 FROM demo_cases
 UNION ALL
 SELECT md5('restosphere:seed:assignment:' || k)::uuid, md5('restosphere:seed:reservation:' || k)::uuid,
-       md5('restosphere:table:A' || (k - 23))::uuid, anchor - interval '1 hour', anchor - interval '1 hour'
+       md5('restosphere:table:A' || (k - 23))::uuid, anchor - interval '1 hour'
 FROM demo_cases CROSS JOIN generate_series(28, 29) k WHERE n = 1
 ON CONFLICT DO NOTHING;
 
@@ -200,14 +200,12 @@ FROM generate_series(1, 29) k JOIN reservations r ON r.id = md5('restosphere:see
 CROSS JOIN menu_items m WHERE m.id = md5('restosphere:menu:seafood-rice')::uuid
 ON CONFLICT DO NOTHING;
 
-INSERT INTO reservation_histories
-(id, reservation_id, actor_id, action, previous_status, new_status, description, created_at, updated_at)
-SELECT md5('restosphere:seed:history:' || k || ':' || step)::uuid, r.id,
+INSERT INTO audit_logs
+(id, target_type, target_id, actor_id, action, description, created_at)
+SELECT md5('restosphere:seed:history:' || k || ':' || step)::uuid, 'RESERVATION', r.id,
        md5('restosphere:demo:receptionist')::uuid,
        CASE WHEN step = 0 THEN 'CREATE' ELSE r.status END,
-       CASE WHEN step > 0 THEN 'PENDING' END, CASE WHEN step = 0 THEN 'PENDING' ELSE r.status END,
        CASE WHEN step = 0 THEN 'Tiếp nhận đặt bàn demo' ELSE 'Cập nhật đặt bàn: ' || r.status END,
-       CASE WHEN step = 0 THEN r.created_at ELSE r.updated_at END,
        CASE WHEN step = 0 THEN r.created_at ELSE r.updated_at END
 FROM generate_series(1, 32) k JOIN reservations r ON r.id = md5('restosphere:seed:reservation:' || k)::uuid
 CROSS JOIN generate_series(0, 1) step WHERE step = 0 OR r.status <> 'PENDING'
@@ -226,7 +224,7 @@ SELECT md5('restosphere:seed:session:' || n)::uuid, md5('restosphere:table:' || 
        starts_at, starts_at FROM demo_cases
 ON CONFLICT DO NOTHING RETURNING table_id, status
 )
-UPDATE tables t SET status = 'OCCUPIED'
+UPDATE restaurant_tables t SET status = 'OCCUPIED'
 FROM inserted i WHERE t.id = i.table_id AND i.status <> 'CLOSED' AND t.status = 'AVAILABLE';
 
 INSERT INTO orders (id, session_id, waiter_id, round_number, priority_at, priority_by_id, priority_reason, created_at, updated_at)
@@ -268,7 +266,7 @@ CROSS JOIN LATERAL (SELECT CASE
  ELSE 'SERVED' END AS state) states
 ON CONFLICT DO NOTHING;
 
-INSERT INTO order_draft (id, session_id, waiter_id, menu_item_id, quantity, note, created_at, updated_at)
+INSERT INTO order_drafts (id, session_id, waiter_id, menu_item_id, quantity, note, created_at, updated_at)
 SELECT md5('restosphere:seed:draft')::uuid, s.id, s.waiter_id, md5('restosphere:menu:lemonade')::uuid,
        2, 'Không đường, chưa gửi bếp', anchor - interval '5 minutes', anchor - interval '5 minutes'
 FROM demo_cases c JOIN table_sessions s ON s.id = md5('restosphere:seed:session:19')::uuid WHERE n = 19
@@ -385,20 +383,20 @@ FROM demo_cases CROSS JOIN (VALUES
 ) messages(k,title,body,kind,path,role) WHERE n = 1
 ON CONFLICT DO NOTHING;
 
-INSERT INTO notification_reads (id, notification_id, user_id, read_at, created_at, updated_at)
+INSERT INTO notification_reads (id, notification_id, user_id, read_at, created_at)
 SELECT md5('restosphere:seed:read:' || k)::uuid, md5('restosphere:seed:notification:' || k)::uuid,
-       md5('restosphere:demo:' || account)::uuid, anchor - interval '1 minute', anchor - interval '1 minute', anchor - interval '1 minute'
+       md5('restosphere:demo:' || account)::uuid, anchor - interval '1 minute', anchor - interval '1 minute'
 FROM demo_cases CROSS JOIN (VALUES (2,'waiter2'),(4,'waiter'),(6,'kitchen')) receipts(k,account) WHERE n = 1
 ON CONFLICT DO NOTHING;
 
-INSERT INTO audit_logs (id, actor_id, action, target_type, target_id, description, created_at, updated_at)
+INSERT INTO audit_logs (id, actor_id, action, target_type, target_id, description, created_at)
 SELECT md5('restosphere:seed:audit:bill:' || n)::uuid, md5('restosphere:demo:cashier')::uuid,
        CASE WHEN n <= 18 THEN 'PAYMENT_COMPLETED' WHEN n = 26 THEN 'BILL_VOIDED' ELSE 'BILL_CREATED' END,
        'BILL', md5('restosphere:seed:bill:' || n)::uuid,
        'DEMO · ' || CASE WHEN n <= 18 THEN 'Đã thu đủ và đóng phiên'
                         WHEN n = 26 THEN 'Khách rời đi trước khi chế biến, toàn bộ món đã hủy'
                         ELSE 'Phiên phục vụ đang hoạt động' END,
-       starts_at + interval '65 minutes', starts_at + interval '65 minutes'
+       starts_at + interval '65 minutes'
 FROM demo_cases
 ON CONFLICT DO NOTHING;
 

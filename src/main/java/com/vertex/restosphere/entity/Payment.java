@@ -10,8 +10,14 @@ import org.hibernate.annotations.Check;
 @Getter
 @Setter
 @Entity
-@Table(name = "payments")
-@Check(constraints = "amount > 0")
+@Table(
+        name = "payments",
+        indexes = {
+            @Index(name = "idx_payments_bill_status", columnList = "bill_id, status"),
+            @Index(name = "idx_payments_shift_status", columnList = "cashier_shift_id, status"),
+            @Index(name = "idx_payments_paid_at", columnList = "paid_at")
+        })
+@Check(constraints = "amount > 0 and (tendered is null or tendered >= 0)")
 public class Payment extends BaseEntity {
     public enum Method {
         CASH,
@@ -26,11 +32,16 @@ public class Payment extends BaseEntity {
         CANCELLED
     }
 
-    @Column(unique = true)
+    @Column(unique = true, length = 150)
     private String idempotencyKey;
 
+    @Column(precision = 14, scale = 0)
     private BigDecimal tendered;
+
+    @Column(length = 254)
     private String createdBy;
+
+    @Column(length = 254)
     private String verifiedBy;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)

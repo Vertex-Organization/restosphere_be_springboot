@@ -1,5 +1,6 @@
 package com.vertex.restosphere.entity;
 
+import com.vertex.restosphere.common.enums.DiscountMode;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -10,7 +11,12 @@ import org.hibernate.annotations.Check;
 @Getter
 @Setter
 @Entity
-@Table(name = "bills")
+@Table(
+        name = "bills",
+        indexes = {
+            @Index(name = "idx_bills_status", columnList = "status"),
+            @Index(name = "idx_bills_created_at", columnList = "created_at")
+        })
 @Check(
         constraints =
                 "subtotal >= 0 and discount >= 0 and tax_amount >= 0 and service_charge >= 0 and"
@@ -18,10 +24,20 @@ import org.hibernate.annotations.Check;
 public class Bill extends BaseEntity {
     @Version private long version;
     private Instant requestedAt;
-    private String discountMode;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    private DiscountMode discountMode;
+
+    @Column(precision = 14, scale = 2)
     private BigDecimal discountValue;
+
+    @Column(length = 1000)
     private String discountReason;
+
+    @Column(length = 254)
     private String discountAppliedBy;
+
     private Instant discountAppliedAt;
 
     public enum Status {

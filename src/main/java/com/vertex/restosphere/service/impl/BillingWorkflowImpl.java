@@ -3,6 +3,7 @@ package com.vertex.restosphere.service.impl;
 import static com.vertex.restosphere.common.util.Values.id;
 import static com.vertex.restosphere.common.util.Values.whole;
 
+import com.vertex.restosphere.common.enums.DiscountMode;
 import com.vertex.restosphere.common.enums.Role;
 import com.vertex.restosphere.entity.*;
 import com.vertex.restosphere.exception.ApiException;
@@ -49,7 +50,7 @@ public class BillingWorkflowImpl implements BillingWorkflow {
         BigDecimal discount =
                 b.getDiscountValue() == null
                         ? BigDecimal.ZERO
-                        : "PERCENT".equals(b.getDiscountMode())
+                        : b.getDiscountMode() == DiscountMode.PERCENT
                                 ? whole(subtotal.multiply(b.getDiscountValue()).movePointLeft(2))
                                 : b.getDiscountValue();
         discount = discount.min(subtotal);
@@ -95,7 +96,8 @@ public class BillingWorkflowImpl implements BillingWorkflow {
     }
 
     @Override
-    public void applyDiscount(Bill b, String mode, BigDecimal value, String reason, User user) {
+    public void applyDiscount(
+            Bill b, DiscountMode mode, BigDecimal value, String reason, User user) {
         b.setDiscountMode(mode);
         b.setDiscountValue(value);
         b.setDiscountReason(reason);
@@ -209,9 +211,7 @@ public class BillingWorkflowImpl implements BillingWorkflow {
                 }
                 case MENU_STATUS ->
                         db.get(MenuItem.class, r.getTargetId().toString())
-                                .setStatus(
-                                        com.vertex.restosphere.common.enums.MenuItemStatus.valueOf(
-                                                r.getMenuStatus()));
+                                .setStatus(r.getMenuStatus());
                 case RESERVATION -> {
                     var reservation = db.get(Reservation.class, r.getTargetId().toString());
                     if (reservation.getStatus() == Reservation.Status.PENDING

@@ -9,7 +9,12 @@ import org.hibernate.annotations.Check;
 @Getter
 @Setter
 @Entity
-@Table(name = "reservation_items")
+@Table(
+        name = "reservation_items",
+        indexes = {
+            @Index(name = "idx_reservation_items_reservation_id", columnList = "reservation_id"),
+            @Index(name = "idx_reservation_items_menu_item_id", columnList = "menu_item_id")
+        })
 @Check(constraints = "quantity > 0 and unit_price >= 0")
 public class ReservationItem extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)

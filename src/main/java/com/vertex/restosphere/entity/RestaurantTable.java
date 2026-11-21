@@ -6,6 +6,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
+import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
@@ -17,7 +18,12 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 @Entity
-@Table(name = "tables")
+@Table(
+        name = "restaurant_tables",
+        indexes = {
+            @Index(name = "idx_restaurant_tables_a", columnList = "r"),
+            @Index(name = "idx_restaurant_tables_a", columnList = "r")
+        })
 public class RestaurantTable extends BaseEntity {
 
     @Column(nullable = false, unique = true, length = 30)

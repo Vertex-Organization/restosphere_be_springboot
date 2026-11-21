@@ -8,7 +8,13 @@ import lombok.Setter;
 @Getter
 @Setter
 @Entity
-@Table(name = "notifications")
+@Table(
+        name = "notifications",
+        indexes = {
+            @Index(name = "idx_notifications_audience_role", columnList = "audience_role"),
+            @Index(name = "idx_notifications_recipient_id", columnList = "recipient_id"),
+            @Index(name = "idx_notifications_created_at", columnList = "created_at")
+        })
 public class Notification extends BaseEntity {
     @Column(nullable = false, length = 200)
     private String title;

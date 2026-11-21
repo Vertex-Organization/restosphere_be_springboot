@@ -69,7 +69,7 @@ class RestosphereBeSpringbootApplicationTests {
                     var result =
                             statement.executeQuery(
                                     "select (select count(*) from areas), (select count(*) from"
-                                            + " tables), (select count(*) from menu_categories),"
+                                            + " restaurant_tables), (select count(*) from menu_categories),"
                                             + " (select count(*) from menu_items), (select count(*)"
                                             + " from menu_items where image_url like"
                                             + " 'https://res.cloudinary.com/dkm4rdx48/image/upload/%/restosphere/menu/%.jpg')")) {
@@ -89,18 +89,17 @@ class RestosphereBeSpringbootApplicationTests {
                 new String[] {
                     "users",
                     "areas",
-                    "tables",
+                    "restaurant_tables",
                     "menu_categories",
                     "menu_items",
                     "restaurant_settings",
                     "reservations",
                     "reservation_tables",
                     "reservation_items",
-                    "reservation_histories",
                     "table_sessions",
                     "orders",
                     "order_items",
-                    "order_draft",
+                    "order_drafts",
                     "bills",
                     "payments",
                     "shifts",
@@ -225,7 +224,7 @@ class RestosphereBeSpringbootApplicationTests {
                         connection,
                         """
                 select count(*) from table_sessions s join reservations r on r.id=s.reservation_id
-                join tables t on t.id=s.table_id where r.area_id<>t.area_id or s.guest_count>t.capacity
+                join restaurant_tables t on t.id=s.table_id where r.area_id<>t.area_id or s.guest_count>t.capacity
                 or not exists (select 1 from reservation_tables rt where rt.reservation_id=r.id and rt.table_id=t.id)
                 or (s.status<>'CLOSED' and (t.status<>'OCCUPIED' or r.status<>'SEATED'))
                 """));

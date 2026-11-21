@@ -1,6 +1,7 @@
 package com.vertex.restosphere.dto.response;
 
 import com.vertex.restosphere.common.enums.MenuItemStatus;
+import com.vertex.restosphere.common.enums.PriceUnit;
 import com.vertex.restosphere.entity.MenuItem;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -15,7 +16,7 @@ public record MenuItemResponse(
         String description,
         String imageUrl,
         MenuItemStatus status,
-        String unit,
+        PriceUnit unit,
         Instant updatedAt) {
 
     public static MenuItemResponse from(MenuItem i) {

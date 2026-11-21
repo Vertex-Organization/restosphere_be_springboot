@@ -9,8 +9,9 @@ import lombok.Setter;
 @Entity
 @Table(
         name = "shift_assignments",
-        uniqueConstraints = @UniqueConstraint(columnNames = {"shift_id", "user_id"}))
-public class ShiftAssignment extends BaseEntity {
+        uniqueConstraints = @UniqueConstraint(columnNames = {"shift_id", "user_id"}),
+        indexes = @Index(name = "idx_shift_assignments_user_id", columnList = "user_id"))
+public class ShiftAssignment extends ImmutableEntity {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "shift_id", nullable = false)
     private Shift shift;
