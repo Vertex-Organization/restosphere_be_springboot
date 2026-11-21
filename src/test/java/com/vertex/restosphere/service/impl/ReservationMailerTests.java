@@ -3,9 +3,13 @@ package com.vertex.restosphere.service.impl;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.vertex.restosphere.entity.Area;
+import com.vertex.restosphere.entity.MenuItem;
 import com.vertex.restosphere.entity.Reservation;
+import com.vertex.restosphere.entity.ReservationItem;
 import com.vertex.restosphere.entity.RestaurantSettings;
+import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class ReservationMailerTests {
@@ -25,7 +29,7 @@ class ReservationMailerTests {
         r.setGuestCount(4);
         r.setArea(area);
 
-        var mail = ReservationMailer.render(r, settings, "Đã xác nhận", "Hẹn gặp bạn!");
+        var mail = ReservationMailer.render(r, settings, "Đã xác nhận", "Hẹn gặp bạn!", List.of());
 
         assertEquals("[Sea's Crown] Đã xác nhận - RS-211126-001", mail.subject());
         assertTrue(mail.html().contains("12:00 – 14:00"), "time shown in Asia/Ho_Chi_Minh");
@@ -53,9 +57,60 @@ class ReservationMailerTests {
         r.setStartsAt(Instant.parse("2026-11-22T05:00:00Z"));
         r.setGuestCount(2);
 
-        var mail = ReservationMailer.render(r, settings, "Đã nhận", "Cảm ơn");
+        var mail = ReservationMailer.render(r, settings, "Đã nhận", "Cảm ơn", List.of());
 
         assertFalse(mail.inlineLogo());
         assertTrue(mail.html().contains("https://cdn.example.com/logo.png"));
+    }
+
+    @Test
+    void listsPreorderedDishesWithImagesQuantitiesAndSubtotal() {
+        var settings = new RestaurantSettings();
+        settings.setName("Sea's Crown");
+        var r = new Reservation();
+        r.setCode("RS-211126-003");
+        r.setCustomerName("An");
+        r.setStartsAt(Instant.parse("2026-11-22T05:00:00Z"));
+        r.setGuestCount(2);
+        var crab = new MenuItem();
+        crab.setName("Cua hoàng đế");
+        crab.setPriceUnit("kg");
+        crab.setImageUrl("https://cdn.example.com/crab.jpg");
+        var shrimp = new MenuItem();
+        shrimp.setName("Tôm sốt tỏi");
+        var a = new ReservationItem();
+        a.setMenuItem(crab);
+        a.setQuantity(new BigDecimal("1.500"));
+        a.setUnitPrice(new BigDecimal("1200000"));
+        var b = new ReservationItem();
+        b.setMenuItem(shrimp);
+        b.setQuantity(new BigDecimal("2"));
+        b.setUnitPrice(new BigDecimal("320000"));
+
+        var mail = ReservationMailer.render(r, settings, "Đã nhận", "Cảm ơn", List.of(a, b));
+
+        assertTrue(mail.html().contains("Món đặt trước"));
+        assertTrue(mail.html().contains("https://cdn.example.com/crab.jpg"));
+        assertTrue(mail.html().contains("1.5 kg"));
+        assertTrue(mail.html().contains("× 2"));
+        assertTrue(mail.html().contains("2.440.000đ"), "1.5 × 1.200.000 + 2 × 320.000");
+        assertTrue(mail.text().contains("- Tôm sốt tỏi × 2: 640.000đ"));
+        assertTrue(mail.text().contains("Tạm tính: 2.440.000đ"));
+    }
+
+    @Test
+    void omitsPreorderSectionWhenNothingWasOrdered() {
+        var settings = new RestaurantSettings();
+        settings.setName("Sea's Crown");
+        var r = new Reservation();
+        r.setCode("RS-211126-004");
+        r.setCustomerName("An");
+        r.setStartsAt(Instant.parse("2026-11-22T05:00:00Z"));
+        r.setGuestCount(2);
+
+        var mail = ReservationMailer.render(r, settings, "Đã nhận", "Cảm ơn", List.of());
+
+        assertFalse(mail.html().contains("Món đặt trước"));
+        assertFalse(mail.text().contains("Món đặt trước"));
     }
 }

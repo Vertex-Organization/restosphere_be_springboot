@@ -1,9 +1,12 @@
 package com.vertex.restosphere.service.impl;
 
+import com.vertex.restosphere.common.util.Values;
 import com.vertex.restosphere.entity.Reservation;
+import com.vertex.restosphere.entity.ReservationItem;
 import com.vertex.restosphere.entity.RestaurantSettings;
 import com.vertex.restosphere.service.WorkspaceStore;
 import jakarta.mail.MessagingException;
+import java.math.BigDecimal;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -48,7 +51,12 @@ public class ReservationMailer {
                 || !s.isEmailNotifications()
                 || r.getEmail() == null
                 || r.getEmail().isBlank()) return;
-        var content = render(r, s, subject, body);
+        var items =
+                db.query(
+                        ReservationItem.class,
+                        "from ReservationItem i join fetch i.menuItem where i.reservation=?1",
+                        r);
+        var content = render(r, s, subject, body, items);
         String to = r.getEmail();
         String code = r.getCode();
         Runnable task =
@@ -78,7 +86,12 @@ public class ReservationMailer {
         else task.run();
     }
 
-    static Content render(Reservation r, RestaurantSettings s, String subject, String body) {
+    static Content render(
+            Reservation r,
+            RestaurantSettings s,
+            String subject,
+            String body,
+            List<ReservationItem> items) {
         var zone = ZoneId.of(s.getTimezone());
         var start = r.getStartsAt().atZone(zone);
         var rows = new ArrayList<String[]>();
@@ -97,9 +110,89 @@ public class ReservationMailer {
         String fullSubject = "[" + s.getName() + "] " + subject + " - " + r.getCode();
         return new Content(
                 fullSubject,
-                text(s.getName(), r.getCustomerName(), body, rows, contact),
-                html(logo, s.getName(), subject, r.getCustomerName(), body, rows, contact),
+                text(s.getName(), r.getCustomerName(), body, rows, contact) + textMenu(items),
+                html(logo, s.getName(), subject, r.getCustomerName(), body, rows, contact)
+                        .replace(MENU_SLOT, htmlMenu(items)),
                 !customLogo && DEFAULT_LOGO.exists());
+    }
+
+    private static final String MENU_SLOT = "<!--preorder-->";
+
+    static String quantity(ReservationItem i) {
+        String q = i.getQuantity().stripTrailingZeros().toPlainString();
+        return "kg".equals(i.getMenuItem().getPriceUnit()) ? q + " kg" : "× " + q;
+    }
+
+    static String money(BigDecimal value) {
+        return String.format("%,d", Values.whole(value).longValue()).replace(',', '.') + "đ";
+    }
+
+    private static BigDecimal lineTotal(ReservationItem i) {
+        return i.getUnitPrice().multiply(i.getQuantity());
+    }
+
+    private static String textMenu(List<ReservationItem> items) {
+        if (items.isEmpty()) return "";
+        var out = new StringBuilder("\n\nMón đặt trước:\n");
+        var total = BigDecimal.ZERO;
+        for (var i : items) {
+            total = total.add(lineTotal(i));
+            out.append("- ")
+                    .append(i.getMenuItem().getName())
+                    .append(' ')
+                    .append(quantity(i))
+                    .append(": ")
+                    .append(money(lineTotal(i)))
+                    .append('\n');
+        }
+        return out.append("Tạm tính: ").append(money(total)).toString();
+    }
+
+    private static String htmlMenu(List<ReservationItem> items) {
+        if (items.isEmpty()) return "";
+        var lines = new StringBuilder();
+        var total = BigDecimal.ZERO;
+        for (var i : items) {
+            total = total.add(lineTotal(i));
+            String image = i.getMenuItem().getImageUrl();
+            String thumb =
+                    notBlank(image)
+                            ? "<img src=\"%s\" alt=\"\" width=\"64\" height=\"64\" style=\"display:block;width:64px;height:64px;object-fit:cover;border-radius:8px;border:1px solid #e8d5a8\">"
+                                    .formatted(esc(image))
+                            : "";
+            lines.append(
+                    """
+                    <tr><td width="76" style="padding:10px 0;border-bottom:1px solid #f1e4c6">%s</td>\
+                    <td style="padding:10px 0;border-bottom:1px solid #f1e4c6;font-family:%s;\
+                    font-size:17px;color:#5c0000">%s<div style="font-family:%s;font-size:13px;\
+                    color:#9a7b4f;margin-top:2px">%s</div></td>\
+                    <td align="right" style="padding:10px 0;border-bottom:1px solid #f1e4c6;\
+                    font-family:%s;font-size:15px;color:#3b2a1a;white-space:nowrap">%s</td></tr>
+                    """
+                            .formatted(
+                                    thumb,
+                                    SERIF,
+                                    esc(i.getMenuItem().getName()),
+                                    SANS,
+                                    esc(quantity(i)),
+                                    SANS,
+                                    money(lineTotal(i))));
+        }
+        return """
+                <tr><td style="padding:20px 40px 8px">
+                <div style="font-family:%s;font-size:12px;letter-spacing:3px;text-transform:uppercase;\
+                color:#9a7b4f;margin-bottom:6px">Món đặt trước</div>
+                <table role="presentation" width="100%%" cellpadding="0" cellspacing="0" \
+                style="border-top:1px solid #e8d5a8">%s
+                <tr><td></td><td style="padding:12px 0;font-family:%s;font-size:13px;color:#9a7b4f">\
+                Tạm tính</td><td align="right" style="padding:12px 0;font-family:%s;font-size:18px;\
+                font-weight:700;color:#870000;white-space:nowrap">%s</td></tr>
+                </table>
+                <div style="font-family:%s;font-size:12px;color:#9a7b4f;margin-top:4px">Hải sản tính \
+                theo kg được cân thực tế tại bàn; giá chưa gồm phí dịch vụ.</div>
+                </td></tr>
+                """
+                .formatted(SANS, lines, SANS, SERIF, money(total), SANS);
     }
 
     private static String text(
@@ -174,6 +267,7 @@ public class ReservationMailer {
                 style="border-top:1px solid #e8d5a8">
                 %s</table>
                 </td></tr>
+                <!--preorder-->
                 <tr><td style="padding:20px 40px 36px;font-family:%s;font-size:13px;\
                 line-height:1.6;color:#7a6650">Vui lòng giữ mã đặt bàn để tra cứu hoặc hủy lịch \
                 trên trang web của nhà hàng. Rất hân hạnh được đón tiếp quý khách.</td></tr>
