@@ -54,10 +54,11 @@ public final class Values {
     }
 
     /** Mã ngắn dễ đọc, ví dụ {@code B-1A2B3C4D}. */
+    // UUIDv7 starts with a timestamp, so take the random tail to keep codes distinct.
     public static String code(String prefix, ImmutableEntity entity) {
-        return entity == null
-                ? ""
-                : prefix + "-" + entity.getId().toString().substring(0, 8).toUpperCase();
+        if (entity == null) return "";
+        String id = entity.getId().toString();
+        return prefix + "-" + id.substring(id.length() - 8).toUpperCase();
     }
 
     public static String str(Object value) {
