@@ -19,10 +19,7 @@ import lombok.Setter;
 @Entity
 @Table(
         name = "users",
-        indexes = {
-            @Index(name = "idx_users_r", columnList = "o"),
-            @Index(name = "idx_users_r", columnList = "o")
-        })
+        indexes = @Index(name = "idx_users_role_enabled", columnList = "role, enabled"))
 public class User extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     private Area assignedArea;

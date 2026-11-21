@@ -3,6 +3,13 @@ package com.vertex.restosphere;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import jakarta.persistence.Table;
+import jakarta.persistence.metamodel.EntityType;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,6 +33,26 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 class DatabaseConstraintsTests {
     @Autowired private JdbcTemplate jdbc;
+    @PersistenceContext private EntityManager em;
+
+    @Test
+    void everyDeclaredIndexWasCreated() {
+        // Hibernate chỉ cảnh báo khi một câu create index lỗi nên phải đối chiếu với DB.
+        Set<String> created =
+                new HashSet<>(
+                        jdbc.queryForList(
+                                "select indexname from pg_indexes where schemaname = current_schema()",
+                                String.class));
+        Set<String> declared = new HashSet<>();
+        for (EntityType<?> type : em.getMetamodel().getEntities()) {
+            Table table = type.getJavaType().getAnnotation(Table.class);
+            if (table != null) {
+                Arrays.stream(table.indexes()).forEach(i -> declared.add(i.name()));
+            }
+        }
+        assertThat(declared).isNotEmpty();
+        assertThat(created).containsAll(declared);
+    }
 
     @Test
     void partialUniqueIndexesExist() {

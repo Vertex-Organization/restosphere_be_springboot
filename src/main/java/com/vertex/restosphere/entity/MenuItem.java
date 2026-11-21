@@ -22,10 +22,7 @@ import lombok.Setter;
 @Entity
 @Table(
         name = "menu_items",
-        indexes = {
-            @Index(name = "idx_menu_items_c", columnList = "a"),
-            @Index(name = "idx_menu_items_c", columnList = "a")
-        })
+        indexes = @Index(name = "idx_menu_items_category_id", columnList = "category_id"))
 public class MenuItem extends BaseEntity {
 
     @Column(nullable = false, length = 150)
