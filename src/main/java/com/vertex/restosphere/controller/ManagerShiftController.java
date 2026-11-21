@@ -30,20 +30,26 @@ public class ManagerShiftController {
     private final ManagerShiftService service;
 
     @GetMapping
-    public List<ShiftResponse> list(@AuthenticationPrincipal Jwt jwt,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+    public List<ShiftResponse> list(
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+                    LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+                    LocalDate to) {
         return service.list(CurrentUserService.idOf(jwt), from, to);
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public ShiftResponse create(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody ShiftRequest req) {
+    public ShiftResponse create(
+            @AuthenticationPrincipal Jwt jwt, @Valid @RequestBody ShiftRequest req) {
         return service.create(CurrentUserService.idOf(jwt), req);
     }
 
     @PutMapping("/{id}")
-    public ShiftResponse update(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID id,
+    public ShiftResponse update(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable UUID id,
             @Valid @RequestBody ShiftRequest req) {
         return service.update(CurrentUserService.idOf(jwt), id, req);
     }

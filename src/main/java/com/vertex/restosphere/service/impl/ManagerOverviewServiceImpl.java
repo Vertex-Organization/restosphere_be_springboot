@@ -33,18 +33,28 @@ public class ManagerOverviewServiceImpl implements ManagerOverviewService {
     @Override
     public List<ManagerSessionResponse> sessions(UUID actorId) {
         currentUser.require(actorId, Role.ADMIN, Role.MANAGER);
-        return queries.findOpenSessions(TableSession.Status.CLOSED).stream().map(ManagerSessionResponse::from).toList();
+        return queries.findOpenSessions(TableSession.Status.CLOSED).stream()
+                .map(ManagerSessionResponse::from)
+                .toList();
     }
 
     @Transactional(readOnly = true)
     @Override
     public List<ManagerPaymentResponse> payments(UUID actorId, LocalDate date) {
         currentUser.require(actorId, Role.ADMIN, Role.MANAGER);
-        ZoneId zone = settings.findBySingletonKey(1).map(RestaurantSettings::getTimezone).map(ZoneId::of)
-                .orElse(ZoneId.of("Asia/Ho_Chi_Minh"));
+        ZoneId zone =
+                settings.findBySingletonKey(1)
+                        .map(RestaurantSettings::getTimezone)
+                        .map(ZoneId::of)
+                        .orElse(ZoneId.of("Asia/Ho_Chi_Minh"));
         LocalDate day = date == null ? LocalDate.now(zone) : date;
-        return queries.findPaymentsBetween(day.atStartOfDay(zone).toInstant(),
-                day.plusDays(1).atStartOfDay(zone).toInstant()).stream().map(ManagerPaymentResponse::from).toList();
+        return queries
+                .findPaymentsBetween(
+                        day.atStartOfDay(zone).toInstant(),
+                        day.plusDays(1).atStartOfDay(zone).toInstant())
+                .stream()
+                .map(ManagerPaymentResponse::from)
+                .toList();
     }
 
     @Transactional(readOnly = true)
@@ -55,7 +65,9 @@ public class ManagerOverviewServiceImpl implements ManagerOverviewService {
             throw new ApiException(HttpStatus.BAD_REQUEST, "limit must be between 1 and 200");
         }
         PageRequest page = PageRequest.of(0, limit);
-        return (entityId == null ? queries.findRecentActivity(page) : queries.findActivityByTarget(entityId, page))
+        return (entityId == null
+                        ? queries.findRecentActivity(page)
+                        : queries.findActivityByTarget(entityId, page))
                 .stream().map(ManagerActivityResponse::from).toList();
     }
 }

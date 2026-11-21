@@ -46,13 +46,15 @@ public class CashierShiftController {
 
     @PostMapping("/shifts/open")
     @ResponseStatus(HttpStatus.CREATED)
-    public CashierShiftResponse open(@AuthenticationPrincipal Jwt jwt,
-            @Valid @RequestBody CashierOpenShiftRequest req) {
+    public CashierShiftResponse open(
+            @AuthenticationPrincipal Jwt jwt, @Valid @RequestBody CashierOpenShiftRequest req) {
         return service.open(CurrentUserService.idOf(jwt), req);
     }
 
     @PostMapping("/shifts/{id}/close")
-    public CashierShiftResponse close(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID id,
+    public CashierShiftResponse close(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable UUID id,
             @Valid @RequestBody CashierCloseShiftRequest req) {
         return service.close(CurrentUserService.idOf(jwt), id, req);
     }

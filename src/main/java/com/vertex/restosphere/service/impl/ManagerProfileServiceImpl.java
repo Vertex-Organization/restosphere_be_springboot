@@ -17,8 +17,16 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class ManagerProfileServiceImpl implements ManagerProfileService {
 
-    private static final List<String> PERMISSIONS = List.of("tables.edit", "reservations.edit", "employees.assign",
-            "shifts.manage", "menu.manage", "approvals.decide", "incidents.manage", "reports.export");
+    private static final List<String> PERMISSIONS =
+            List.of(
+                    "tables.edit",
+                    "reservations.edit",
+                    "employees.assign",
+                    "shifts.manage",
+                    "menu.manage",
+                    "approvals.decide",
+                    "incidents.manage",
+                    "reports.export");
 
     private final CurrentUserService currentUser;
     private final RestaurantSettingsRepository settings;
@@ -27,7 +35,10 @@ public class ManagerProfileServiceImpl implements ManagerProfileService {
     @Override
     public ManagerProfileResponse me(UUID actorId) {
         User actor = currentUser.require(actorId, Role.ADMIN, Role.MANAGER);
-        long approvalLimit = settings.findBySingletonKey(1).orElseGet(RestaurantSettings::new).getManagerApprovalLimit();
+        long approvalLimit =
+                settings.findBySingletonKey(1)
+                        .orElseGet(RestaurantSettings::new)
+                        .getManagerApprovalLimit();
         return ManagerProfileResponse.from(actor, PERMISSIONS, approvalLimit);
     }
 }

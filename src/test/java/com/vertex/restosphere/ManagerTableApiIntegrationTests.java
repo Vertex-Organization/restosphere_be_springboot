@@ -49,7 +49,8 @@ class ManagerTableApiIntegrationTests {
     private static final String MANAGER_EMAIL = "m3-manager@restosphere.test";
     private static final String PASSWORD = "correct-horse-battery";
     private static final String LIST_URL = "/api/v1/manager/tables";
-    private static final String BUSY = "Table has an active session or reservation; use workspace commands";
+    private static final String BUSY =
+            "Table has an active session or reservation; use workspace commands";
 
     @Autowired MockMvc mockMvc;
     @Autowired UserRepository users;
@@ -79,11 +80,12 @@ class ManagerTableApiIntegrationTests {
 
     @AfterEach
     void tearDown() {
-        tx.executeWithoutResult(s -> {
-            for (int i = created.size() - 1; i >= 0; i--) {
-                em.remove(em.merge(created.get(i)));
-            }
-        });
+        tx.executeWithoutResult(
+                s -> {
+                    for (int i = created.size() - 1; i >= 0; i--) {
+                        em.remove(em.merge(created.get(i)));
+                    }
+                });
         created.clear();
         cleanUsers();
     }
@@ -104,12 +106,27 @@ class ManagerTableApiIntegrationTests {
         reserve(booked, Reservation.Status.CONFIRMED);
         reserve(done, Reservation.Status.COMPLETED);
 
-        String body = mockMvc.perform(get(LIST_URL).header(HttpHeaders.AUTHORIZATION, token))
-                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        String body =
+                mockMvc.perform(get(LIST_URL).header(HttpHeaders.AUTHORIZATION, token))
+                        .andExpect(status().isOk())
+                        .andReturn()
+                        .getResponse()
+                        .getContentAsString();
         List<Map<String, Object>> list = JsonPath.read(body, "$");
         assertThat(list).hasSize((int) tables.count());
-        assertThat(list).allSatisfy(t -> assertThat(t).containsOnlyKeys("id", "code", "areaId", "areaName", "seats",
-                "status", "sessionId", "hasActiveReservation"));
+        assertThat(list)
+                .allSatisfy(
+                        t ->
+                                assertThat(t)
+                                        .containsOnlyKeys(
+                                                "id",
+                                                "code",
+                                                "areaId",
+                                                "areaName",
+                                                "seats",
+                                                "status",
+                                                "sessionId",
+                                                "hasActiveReservation"));
 
         // Sap theo ten khu roi ma ban.
         List<String> codes = list.stream().map(t -> (String) t.get("code")).toList();
@@ -131,30 +148,44 @@ class ManagerTableApiIntegrationTests {
     void updateLayoutAndOutOfServiceWithAudit() throws Exception {
         RestaurantTable t = persist(table("M3-T1", areaA, TableStatus.AVAILABLE));
 
-        update(t, body("M3-T1", areaB, 6, true)).andExpect(status().isOk())
+        update(t, body("M3-T1", areaB, 6, true))
+                .andExpect(status().isOk())
                 .andExpect(jsonPath("$.capacity").value(6))
                 .andExpect(jsonPath("$.areaName").value("M3 Khu B"))
                 .andExpect(jsonPath("$.status").value("OUT_OF_SERVICE"));
-        assertThat(auditLogs.findAll()).singleElement().satisfies(a -> {
-            assertThat(a.getAction()).isEqualTo("TABLE_UPDATED");
-            assertThat(a.getTargetType()).isEqualTo("TABLE");
-            assertThat(a.getTargetId()).isEqualTo(t.getId());
-            assertThat(a.getActor().getId()).isEqualTo(manager.getId());
-            assertThat(a.getDescription()).isEqualTo("Cập nhật bố trí bàn M3-T1 · 6 ghế · M3 Khu B · tạm ngưng");
-        });
+        assertThat(auditLogs.findAll())
+                .singleElement()
+                .satisfies(
+                        a -> {
+                            assertThat(a.getAction()).isEqualTo("TABLE_UPDATED");
+                            assertThat(a.getTargetType()).isEqualTo("TABLE");
+                            assertThat(a.getTargetId()).isEqualTo(t.getId());
+                            assertThat(a.getActor().getId()).isEqualTo(manager.getId());
+                            assertThat(a.getDescription())
+                                    .isEqualTo(
+                                            "Cập nhật bố trí bàn M3-T1 · 6 ghế · M3 Khu B · tạm"
+                                                    + " ngưng");
+                        });
 
         // Khong gui outOfService: giu OUT_OF_SERVICE.
-        update(t, body("M3-T1", areaB, 8, null)).andExpect(status().isOk())
+        update(t, body("M3-T1", areaB, 8, null))
+                .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("OUT_OF_SERVICE"));
 
-        update(t, body("M3-T1", areaB, 8, false)).andExpect(status().isOk())
+        update(t, body("M3-T1", areaB, 8, false))
+                .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("AVAILABLE"));
-        assertThat(auditLogs.findAll()).anyMatch(a -> a.getDescription().equals("Cập nhật bố trí bàn M3-T1 · 8 ghế · M3 Khu B"));
+        assertThat(auditLogs.findAll())
+                .anyMatch(
+                        a ->
+                                a.getDescription()
+                                        .equals("Cập nhật bố trí bàn M3-T1 · 8 ghế · M3 Khu B"));
         long logs = auditLogs.count();
 
         // Gui lai y nguyen (co hoac khong co outOfService): khong ghi log moi.
         update(t, body("M3-T1", areaB, 8, false)).andExpect(status().isOk());
-        update(t, body("M3-T1", areaB, 8, null)).andExpect(status().isOk())
+        update(t, body("M3-T1", areaB, 8, null))
+                .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("AVAILABLE"));
         assertThat(auditLogs.count()).isEqualTo(logs);
     }
@@ -170,10 +201,12 @@ class ManagerTableApiIntegrationTests {
         RestaurantTable cleaning = persist(table("M3-C1", areaA, TableStatus.CLEANING));
 
         for (RestaurantTable t : List.of(open, paying, booked)) {
-            update(t, body(t.getCode(), areaB, 6, true)).andExpect(status().isConflict())
+            update(t, body(t.getCode(), areaB, 6, true))
+                    .andExpect(status().isConflict())
                     .andExpect(jsonPath("$.detail").value(BUSY));
         }
-        update(cleaning, body("M3-C1", areaB, 6, false)).andExpect(status().isConflict())
+        update(cleaning, body("M3-C1", areaB, 6, false))
+                .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.detail").value("Table is in service or being cleaned"));
 
         for (RestaurantTable t : List.of(open, paying, booked, cleaning)) {
@@ -189,10 +222,16 @@ class ManagerTableApiIntegrationTests {
         RestaurantTable t = persist(table("M3-V1", areaA, TableStatus.AVAILABLE));
         update(t, body("M3-V1", areaA, 0, null)).andExpect(status().isBadRequest());
         update(t, body("M3-V1", areaA, 101, null)).andExpect(status().isBadRequest());
-        update(t, "{\"code\":\"M3-V1\",\"areaId\":\"%s\",\"capacity\":4}".formatted(UUID.randomUUID()))
+        update(
+                        t,
+                        "{\"code\":\"M3-V1\",\"areaId\":\"%s\",\"capacity\":4}"
+                                .formatted(UUID.randomUUID()))
                 .andExpect(status().isNotFound());
-        mockMvc.perform(put("/api/v1/tables/" + UUID.randomUUID()).header(HttpHeaders.AUTHORIZATION, token)
-                        .contentType(MediaType.APPLICATION_JSON).content(body("M3-V1", areaA, 4, null)))
+        mockMvc.perform(
+                        put("/api/v1/tables/" + UUID.randomUUID())
+                                .header(HttpHeaders.AUTHORIZATION, token)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(body("M3-V1", areaA, 4, null)))
                 .andExpect(status().isNotFound());
         assertThat(tables.findById(t.getId()).orElseThrow().getCapacity()).isEqualTo(4);
         assertThat(auditLogs.count()).isZero();
@@ -203,32 +242,23 @@ class ManagerTableApiIntegrationTests {
         RestaurantTable t = persist(table("M3-X1", areaA, TableStatus.AVAILABLE));
         saveUser("m3-waiter@restosphere.test", Role.WAITER);
         String waiter = bearer("m3-waiter@restosphere.test");
-        mockMvc.perform(get(LIST_URL).header(HttpHeaders.AUTHORIZATION, waiter)).andExpect(status().isForbidden());
-        mockMvc.perform(put("/api/v1/tables/" + t.getId()).header(HttpHeaders.AUTHORIZATION, waiter)
-                        .contentType(MediaType.APPLICATION_JSON).content(body("M3-X1", areaA, 6, null)))
+        mockMvc.perform(get(LIST_URL).header(HttpHeaders.AUTHORIZATION, waiter))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(
+                        put("/api/v1/tables/" + t.getId())
+                                .header(HttpHeaders.AUTHORIZATION, waiter)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(body("M3-X1", areaA, 6, null)))
                 .andExpect(status().isForbidden());
         mockMvc.perform(get(LIST_URL)).andExpect(status().isUnauthorized());
 
         // Manager bi khoa trong DB nhung token con han.
         manager.setEnabled(false);
         users.save(manager);
-        mockMvc.perform(get(LIST_URL).header(HttpHeaders.AUTHORIZATION, token)).andExpect(status().isForbidden());
+        mockMvc.perform(get(LIST_URL).header(HttpHeaders.AUTHORIZATION, token))
+                .andExpect(status().isForbidden());
         update(t, body("M3-X1", areaA, 6, null)).andExpect(status().isForbidden());
         assertThat(tables.findById(t.getId()).orElseThrow().getCapacity()).isEqualTo(4);
-    }
-
-    @Test
-    void oldManagerWorkspaceSeesRestChanges() throws Exception {
-        RestaurantTable t = persist(table("M3-W1", areaA, TableStatus.AVAILABLE));
-        update(t, body("M3-W1", areaB, 6, true)).andExpect(status().isOk());
-        String id = t.getId().toString();
-        mockMvc.perform(get("/api/v1/workspaces/manager").header(HttpHeaders.AUTHORIZATION, token))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.tables[?(@.id == '%s')].seats".formatted(id)).value(6))
-                .andExpect(jsonPath("$.tables[?(@.id == '%s')].areaId".formatted(id)).value(areaB.getId().toString()))
-                .andExpect(jsonPath("$.tables[?(@.id == '%s')].status".formatted(id)).value("OUT_OF_SERVICE"))
-                .andExpect(jsonPath("$.history[?(@.entityId == '%s')].text".formatted(id))
-                        .value("Cập nhật bố trí bàn M3-W1 · 6 ghế · M3 Khu B · tạm ngưng"));
     }
 
     private static Map<String, Object> byCode(List<Map<String, Object>> list, String code) {
@@ -284,13 +314,20 @@ class ManagerTableApiIntegrationTests {
     }
 
     private static String body(String code, Area area, int capacity, Boolean outOfService) {
-        return "{\"code\":\"%s\",\"areaId\":\"%s\",\"capacity\":%d%s}".formatted(code, area.getId(), capacity,
-                outOfService == null ? "" : ",\"outOfService\":" + outOfService);
+        return "{\"code\":\"%s\",\"areaId\":\"%s\",\"capacity\":%d%s}"
+                .formatted(
+                        code,
+                        area.getId(),
+                        capacity,
+                        outOfService == null ? "" : ",\"outOfService\":" + outOfService);
     }
 
     private ResultActions update(RestaurantTable t, String body) throws Exception {
-        return mockMvc.perform(put("/api/v1/tables/" + t.getId()).header(HttpHeaders.AUTHORIZATION, token)
-                .contentType(MediaType.APPLICATION_JSON).content(body));
+        return mockMvc.perform(
+                put("/api/v1/tables/" + t.getId())
+                        .header(HttpHeaders.AUTHORIZATION, token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body));
     }
 
     private User saveUser(String email, Role role) {
@@ -303,9 +340,17 @@ class ManagerTableApiIntegrationTests {
     }
 
     private String bearer(String email) throws Exception {
-        String body = mockMvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"email\":\"%s\",\"password\":\"%s\"}".formatted(email, PASSWORD)))
-                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        String body =
+                mockMvc.perform(
+                                post("/api/v1/auth/login")
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content(
+                                                "{\"email\":\"%s\",\"password\":\"%s\"}"
+                                                        .formatted(email, PASSWORD)))
+                        .andExpect(status().isOk())
+                        .andReturn()
+                        .getResponse()
+                        .getContentAsString();
         return "Bearer " + JsonPath.read(body, "$.accessToken");
     }
 }

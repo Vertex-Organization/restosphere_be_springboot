@@ -12,9 +12,9 @@ import com.vertex.restosphere.repository.ApprovalRequestRepository;
 import com.vertex.restosphere.repository.MenuItemRepository;
 import com.vertex.restosphere.security.CurrentUserService;
 import com.vertex.restosphere.service.KitchenMenuService;
-import com.vertex.restosphere.service.KitchenWriteSupport;
 import com.vertex.restosphere.service.RestaurantLock;
 import com.vertex.restosphere.service.ServiceWorkflow;
+import com.vertex.restosphere.service.WorkspaceCommit;
 import com.vertex.restosphere.service.WorkspaceStore;
 import java.math.BigDecimal;
 import java.util.Comparator;
@@ -32,7 +32,7 @@ public class KitchenMenuServiceImpl implements KitchenMenuService {
     private final RestaurantLock restaurantLock;
     private final WorkspaceStore store;
     private final ServiceWorkflow workflow;
-    private final KitchenWriteSupport writes;
+    private final WorkspaceCommit writes;
     private final MenuItemRepository menuItems;
     private final ApprovalRequestRepository approvals;
 
@@ -40,19 +40,26 @@ public class KitchenMenuServiceImpl implements KitchenMenuService {
     @Override
     public List<KitchenMenuItemResponse> listItems(UUID actorId) {
         currentUser.require(actorId, Role.ADMIN, Role.KITCHEN);
-        return menuItems.findAll().stream().sorted(Comparator.comparing(MenuItem::getName)
-                .thenComparing(MenuItem::getId)).map(this::toResponse).toList();
+        return menuItems.findAll().stream()
+                .sorted(Comparator.comparing(MenuItem::getName).thenComparing(MenuItem::getId))
+                .map(this::toResponse)
+                .toList();
     }
 
     @Transactional
     @Override
-    public KitchenMenuItemResponse setStatus(UUID actorId, String menuItemId, MenuItemStatus status) {
+    public KitchenMenuItemResponse setStatus(
+            UUID actorId, String menuItemId, MenuItemStatus status) {
         User user = currentUser.require(actorId, Role.ADMIN, Role.KITCHEN);
         restaurantLock.acquire();
         MenuItem menu = store.get(MenuItem.class, menuItemId);
         validate(menu, status);
         menu.setStatus(status);
-        workflow.notify(Role.WAITER, "MENU_AVAILABILITY", "Menu availability updated", menu.getName(),
+        workflow.notify(
+                Role.WAITER,
+                "MENU_AVAILABILITY",
+                "Menu availability updated",
+                menu.getName(),
                 menu.getId().toString());
         writes.commit(user, "set-menu-status");
         store.flush();
@@ -64,18 +71,20 @@ public class KitchenMenuServiceImpl implements KitchenMenuService {
     public List<KitchenMenuRequestResponse> listRequests(UUID actorId) {
         currentUser.require(actorId, Role.ADMIN, Role.KITCHEN);
         return approvals.findByTypeOrderByCreatedAtAsc(ApprovalRequest.Type.MENU_STATUS).stream()
-                .map(this::toResponse).toList();
+                .map(this::toResponse)
+                .toList();
     }
 
     @Transactional
     @Override
-    public KitchenMenuRequestResponse request(UUID actorId, String menuItemId, MenuItemStatus status) {
+    public KitchenMenuRequestResponse request(
+            UUID actorId, String menuItemId, MenuItemStatus status) {
         User user = currentUser.require(actorId, Role.ADMIN, Role.KITCHEN);
         restaurantLock.acquire();
         MenuItem menu = store.get(MenuItem.class, menuItemId);
         validate(menu, status);
-        if (approvals.existsByTypeAndTargetIdAndStatus(ApprovalRequest.Type.MENU_STATUS, menu.getId(),
-                ApprovalRequest.Status.PENDING)) {
+        if (approvals.existsByTypeAndTargetIdAndStatus(
+                ApprovalRequest.Type.MENU_STATUS, menu.getId(), ApprovalRequest.Status.PENDING)) {
             throw ApiException.conflict("A request is already pending");
         }
         ApprovalRequest r = new ApprovalRequest();
@@ -93,19 +102,31 @@ public class KitchenMenuServiceImpl implements KitchenMenuService {
     }
 
     private static void validate(MenuItem menu, MenuItemStatus status) {
-        if (status == MenuItemStatus.DISCONTINUED || menu.getStatus() == MenuItemStatus.DISCONTINUED) {
+        if (status == MenuItemStatus.DISCONTINUED
+                || menu.getStatus() == MenuItemStatus.DISCONTINUED) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Invalid menu status");
         }
     }
 
     private KitchenMenuItemResponse toResponse(MenuItem m) {
-        return new KitchenMenuItemResponse(m.getId(), m.getName(), m.getCategory().getId(), m.getImageUrl(),
-                m.getStatus(), m.getUpdatedAt());
+        return new KitchenMenuItemResponse(
+                m.getId(),
+                m.getName(),
+                m.getCategory().getId(),
+                m.getImageUrl(),
+                m.getStatus(),
+                m.getUpdatedAt());
     }
 
     private KitchenMenuRequestResponse toResponse(ApprovalRequest r) {
-        return new KitchenMenuRequestResponse(r.getId(), r.getTargetId(), r.getMenuStatus(),
-                r.getRequestedBy().getId(), r.getCreatedAt(), r.getStatus(), r.getDecidedAt(),
+        return new KitchenMenuRequestResponse(
+                r.getId(),
+                r.getTargetId(),
+                r.getMenuStatus(),
+                r.getRequestedBy().getId(),
+                r.getCreatedAt(),
+                r.getStatus(),
+                r.getDecidedAt(),
                 r.getDecidedBy() == null ? null : r.getDecidedBy().getId());
     }
 }

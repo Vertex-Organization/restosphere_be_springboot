@@ -16,8 +16,7 @@ public final class TemporaryPasswordGenerator {
     private static final String ALL = UPPER + LOWER + DIGITS + SYMBOLS;
     private static final SecureRandom RANDOM = new SecureRandom();
 
-    private TemporaryPasswordGenerator() {
-    }
+    private TemporaryPasswordGenerator() {}
 
     public static String generate() {
         List<Character> chars = new ArrayList<>(LENGTH);

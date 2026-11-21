@@ -12,11 +12,13 @@ public interface CashierRequestService {
 
     List<CashierRequestResponse> list(UUID actorId);
 
-    CashierRequestResponse requestAdjustment(UUID actorId, UUID billId, CashierAdjustmentRequestRequest req);
+    CashierRequestResponse requestAdjustment(
+            UUID actorId, UUID billId, CashierAdjustmentRequestRequest req);
 
     CashierRequestResponse requestVoid(UUID actorId, UUID paymentId, CashierReasonRequest req);
 
     CashierRequestResponse withdraw(UUID actorId, UUID requestId);
 
-    CashierBillResponse returnPaymentRequest(UUID actorId, UUID billId, CashierReturnPaymentRequest req);
+    CashierBillResponse returnPaymentRequest(
+            UUID actorId, UUID billId, CashierReturnPaymentRequest req);
 }

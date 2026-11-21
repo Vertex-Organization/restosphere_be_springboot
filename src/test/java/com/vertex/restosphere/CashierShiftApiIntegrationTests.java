@@ -41,14 +41,22 @@ class CashierShiftApiIntegrationTests extends CashierApiTestBase {
             call(HttpMethod.GET, p, null, null).andExpect(status().isUnauthorized());
             call(HttpMethod.GET, p, waiterToken, null).andExpect(status().isForbidden());
         }
-        call(HttpMethod.POST, "/shifts/open", waiterToken, "{\"openingFloat\":0}").andExpect(status().isForbidden());
-        call(HttpMethod.POST, "/shifts/open", null, "{\"openingFloat\":0}").andExpect(status().isUnauthorized());
+        call(HttpMethod.POST, "/shifts/open", waiterToken, "{\"openingFloat\":0}")
+                .andExpect(status().isForbidden());
+        call(HttpMethod.POST, "/shifts/open", null, "{\"openingFloat\":0}")
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
     void openShiftCreatesItBumpsRevisionAndWritesAudit() throws Exception {
         long before = revision();
-        String body = created(call(HttpMethod.POST, "/shifts/open", cashierToken, "{\"openingFloat\":500000}"));
+        String body =
+                created(
+                        call(
+                                HttpMethod.POST,
+                                "/shifts/open",
+                                cashierToken,
+                                "{\"openingFloat\":500000}"));
         assertThat(this.<String>json(body, "$.status")).isEqualTo("OPEN");
         assertThat(this.<Number>json(body, "$.openingFloat").longValue()).isEqualTo(500000L);
         assertThat(this.<String>json(body, "$.cashierId")).isEqualTo(cashier.getId().toString());
@@ -57,18 +65,28 @@ class CashierShiftApiIntegrationTests extends CashierApiTestBase {
         assertThat(auditCount("open-shift")).isEqualTo(1);
 
         String list = ok(call(HttpMethod.GET, "/shifts", cashierToken, null));
-        assertThat(this.<List<Object>>json(list, "$[?(@.cashierId=='%s')]".formatted(cashier.getId()))).hasSize(1);
+        assertThat(
+                        this.<List<Object>>json(
+                                list, "$[?(@.cashierId=='%s')]".formatted(cashier.getId())))
+                .hasSize(1);
     }
 
     @Test
     void openShiftRejectsSecondOpenShiftAndBadAmounts() throws Exception {
-        call(HttpMethod.POST, "/shifts/open", cashierToken, "{}").andExpect(status().isBadRequest());
-        call(HttpMethod.POST, "/shifts/open", cashierToken, "{\"openingFloat\":-1}").andExpect(status().isBadRequest());
+        call(HttpMethod.POST, "/shifts/open", cashierToken, "{}")
+                .andExpect(status().isBadRequest());
+        call(HttpMethod.POST, "/shifts/open", cashierToken, "{\"openingFloat\":-1}")
+                .andExpect(status().isBadRequest());
         call(HttpMethod.POST, "/shifts/open", cashierToken, "{\"openingFloat\":10.5}")
                 .andExpect(status().isBadRequest());
-        assertThat(count("select count(c) from CashierShift c where c.cashier.id = :p0", cashier.getId())).isZero();
+        assertThat(
+                        count(
+                                "select count(c) from CashierShift c where c.cashier.id = :p0",
+                                cashier.getId()))
+                .isZero();
         openShift(cashierToken, 0);
-        call(HttpMethod.POST, "/shifts/open", cashierToken, "{\"openingFloat\":0}").andExpect(status().isConflict());
+        call(HttpMethod.POST, "/shifts/open", cashierToken, "{\"openingFloat\":0}")
+                .andExpect(status().isConflict());
     }
 
     @Test
@@ -82,21 +100,43 @@ class CashierShiftApiIntegrationTests extends CashierApiTestBase {
         assign(soon, cashier);
         assign(far, cashier);
 
-        call(HttpMethod.POST, "/shifts/open", cashierToken,
-                "{\"openingFloat\":0,\"scheduledShiftId\":\"%s\"}".formatted(unassigned.getId()))
+        call(
+                        HttpMethod.POST,
+                        "/shifts/open",
+                        cashierToken,
+                        "{\"openingFloat\":0,\"scheduledShiftId\":\"%s\"}"
+                                .formatted(unassigned.getId()))
                 .andExpect(status().isBadRequest());
-        call(HttpMethod.POST, "/shifts/open", cashierToken,
-                "{\"openingFloat\":0,\"scheduledShiftId\":\"%s\"}".formatted(far.getId()))
+        call(
+                        HttpMethod.POST,
+                        "/shifts/open",
+                        cashierToken,
+                        "{\"openingFloat\":0,\"scheduledShiftId\":\"%s\"}".formatted(far.getId()))
                 .andExpect(status().isConflict());
-        call(HttpMethod.POST, "/shifts/open", cashierToken,
-                "{\"openingFloat\":0,\"scheduledShiftId\":\"not-a-uuid\"}").andExpect(status().isBadRequest());
-        call(HttpMethod.POST, "/shifts/open", cashierToken,
-                "{\"openingFloat\":0,\"scheduledShiftId\":\"%s\"}".formatted(java.util.UUID.randomUUID()))
+        call(
+                        HttpMethod.POST,
+                        "/shifts/open",
+                        cashierToken,
+                        "{\"openingFloat\":0,\"scheduledShiftId\":\"not-a-uuid\"}")
+                .andExpect(status().isBadRequest());
+        call(
+                        HttpMethod.POST,
+                        "/shifts/open",
+                        cashierToken,
+                        "{\"openingFloat\":0,\"scheduledShiftId\":\"%s\"}"
+                                .formatted(java.util.UUID.randomUUID()))
                 .andExpect(status().isNotFound());
 
-        String body = created(call(HttpMethod.POST, "/shifts/open", cashierToken,
-                "{\"openingFloat\":0,\"scheduledShiftId\":\"%s\"}".formatted(soon.getId())));
-        assertThat(this.<String>json(body, "$.scheduledShiftId")).isEqualTo(soon.getId().toString());
+        String body =
+                created(
+                        call(
+                                HttpMethod.POST,
+                                "/shifts/open",
+                                cashierToken,
+                                "{\"openingFloat\":0,\"scheduledShiftId\":\"%s\"}"
+                                        .formatted(soon.getId())));
+        assertThat(this.<String>json(body, "$.scheduledShiftId"))
+                .isEqualTo(soon.getId().toString());
     }
 
     @Test
@@ -110,7 +150,8 @@ class CashierShiftApiIntegrationTests extends CashierApiTestBase {
 
         String body = ok(call(HttpMethod.GET, "/scheduled-shifts", cashierToken, null));
         List<String> cashiers = json(body, "$[?(@.id=='%s')].cashierId".formatted(s.getId()));
-        assertThat(cashiers).containsExactlyInAnyOrder(cashier.getId().toString(), other.getId().toString());
+        assertThat(cashiers)
+                .containsExactlyInAnyOrder(cashier.getId().toString(), other.getId().toString());
     }
 
     @Test
@@ -123,8 +164,13 @@ class CashierShiftApiIntegrationTests extends CashierApiTestBase {
                 .andExpect(status().isBadRequest());
         assertThat(revision()).isEqualTo(before);
 
-        String body = ok(call(HttpMethod.POST, "/shifts/" + shiftId + "/close", cashierToken,
-                "{\"countedCash\":195000,\"note\":\"short 5k\"}"));
+        String body =
+                ok(
+                        call(
+                                HttpMethod.POST,
+                                "/shifts/" + shiftId + "/close",
+                                cashierToken,
+                                "{\"countedCash\":195000,\"note\":\"short 5k\"}"));
         assertThat(this.<String>json(body, "$.status")).isEqualTo("CLOSED");
         assertThat(this.<Number>json(body, "$.expectedCash").longValue()).isEqualTo(200000L);
         assertThat(this.<Number>json(body, "$.countedCash").longValue()).isEqualTo(195000L);
@@ -134,8 +180,12 @@ class CashierShiftApiIntegrationTests extends CashierApiTestBase {
 
         call(HttpMethod.POST, "/shifts/" + shiftId + "/close", cashierToken, "{\"countedCash\":0}")
                 .andExpect(status().isConflict());
-        call(HttpMethod.POST, "/shifts/" + java.util.UUID.randomUUID() + "/close", cashierToken,
-                "{\"countedCash\":0}").andExpect(status().isNotFound());
+        call(
+                        HttpMethod.POST,
+                        "/shifts/" + java.util.UUID.randomUUID() + "/close",
+                        cashierToken,
+                        "{\"countedCash\":0}")
+                .andExpect(status().isNotFound());
     }
 
     @Test

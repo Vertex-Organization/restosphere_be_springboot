@@ -109,7 +109,8 @@ class ManagerReservationApiIntegrationTests {
         areaIds.forEach(id -> jdbc.update("delete from areas where id = ?", id));
         menuItemIds.forEach(id -> jdbc.update("delete from menu_items where id = ?", id));
         categoryIds.forEach(id -> jdbc.update("delete from menu_categories where id = ?", id));
-        List.of(reservationIds, sessionIds, tableIds, areaIds, menuItemIds, categoryIds).forEach(List::clear);
+        List.of(reservationIds, sessionIds, tableIds, areaIds, menuItemIds, categoryIds)
+                .forEach(List::clear);
         cleanUsers();
     }
 
@@ -126,14 +127,15 @@ class ManagerReservationApiIntegrationTests {
         Reservation r = reservation(areaA, future(1, 19), 4, Reservation.Status.CONFIRMED);
         assignTable(r, t);
         MenuItem dish = dish("M4 Cua hấp");
-        tx.executeWithoutResult(s -> {
-            ReservationItem i = new ReservationItem();
-            i.setReservation(em.find(Reservation.class, r.getId()));
-            i.setMenuItem(em.find(MenuItem.class, dish.getId()));
-            i.setQuantity(new BigDecimal("1.5"));
-            i.setUnitPrice(new BigDecimal("890000"));
-            em.persist(i);
-        });
+        tx.executeWithoutResult(
+                s -> {
+                    ReservationItem i = new ReservationItem();
+                    i.setReservation(em.find(Reservation.class, r.getId()));
+                    i.setMenuItem(em.find(MenuItem.class, dish.getId()));
+                    i.setQuantity(new BigDecimal("1.5"));
+                    i.setUnitPrice(new BigDecimal("890000"));
+                    em.persist(i);
+                });
         User waiter = saveUser("m4-waiter@restosphere.test", Role.WAITER);
         // Cu -> moi: waiter, manager, khong actor. employeeId = manager (dong moi nhat CO actor).
         history(r, waiter, "2026-01-01T01:00:00Z");
@@ -141,12 +143,34 @@ class ManagerReservationApiIntegrationTests {
         history(r, null, "2026-01-01T03:00:00Z");
         Reservation bare = reservation(areaA, future(1, 20), 2, Reservation.Status.PENDING);
 
-        String body = mockMvc.perform(get(URL).header(HttpHeaders.AUTHORIZATION, token))
-                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        String body =
+                mockMvc.perform(get(URL).header(HttpHeaders.AUTHORIZATION, token))
+                        .andExpect(status().isOk())
+                        .andReturn()
+                        .getResponse()
+                        .getContentAsString();
         Map<String, Object> json = byId(body, r.getId());
-        assertThat(json).containsOnlyKeys("id", "code", "customer", "phone", "email", "occasion", "areaId", "areaName",
-                "source", "guests", "actualGuests", "at", "until", "tableId", "tableCode", "status", "employeeId",
-                "note", "preorder");
+        assertThat(json)
+                .containsOnlyKeys(
+                        "id",
+                        "code",
+                        "customer",
+                        "phone",
+                        "email",
+                        "occasion",
+                        "areaId",
+                        "areaName",
+                        "source",
+                        "guests",
+                        "actualGuests",
+                        "at",
+                        "until",
+                        "tableId",
+                        "tableCode",
+                        "status",
+                        "employeeId",
+                        "note",
+                        "preorder");
         assertThat(json.get("tableId")).isEqualTo(t.getId().toString());
         assertThat(json.get("tableCode")).isEqualTo("M4-L1");
         assertThat(json.get("areaName")).isEqualTo("M4 Khu A");
@@ -154,9 +178,15 @@ class ManagerReservationApiIntegrationTests {
         assertThat(json.get("note")).isEqualTo("");
         assertThat(json.get("actualGuests")).isNull();
         assertThat(json.get("employeeId")).isEqualTo(manager.getId().toString());
-        assertThat(JsonPath.<List<String>>read(body, "$[?(@.id == '%s')].preorder[*].menuItemName".formatted(r.getId())))
+        assertThat(
+                        JsonPath.<List<String>>read(
+                                body,
+                                "$[?(@.id == '%s')].preorder[*].menuItemName".formatted(r.getId())))
                 .containsExactly("M4 Cua hấp");
-        assertThat(JsonPath.<List<Double>>read(body, "$[?(@.id == '%s')].preorder[*].quantity".formatted(r.getId())))
+        assertThat(
+                        JsonPath.<List<Double>>read(
+                                body,
+                                "$[?(@.id == '%s')].preorder[*].quantity".formatted(r.getId())))
                 .containsExactly(1.5);
 
         Map<String, Object> other = byId(body, bare.getId());
@@ -171,36 +201,70 @@ class ManagerReservationApiIntegrationTests {
 
     @Test
     void dateFilterUsesRestaurantTimezone() throws Exception {
-        ZoneId zone = ZoneId.of(settings.findBySingletonKey(1).map(RestaurantSettings::getTimezone)
-                .orElse("Asia/Ho_Chi_Minh"));
+        ZoneId zone =
+                ZoneId.of(
+                        settings.findBySingletonKey(1)
+                                .map(RestaurantSettings::getTimezone)
+                                .orElse("Asia/Ho_Chi_Minh"));
         LocalDate day = LocalDate.of(2027, 3, 10);
-        Reservation early = reservation(areaA, day.atTime(0, 30).atZone(zone).toInstant(), 2,
-                Reservation.Status.CONFIRMED);
-        Reservation lastNight = reservation(areaA, day.minusDays(1).atTime(LocalTime.of(23, 59)).atZone(zone)
-                .toInstant(), 2, Reservation.Status.CONFIRMED);
+        Reservation early =
+                reservation(
+                        areaA,
+                        day.atTime(0, 30).atZone(zone).toInstant(),
+                        2,
+                        Reservation.Status.CONFIRMED);
+        Reservation lastNight =
+                reservation(
+                        areaA,
+                        day.minusDays(1).atTime(LocalTime.of(23, 59)).atZone(zone).toInstant(),
+                        2,
+                        Reservation.Status.CONFIRMED);
 
-        String body = mockMvc.perform(get(URL + "?from=2027-03-10&to=2027-03-10").header(HttpHeaders.AUTHORIZATION, token))
-                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        String body =
+                mockMvc.perform(
+                                get(URL + "?from=2027-03-10&to=2027-03-10")
+                                        .header(HttpHeaders.AUTHORIZATION, token))
+                        .andExpect(status().isOk())
+                        .andReturn()
+                        .getResponse()
+                        .getContentAsString();
         List<String> ids = JsonPath.read(body, "$[*].id");
-        assertThat(ids).contains(early.getId().toString()).doesNotContain(lastNight.getId().toString());
+        assertThat(ids)
+                .contains(early.getId().toString())
+                .doesNotContain(lastNight.getId().toString());
 
-        String prev = mockMvc.perform(get(URL + "?to=2027-03-09").header(HttpHeaders.AUTHORIZATION, token))
-                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        String prev =
+                mockMvc.perform(
+                                get(URL + "?to=2027-03-09")
+                                        .header(HttpHeaders.AUTHORIZATION, token))
+                        .andExpect(status().isOk())
+                        .andReturn()
+                        .getResponse()
+                        .getContentAsString();
         assertThat(JsonPath.<List<String>>read(prev, "$[*].id"))
-                .contains(lastNight.getId().toString()).doesNotContain(early.getId().toString());
+                .contains(lastNight.getId().toString())
+                .doesNotContain(early.getId().toString());
     }
 
     @Test
     void statusFilterAndBadParams() throws Exception {
         Reservation confirmed = reservation(areaA, future(2, 19), 2, Reservation.Status.CONFIRMED);
         Reservation pending = reservation(areaA, future(2, 20), 2, Reservation.Status.PENDING);
-        String body = mockMvc.perform(get(URL + "?status=CONFIRMED").header(HttpHeaders.AUTHORIZATION, token))
-                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        String body =
+                mockMvc.perform(
+                                get(URL + "?status=CONFIRMED")
+                                        .header(HttpHeaders.AUTHORIZATION, token))
+                        .andExpect(status().isOk())
+                        .andReturn()
+                        .getResponse()
+                        .getContentAsString();
         assertThat(JsonPath.<List<String>>read(body, "$[*].status")).containsOnly("CONFIRMED");
         assertThat(JsonPath.<List<String>>read(body, "$[*].id"))
-                .contains(confirmed.getId().toString()).doesNotContain(pending.getId().toString());
+                .contains(confirmed.getId().toString())
+                .doesNotContain(pending.getId().toString());
 
-        for (String query : List.of("?status=ABC", "?from=2026-11-20&to=2026-11-19", "?from=19-11-2026")) {
+        for (String query :
+                List.of("?status=ABC", "?from=2026-11-20&to=2026-11-19", "?from=19-11-2026")) {
             mockMvc.perform(get(URL + query).header(HttpHeaders.AUTHORIZATION, token))
                     .andExpect(status().isBadRequest());
         }
@@ -213,37 +277,65 @@ class ManagerReservationApiIntegrationTests {
         Reservation r = reservation(areaA, future(3, 19), 4, Reservation.Status.CONFIRMED);
         assignTable(r, from);
 
-        change(r.getId(), to.getId(), "  " + REASON + "  ").andExpect(status().isOk())
+        change(r.getId(), to.getId(), "  " + REASON + "  ")
+                .andExpect(status().isOk())
                 .andExpect(jsonPath("$.tableId").value(to.getId().toString()))
                 .andExpect(jsonPath("$.tableCode").value("M4-C2"))
                 .andExpect(jsonPath("$.status").value("CONFIRMED"));
 
-        List<Map<String, Object>> rows = jdbc.queryForList(
-                "select action, description, actor_id from reservation_histories where reservation_id = ?", r.getId());
-        assertThat(rows).singleElement().satisfies(h -> {
-            assertThat(h.get("action")).isEqualTo("reservation.move");
-            assertThat(h.get("description")).isEqualTo(REASON);
-            assertThat(h.get("actor_id")).isEqualTo(manager.getId());
-        });
-        assertThat(jdbc.queryForList("select table_id from reservation_tables where reservation_id = ?", UUID.class,
-                r.getId())).containsExactly(to.getId());
-        assertThat(auditLogs.findAll()).singleElement().satisfies(a -> {
-            assertThat(a.getAction()).isEqualTo("RESERVATION_TABLE_CHANGED");
-            assertThat(a.getTargetType()).isEqualTo("RESERVATION");
-            assertThat(a.getTargetId()).isEqualTo(r.getId());
-            assertThat(a.getActor().getId()).isEqualTo(manager.getId());
-            assertThat(a.getDescription()).isEqualTo("Điều chỉnh " + r.getCode() + ": M4-C1 → M4-C2. " + REASON);
-        });
+        List<Map<String, Object>> rows =
+                jdbc.queryForList(
+                        "select action, description, actor_id from reservation_histories where"
+                                + " reservation_id = ?",
+                        r.getId());
+        assertThat(rows)
+                .singleElement()
+                .satisfies(
+                        h -> {
+                            assertThat(h.get("action")).isEqualTo("reservation.move");
+                            assertThat(h.get("description")).isEqualTo(REASON);
+                            assertThat(h.get("actor_id")).isEqualTo(manager.getId());
+                        });
+        assertThat(
+                        jdbc.queryForList(
+                                "select table_id from reservation_tables where reservation_id = ?",
+                                UUID.class,
+                                r.getId()))
+                .containsExactly(to.getId());
+        assertThat(auditLogs.findAll())
+                .singleElement()
+                .satisfies(
+                        a -> {
+                            assertThat(a.getAction()).isEqualTo("RESERVATION_TABLE_CHANGED");
+                            assertThat(a.getTargetType()).isEqualTo("RESERVATION");
+                            assertThat(a.getTargetId()).isEqualTo(r.getId());
+                            assertThat(a.getActor().getId()).isEqualTo(manager.getId());
+                            assertThat(a.getDescription())
+                                    .isEqualTo(
+                                            "Điều chỉnh "
+                                                    + r.getCode()
+                                                    + ": M4-C1 → M4-C2. "
+                                                    + REASON);
+                        });
     }
 
     @Test
     void changePendingWithoutTable() throws Exception {
         RestaurantTable to = table("M4-P1", areaA, 4, TableStatus.AVAILABLE);
         Reservation r = reservation(areaA, future(4, 19), 2, Reservation.Status.PENDING);
-        change(r.getId(), to.getId(), REASON).andExpect(status().isOk())
+        change(r.getId(), to.getId(), REASON)
+                .andExpect(status().isOk())
                 .andExpect(jsonPath("$.tableId").value(to.getId().toString()));
-        assertThat(auditLogs.findAll()).singleElement().satisfies(a -> assertThat(a.getDescription())
-                .isEqualTo("Điều chỉnh " + r.getCode() + ": chưa có bàn → M4-P1. " + REASON));
+        assertThat(auditLogs.findAll())
+                .singleElement()
+                .satisfies(
+                        a ->
+                                assertThat(a.getDescription())
+                                        .isEqualTo(
+                                                "Điều chỉnh "
+                                                        + r.getCode()
+                                                        + ": chưa có bàn → M4-P1. "
+                                                        + REASON));
     }
 
     @Test
@@ -253,10 +345,14 @@ class ManagerReservationApiIntegrationTests {
         assignTable(r, t);
         change(r.getId(), t.getId(), "abc").andExpect(status().isBadRequest());
         change(r.getId(), t.getId(), "        ").andExpect(status().isBadRequest());
-        change(r.getId(), t.getId(), REASON).andExpect(status().isBadRequest())
+        change(r.getId(), t.getId(), REASON)
+                .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.detail").value("Choose a different table"));
-        mockMvc.perform(patch(URL + "/" + r.getId() + "/table").header(HttpHeaders.AUTHORIZATION, token)
-                        .contentType(MediaType.APPLICATION_JSON).content("{\"reason\":\"" + REASON + "\"}"))
+        mockMvc.perform(
+                        patch(URL + "/" + r.getId() + "/table")
+                                .header(HttpHeaders.AUTHORIZATION, token)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"reason\":\"" + REASON + "\"}"))
                 .andExpect(status().isBadRequest());
         change(UUID.randomUUID(), t.getId(), REASON).andExpect(status().isNotFound());
         change(r.getId(), UUID.randomUUID(), REASON).andExpect(status().isNotFound());
@@ -275,17 +371,25 @@ class ManagerReservationApiIntegrationTests {
         RestaurantTable broken = table("M4-X3", areaA, 6, TableStatus.OUT_OF_SERVICE);
         RestaurantTable busy = table("M4-X4", areaA, 6, TableStatus.AVAILABLE);
         // Lich khac bat dau sau khi r ket thuc, nhung van nam trong thoi gian dem -> van trung.
-        int buffer = settings.findBySingletonKey(1).map(RestaurantSettings::getBufferMinutes).orElse(15);
+        int buffer =
+                settings.findBySingletonKey(1).map(RestaurantSettings::getBufferMinutes).orElse(15);
         assertThat(buffer).as("can thoi gian dem > 0 de thu").isPositive();
-        Reservation later = reservation(areaA, start.plus(2, ChronoUnit.HOURS).plusSeconds(buffer * 30L), 2,
-                Reservation.Status.CONFIRMED);
+        Reservation later =
+                reservation(
+                        areaA,
+                        start.plus(2, ChronoUnit.HOURS).plusSeconds(buffer * 30L),
+                        2,
+                        Reservation.Status.CONFIRMED);
         assignTable(later, busy);
 
         for (RestaurantTable t : List.of(otherArea, small, broken, busy)) {
             change(r.getId(), t.getId(), REASON).andExpect(status().isConflict());
         }
-        for (Reservation.Status s : List.of(Reservation.Status.SEATED, Reservation.Status.COMPLETED,
-                Reservation.Status.CANCELLED)) {
+        for (Reservation.Status s :
+                List.of(
+                        Reservation.Status.SEATED,
+                        Reservation.Status.COMPLETED,
+                        Reservation.Status.CANCELLED)) {
             Reservation closed = reservation(areaA, future(7, 19), 2, s);
             change(closed.getId(), small.getId(), REASON).andExpect(status().isConflict());
         }
@@ -297,16 +401,22 @@ class ManagerReservationApiIntegrationTests {
         RestaurantTable withSession = table("M4-X6", areaA, 4, TableStatus.AVAILABLE);
         session(withSession);
         for (RestaurantTable t : List.of(occupied, withSession)) {
-            change(arrived.getId(), t.getId(), REASON).andExpect(status().isConflict())
+            change(arrived.getId(), t.getId(), REASON)
+                    .andExpect(status().isConflict())
                     .andExpect(jsonPath("$.detail").value("Table is not available now"));
         }
 
-        assertThat(jdbc.queryForList("select table_id from reservation_tables where reservation_id = ?", UUID.class,
-                r.getId())).containsExactly(current.getId());
+        assertThat(
+                        jdbc.queryForList(
+                                "select table_id from reservation_tables where reservation_id = ?",
+                                UUID.class,
+                                r.getId()))
+                .containsExactly(current.getId());
         assertThat(auditLogs.count()).isZero();
 
         RestaurantTable free = table("M4-X7", areaA, 4, TableStatus.AVAILABLE);
-        change(arrived.getId(), free.getId(), REASON).andExpect(status().isOk())
+        change(arrived.getId(), free.getId(), REASON)
+                .andExpect(status().isOk())
                 .andExpect(jsonPath("$.tableId").value(free.getId().toString()))
                 .andExpect(jsonPath("$.status").value("ARRIVED"));
     }
@@ -317,23 +427,32 @@ class ManagerReservationApiIntegrationTests {
         Reservation r = reservation(areaA, future(9, 19), 2, Reservation.Status.PENDING);
         saveUser("m4-waiter@restosphere.test", Role.WAITER);
         String waiter = bearer("m4-waiter@restosphere.test");
-        mockMvc.perform(get(URL).header(HttpHeaders.AUTHORIZATION, waiter)).andExpect(status().isForbidden());
-        mockMvc.perform(patch(URL + "/" + r.getId() + "/table").header(HttpHeaders.AUTHORIZATION, waiter)
-                        .contentType(MediaType.APPLICATION_JSON).content(body(t.getId(), REASON)))
+        mockMvc.perform(get(URL).header(HttpHeaders.AUTHORIZATION, waiter))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(
+                        patch(URL + "/" + r.getId() + "/table")
+                                .header(HttpHeaders.AUTHORIZATION, waiter)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(body(t.getId(), REASON)))
                 .andExpect(status().isForbidden());
         mockMvc.perform(get(URL)).andExpect(status().isUnauthorized());
 
         // Manager bi khoa trong DB nhung token con han.
         manager.setEnabled(false);
         users.save(manager);
-        mockMvc.perform(get(URL).header(HttpHeaders.AUTHORIZATION, token)).andExpect(status().isForbidden());
+        mockMvc.perform(get(URL).header(HttpHeaders.AUTHORIZATION, token))
+                .andExpect(status().isForbidden());
         change(r.getId(), t.getId(), REASON).andExpect(status().isForbidden());
-        assertThat(jdbc.queryForList("select table_id from reservation_tables where reservation_id = ?", UUID.class,
-                r.getId())).isEmpty();
+        assertThat(
+                        jdbc.queryForList(
+                                "select table_id from reservation_tables where reservation_id = ?",
+                                UUID.class,
+                                r.getId()))
+                .isEmpty();
     }
 
     @Test
-    void oldWorkspacesSeeTheMove() throws Exception {
+    void staffWorkspaceSeesTheMove() throws Exception {
         RestaurantTable from = table("M4-W1", areaA, 4, TableStatus.AVAILABLE);
         RestaurantTable to = table("M4-W2", areaA, 4, TableStatus.AVAILABLE);
         Reservation r = reservation(areaA, future(10, 19), 2, Reservation.Status.CONFIRMED);
@@ -341,23 +460,25 @@ class ManagerReservationApiIntegrationTests {
         change(r.getId(), to.getId(), REASON).andExpect(status().isOk());
 
         String id = r.getId().toString();
-        mockMvc.perform(get("/api/v1/workspaces/manager").header(HttpHeaders.AUTHORIZATION, token))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.reservations[?(@.id == '%s')].tableId".formatted(id)).value(to.getId().toString()))
-                .andExpect(jsonPath("$.history[?(@.entityId == '%s')].text".formatted(id))
-                        .value("Điều chỉnh " + r.getCode() + ": M4-W1 → M4-W2. " + REASON));
-
         saveUser("m4-reception@restosphere.test", Role.RECEPTIONIST);
-        mockMvc.perform(get("/api/v1/workspaces/staff")
-                        .header(HttpHeaders.AUTHORIZATION, bearer("m4-reception@restosphere.test")))
+        mockMvc.perform(
+                        get("/api/v1/workspaces/staff")
+                                .header(
+                                        HttpHeaders.AUTHORIZATION,
+                                        bearer("m4-reception@restosphere.test")))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.reservations[?(@.id == '%s')].history[*].text".formatted(id)).value(hasItem(REASON)));
+                .andExpect(
+                        jsonPath("$.reservations[?(@.id == '%s')].history[*].text".formatted(id))
+                                .value(hasItem(REASON)));
     }
 
     // ---- du lieu ----
 
     private static Instant future(int days, int hourUtc) {
-        return Instant.now().truncatedTo(ChronoUnit.DAYS).plus(days + 30L, ChronoUnit.DAYS).plus(hourUtc, ChronoUnit.HOURS);
+        return Instant.now()
+                .truncatedTo(ChronoUnit.DAYS)
+                .plus(days + 30L, ChronoUnit.DAYS)
+                .plus(hourUtc, ChronoUnit.HOURS);
     }
 
     private Map<String, Object> byId(String body, UUID id) {
@@ -390,9 +511,16 @@ class ManagerReservationApiIntegrationTests {
         return t;
     }
 
-    private Reservation reservation(Area area, Instant start, int guests, Reservation.Status status) {
+    private Reservation reservation(
+            Area area, Instant start, int guests, Reservation.Status status) {
         Reservation r = new Reservation();
-        r.setCode("RS-M4" + UUID.randomUUID().toString().replace("-", "").substring(0, 11).toUpperCase());
+        r.setCode(
+                "RS-M4"
+                        + UUID.randomUUID()
+                                .toString()
+                                .replace("-", "")
+                                .substring(0, 11)
+                                .toUpperCase());
         r.setCustomerName("Khách M4");
         r.setPhone("0901234567");
         r.setArea(area);
@@ -445,7 +573,9 @@ class ManagerReservationApiIntegrationTests {
         h.setDescription("test");
         persist(h);
         // Dat created_at co dinh de thu tu "moi nhat" khong phu thuoc toc do may.
-        jdbc.update("update reservation_histories set created_at = ? where id = ?", Timestamp.from(Instant.parse(at)),
+        jdbc.update(
+                "update reservation_histories set created_at = ? where id = ?",
+                Timestamp.from(Instant.parse(at)),
                 h.getId());
     }
 
@@ -454,8 +584,11 @@ class ManagerReservationApiIntegrationTests {
     }
 
     private ResultActions change(UUID id, UUID tableId, String reason) throws Exception {
-        return mockMvc.perform(patch(URL + "/" + id + "/table").header(HttpHeaders.AUTHORIZATION, token)
-                .contentType(MediaType.APPLICATION_JSON).content(body(tableId, reason)));
+        return mockMvc.perform(
+                patch(URL + "/" + id + "/table")
+                        .header(HttpHeaders.AUTHORIZATION, token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body(tableId, reason)));
     }
 
     private User saveUser(String email, Role role) {
@@ -468,9 +601,17 @@ class ManagerReservationApiIntegrationTests {
     }
 
     private String bearer(String email) throws Exception {
-        String body = mockMvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"email\":\"%s\",\"password\":\"%s\"}".formatted(email, PASSWORD)))
-                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        String body =
+                mockMvc.perform(
+                                post("/api/v1/auth/login")
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content(
+                                                "{\"email\":\"%s\",\"password\":\"%s\"}"
+                                                        .formatted(email, PASSWORD)))
+                        .andExpect(status().isOk())
+                        .andReturn()
+                        .getResponse()
+                        .getContentAsString();
         return "Bearer " + JsonPath.read(body, "$.accessToken");
     }
 }

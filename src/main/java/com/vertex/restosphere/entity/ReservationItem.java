@@ -15,13 +15,17 @@ public class ReservationItem extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "reservation_id", nullable = false)
     private Reservation reservation;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "menu_item_id", nullable = false)
     private MenuItem menuItem;
+
     @Column(nullable = false, precision = 10, scale = 3)
     private BigDecimal quantity;
+
     @Column(nullable = false, precision = 12, scale = 0)
     private BigDecimal unitPrice;
+
     @Column(length = 1000)
     private String note;
 }

@@ -93,17 +93,25 @@ class AdminUserRoleApiIntegrationTests {
                 .andExpect(jsonPath("$.id").value(waiter.getId().toString()))
                 .andExpect(jsonPath("$.role").value("KITCHEN"))
                 .andExpect(jsonPath("$.status").value("ACTIVE"));
-        assertThat(auditLogs.findAll()).singleElement().satisfies(a -> {
-            assertThat(a.getAction()).isEqualTo("ROLE_CHANGED");
-            assertThat(a.getTargetType()).isEqualTo("USER");
-            assertThat(a.getTargetId()).isEqualTo(waiter.getId());
-            assertThat(a.getDescription()).isEqualTo(WAITER_EMAIL + ": WAITER → KITCHEN");
-        });
+        assertThat(auditLogs.findAll())
+                .singleElement()
+                .satisfies(
+                        a -> {
+                            assertThat(a.getAction()).isEqualTo("ROLE_CHANGED");
+                            assertThat(a.getTargetType()).isEqualTo("USER");
+                            assertThat(a.getTargetId()).isEqualTo(waiter.getId());
+                            assertThat(a.getDescription())
+                                    .isEqualTo(WAITER_EMAIL + ": WAITER → KITCHEN");
+                        });
 
-        mockMvc.perform(get("/api/v1/workspaces/kitchen").header(HttpHeaders.AUTHORIZATION, bearer(WAITER_EMAIL)))
+        mockMvc.perform(
+                        get("/api/v1/workspaces/kitchen")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(WAITER_EMAIL)))
                 .andExpect(status().isOk());
         // Token cu van ghi WAITER nhung quyen doc theo DB.
-        mockMvc.perform(get("/api/v1/workspaces/staff").header(HttpHeaders.AUTHORIZATION, oldWaiterToken))
+        mockMvc.perform(
+                        get("/api/v1/workspaces/staff")
+                                .header(HttpHeaders.AUTHORIZATION, oldWaiterToken))
                 .andExpect(status().isForbidden());
     }
 
@@ -135,8 +143,11 @@ class AdminUserRoleApiIntegrationTests {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.detail").value("Role CUSTOMER cannot be assigned"));
         setRole(adminToken, waiter.getId(), "ABC").andExpect(status().isBadRequest());
-        mockMvc.perform(patch(USERS + "/" + waiter.getId() + "/role").header(HttpHeaders.AUTHORIZATION, adminToken)
-                        .contentType(MediaType.APPLICATION_JSON).content("{}"))
+        mockMvc.perform(
+                        patch(USERS + "/" + waiter.getId() + "/role")
+                                .header(HttpHeaders.AUTHORIZATION, adminToken)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{}"))
                 .andExpect(status().isBadRequest());
     }
 
@@ -172,29 +183,37 @@ class AdminUserRoleApiIntegrationTests {
     @Test
     void accessControlAndUnknownUser() throws Exception {
         setRole(bearer(WAITER_EMAIL), waiter.getId(), "KITCHEN").andExpect(status().isForbidden());
-        mockMvc.perform(patch(USERS + "/" + waiter.getId() + "/role")
-                        .contentType(MediaType.APPLICATION_JSON).content("{\"role\":\"KITCHEN\"}"))
+        mockMvc.perform(
+                        patch(USERS + "/" + waiter.getId() + "/role")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"role\":\"KITCHEN\"}"))
                 .andExpect(status().isUnauthorized());
         setRole(bearer(ADMIN_EMAIL), UUID.randomUUID(), "KITCHEN").andExpect(status().isNotFound());
     }
 
     // Dung ban seed neu con; test catalog co the da xoa het ban nen tu tao khi can.
     private RestaurantTable anyTable() {
-        return tables.findAll().stream().findFirst().orElseGet(() -> {
-            createdArea = new Area();
-            createdArea.setName("a2-area");
-            areas.save(createdArea);
-            createdTable = new RestaurantTable();
-            createdTable.setArea(createdArea);
-            createdTable.setCode("A2-T1");
-            createdTable.setCapacity(4);
-            return tables.save(createdTable);
-        });
+        return tables.findAll().stream()
+                .findFirst()
+                .orElseGet(
+                        () -> {
+                            createdArea = new Area();
+                            createdArea.setName("a2-area");
+                            areas.save(createdArea);
+                            createdTable = new RestaurantTable();
+                            createdTable.setArea(createdArea);
+                            createdTable.setCode("A2-T1");
+                            createdTable.setCapacity(4);
+                            return tables.save(createdTable);
+                        });
     }
 
     private ResultActions setRole(String token, UUID id, String role) throws Exception {
-        return mockMvc.perform(patch(USERS + "/" + id + "/role").header(HttpHeaders.AUTHORIZATION, token)
-                .contentType(MediaType.APPLICATION_JSON).content("{\"role\":\"%s\"}".formatted(role)));
+        return mockMvc.perform(
+                patch(USERS + "/" + id + "/role")
+                        .header(HttpHeaders.AUTHORIZATION, token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"role\":\"%s\"}".formatted(role)));
     }
 
     private User saveUser(String email, Role role) {
@@ -207,9 +226,17 @@ class AdminUserRoleApiIntegrationTests {
     }
 
     private String bearer(String email) throws Exception {
-        String body = mockMvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"email\":\"%s\",\"password\":\"%s\"}".formatted(email, PASSWORD)))
-                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        String body =
+                mockMvc.perform(
+                                post("/api/v1/auth/login")
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content(
+                                                "{\"email\":\"%s\",\"password\":\"%s\"}"
+                                                        .formatted(email, PASSWORD)))
+                        .andExpect(status().isOk())
+                        .andReturn()
+                        .getResponse()
+                        .getContentAsString();
         return "Bearer " + JsonPath.read(body, "$.accessToken");
     }
 }

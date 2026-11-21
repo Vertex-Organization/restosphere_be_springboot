@@ -29,7 +29,8 @@ import org.springframework.transaction.annotation.Transactional;
 public class ManagerIncidentServiceImpl implements ManagerIncidentService {
 
     private static final int AUDIT_MAX = 4000;
-    private static final Set<Incident.Status> CLOSED = Set.of(Incident.Status.RESOLVED, Incident.Status.CLOSED);
+    private static final Set<Incident.Status> CLOSED =
+            Set.of(Incident.Status.RESOLVED, Incident.Status.CLOSED);
 
     private final CurrentUserService currentUser;
     private final RestaurantLock restaurantLock;
@@ -42,7 +43,9 @@ public class ManagerIncidentServiceImpl implements ManagerIncidentService {
     @Override
     public List<ManagerIncidentResponse> list(UUID actorId) {
         currentUser.require(actorId, Role.ADMIN, Role.MANAGER);
-        return incidents.findAllByOrderByCreatedAtDesc().stream().map(ManagerIncidentResponse::from).toList();
+        return incidents.findAllByOrderByCreatedAtDesc().stream()
+                .map(ManagerIncidentResponse::from)
+                .toList();
     }
 
     @Transactional
@@ -50,7 +53,10 @@ public class ManagerIncidentServiceImpl implements ManagerIncidentService {
     public ManagerIncidentResponse update(UUID actorId, UUID id, ManagerIncidentUpdateRequest req) {
         restaurantLock.acquire();
         User actor = currentUser.require(actorId, Role.ADMIN, Role.MANAGER);
-        Incident i = incidents.findWithDetailsById(id).orElseThrow(() -> ApiException.notFound("Incident"));
+        Incident i =
+                incidents
+                        .findWithDetailsById(id)
+                        .orElseThrow(() -> ApiException.notFound("Incident"));
         if (CLOSED.contains(i.getStatus())) {
             throw ApiException.conflict("Incident is already closed");
         }
@@ -64,9 +70,10 @@ public class ManagerIncidentServiceImpl implements ManagerIncidentService {
         User oldAssignee = i.getAssignee();
         User assignee = oldAssignee;
         if (req.assigneeId() != null) {
-            assignee = users.findById(req.assigneeId())
-                    .filter(u -> u.isEnabled() && u.getRole() != Role.CUSTOMER)
-                    .orElseThrow(() -> bad("Assignee must be an active employee"));
+            assignee =
+                    users.findById(req.assigneeId())
+                            .filter(u -> u.isEnabled() && u.getRole() != Role.CUSTOMER)
+                            .orElseThrow(() -> bad("Assignee must be an active employee"));
         }
         if (req.status() == Incident.Status.RESOLVED) {
             if (assignee == null || !assignee.isEnabled()) {
@@ -92,12 +99,22 @@ public class ManagerIncidentServiceImpl implements ManagerIncidentService {
         if (req.status() == Incident.Status.RESOLVED) {
             i.setResolvedAt(Instant.now());
         }
-        serviceWorkflow.notify(Role.KITCHEN, "INCIDENT_REPLY", "Incident updated",
-                reply != null ? reply : req.status().name(), i.getId().toString());
+        serviceWorkflow.notify(
+                Role.KITCHEN,
+                "INCIDENT_REPLY",
+                "Incident updated",
+                reply != null ? reply : req.status().name(),
+                i.getId().toString());
 
-        StringBuilder text = new StringBuilder("Cập nhật sự cố ").append(ManagerIncidentResponse.code(i))
-                .append(" (").append(typeName(i.getType())).append("): ").append(statusName(oldStatus))
-                .append(" → ").append(statusName(req.status()));
+        StringBuilder text =
+                new StringBuilder("Cập nhật sự cố ")
+                        .append(ManagerIncidentResponse.code(i))
+                        .append(" (")
+                        .append(typeName(i.getType()))
+                        .append("): ")
+                        .append(statusName(oldStatus))
+                        .append(" → ")
+                        .append(statusName(req.status()));
         if (assigneeChanged) {
             text.append(" · giao cho ").append(assignee.getFullName());
         }
@@ -109,7 +126,8 @@ public class ManagerIncidentServiceImpl implements ManagerIncidentService {
         log.setAction("INCIDENT_UPDATED");
         log.setTargetType("INCIDENT");
         log.setTargetId(i.getId());
-        log.setDescription(text.length() > AUDIT_MAX ? text.substring(0, AUDIT_MAX) : text.toString());
+        log.setDescription(
+                text.length() > AUDIT_MAX ? text.substring(0, AUDIT_MAX) : text.toString());
         auditLogs.save(log);
         incidents.flush();
         return ManagerIncidentResponse.from(i);

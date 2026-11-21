@@ -45,17 +45,21 @@ class CatalogApiIntegrationTests {
     @Autowired AuditLogRepository auditLogs;
     @Autowired PasswordEncoder passwordEncoder;
 
-    // Service kiem tra lai user trong DB theo subject, nen token gia phai tro toi user that dung role.
+    // Service kiem tra lai user trong DB theo subject, nen token gia phai tro toi user that dung
+    // role.
     RequestPostProcessor as(String role) {
         String email = "catalog-" + role.toLowerCase() + "@restosphere.test";
-        User user = users.findByEmail(email).orElseGet(() -> {
-            User u = new User();
-            u.setEmail(email);
-            u.setPasswordHash(passwordEncoder.encode("unused-password"));
-            u.setFullName(role);
-            u.setRole(Role.valueOf(role));
-            return users.save(u);
-        });
+        User user =
+                users.findByEmail(email)
+                        .orElseGet(
+                                () -> {
+                                    User u = new User();
+                                    u.setEmail(email);
+                                    u.setPasswordHash(passwordEncoder.encode("unused-password"));
+                                    u.setFullName(role);
+                                    u.setRole(Role.valueOf(role));
+                                    return users.save(u);
+                                });
         return jwt().jwt(j -> j.subject(user.getId().toString()))
                 .authorities(new SimpleGrantedAuthority("ROLE_" + role));
     }
@@ -64,7 +68,9 @@ class CatalogApiIntegrationTests {
     void cleanUsers() {
         // Audit log tham chieu user nen xoa truoc.
         auditLogs.deleteAll();
-        users.findAll().stream().filter(u -> u.getEmail().startsWith("catalog-")).forEach(users::delete);
+        users.findAll().stream()
+                .filter(u -> u.getEmail().startsWith("catalog-"))
+                .forEach(users::delete);
     }
 
     @BeforeEach
@@ -76,54 +82,118 @@ class CatalogApiIntegrationTests {
     }
 
     String create(String url, String json, String role) throws Exception {
-        return mockMvc.perform(post(url).with(as(role)).contentType(MediaType.APPLICATION_JSON).content(json))
-                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
+        return mockMvc.perform(
+                        post(url)
+                                .with(as(role))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(json))
+                .andExpect(status().isCreated())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
     }
 
     @Test
     void onlyManagerOrAdminCanWriteAreas() throws Exception {
-        mockMvc.perform(post("/api/v1/areas").with(as("WAITER")).contentType(MediaType.APPLICATION_JSON)
-                .content("{\"name\":\"Tang 1\"}")).andExpect(status().isForbidden());
-        mockMvc.perform(post("/api/v1/areas").contentType(MediaType.APPLICATION_JSON)
-                .content("{\"name\":\"Tang 1\"}")).andExpect(status().isUnauthorized());
+        mockMvc.perform(
+                        post("/api/v1/areas")
+                                .with(as("WAITER"))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"name\":\"Tang 1\"}"))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(
+                        post("/api/v1/areas")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"name\":\"Tang 1\"}"))
+                .andExpect(status().isUnauthorized());
         create("/api/v1/areas", "{\"name\":\"Tang 1\"}", "MANAGER");
-        mockMvc.perform(post("/api/v1/areas").with(as("ADMIN")).contentType(MediaType.APPLICATION_JSON)
-                .content("{\"name\":\"Tang 1\"}")).andExpect(status().isConflict());
+        mockMvc.perform(
+                        post("/api/v1/areas")
+                                .with(as("ADMIN"))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"name\":\"Tang 1\"}"))
+                .andExpect(status().isConflict());
     }
 
     @Test
     void areaWithTablesCannotBeDeletedAndWaiterCanChangeTableStatus() throws Exception {
-        String areaId = JsonPath.read(create("/api/v1/areas", "{\"name\":\"VIP\"}", "MANAGER"), "$.id");
-        String tableId = JsonPath.read(create("/api/v1/tables",
-                "{\"code\":\"T1\",\"areaId\":\"" + areaId + "\",\"capacity\":4}", "MANAGER"), "$.id");
+        String areaId =
+                JsonPath.read(create("/api/v1/areas", "{\"name\":\"VIP\"}", "MANAGER"), "$.id");
+        String tableId =
+                JsonPath.read(
+                        create(
+                                "/api/v1/tables",
+                                "{\"code\":\"T1\",\"areaId\":\"" + areaId + "\",\"capacity\":4}",
+                                "MANAGER"),
+                        "$.id");
 
-        mockMvc.perform(delete("/api/v1/areas/" + areaId).with(as("MANAGER"))).andExpect(status().isConflict());
-        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
-                .patch("/api/v1/tables/" + tableId + "/status").with(as("WAITER"))
-                .contentType(MediaType.APPLICATION_JSON).content("{\"status\":\"OCCUPIED\"}"))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("OCCUPIED"));
-        mockMvc.perform(post("/api/v1/tables").with(as("MANAGER")).contentType(MediaType.APPLICATION_JSON)
-                .content("{\"code\":\"T2\",\"areaId\":\"" + areaId + "\",\"capacity\":0}"))
+        mockMvc.perform(delete("/api/v1/areas/" + areaId).with(as("MANAGER")))
+                .andExpect(status().isConflict());
+        mockMvc.perform(
+                        org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch(
+                                        "/api/v1/tables/" + tableId + "/status")
+                                .with(as("WAITER"))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"status\":\"OCCUPIED\"}"))
+                .andExpect(status().isConflict());
+        mockMvc.perform(
+                        org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch(
+                                        "/api/v1/tables/" + tableId + "/status")
+                                .with(as("WAITER"))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"status\":\"CLEANING\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("CLEANING"));
+        mockMvc.perform(
+                        post("/api/v1/tables")
+                                .with(as("MANAGER"))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        "{\"code\":\"T2\",\"areaId\":\""
+                                                + areaId
+                                                + "\",\"capacity\":0}"))
                 .andExpect(status().isBadRequest());
     }
 
     @Test
     void publicMenuHidesHiddenCategoriesAndDiscontinuedItems() throws Exception {
-        String shown = JsonPath.read(create("/api/v1/menu/categories",
-                "{\"name\":\"Hai san\",\"sortOrder\":1,\"visible\":true}", "MANAGER"), "$.id");
+        String shown =
+                JsonPath.read(
+                        create(
+                                "/api/v1/menu/categories",
+                                "{\"name\":\"Hai san\",\"sortOrder\":1,\"visible\":true}",
+                                "MANAGER"),
+                        "$.id");
         // Khong tao mon thang vao danh muc an duoc (400), nen tao khi con hien roi moi an danh muc.
-        String hidden = JsonPath.read(create("/api/v1/menu/categories",
-                "{\"name\":\"Noi bo\",\"sortOrder\":2,\"visible\":true}", "MANAGER"), "$.id");
-        create("/api/v1/menu/items", "{\"name\":\"Cua\",\"categoryId\":\"" + shown + "\",\"price\":250000}", "MANAGER");
-        create("/api/v1/menu/items", "{\"name\":\"Bi mat\",\"categoryId\":\"" + hidden + "\",\"price\":1000}", "MANAGER");
-        mockMvc.perform(put("/api/v1/menu/categories/" + hidden).with(as("MANAGER"))
-                .contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"Noi bo\",\"sortOrder\":2,\"visible\":false}"));
+        String hidden =
+                JsonPath.read(
+                        create(
+                                "/api/v1/menu/categories",
+                                "{\"name\":\"Noi bo\",\"sortOrder\":2,\"visible\":true}",
+                                "MANAGER"),
+                        "$.id");
+        create(
+                "/api/v1/menu/items",
+                "{\"name\":\"Cua\",\"categoryId\":\"" + shown + "\",\"price\":250000}",
+                "MANAGER");
+        create(
+                "/api/v1/menu/items",
+                "{\"name\":\"Bi mat\",\"categoryId\":\"" + hidden + "\",\"price\":1000}",
+                "MANAGER");
+        mockMvc.perform(
+                put("/api/v1/menu/categories/" + hidden)
+                        .with(as("MANAGER"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"Noi bo\",\"sortOrder\":2,\"visible\":false}"));
 
-        mockMvc.perform(get("/api/v1/menu/items")).andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(1)).andExpect(jsonPath("$[0].name").value("Cua"));
+        mockMvc.perform(get("/api/v1/menu/items"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].name").value("Cua"));
         mockMvc.perform(get("/api/v1/menu/categories")).andExpect(jsonPath("$.length()").value(1));
         mockMvc.perform(get("/api/v1/menu/items?all=true")).andExpect(status().isUnauthorized());
-        mockMvc.perform(get("/api/v1/menu/items?all=true").with(as("WAITER"))).andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/v1/menu/items?all=true").with(as("WAITER")))
+                .andExpect(status().isForbidden());
         mockMvc.perform(get("/api/v1/menu/items?all=true").with(as("MANAGER")))
                 .andExpect(jsonPath("$.length()").value(2));
         mockMvc.perform(delete("/api/v1/menu/categories/" + shown).with(as("MANAGER")))

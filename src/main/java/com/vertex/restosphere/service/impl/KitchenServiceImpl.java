@@ -58,13 +58,17 @@ public class KitchenServiceImpl implements KitchenService {
             return List.of();
         }
 
-        Map<UUID, List<OrderItem>> itemsByOrder = orderItems
-                .findByOrderIdIn(found.stream().map(Order::getId).toList()).stream()
-                .filter(i -> status == null || i.getStatus() == status)
-                .sorted(Comparator.comparing(OrderItem::getCreatedAt))
-                .collect(Collectors.groupingBy(i -> i.getOrder().getId()));
-        Map<UUID, List<AuditLog>> logsByItem = history(
-                itemsByOrder.values().stream().flatMap(List::stream).map(OrderItem::getId).toList());
+        Map<UUID, List<OrderItem>> itemsByOrder =
+                orderItems.findByOrderIdIn(found.stream().map(Order::getId).toList()).stream()
+                        .filter(i -> status == null || i.getStatus() == status)
+                        .sorted(Comparator.comparing(OrderItem::getCreatedAt))
+                        .collect(Collectors.groupingBy(i -> i.getOrder().getId()));
+        Map<UUID, List<AuditLog>> logsByItem =
+                history(
+                        itemsByOrder.values().stream()
+                                .flatMap(List::stream)
+                                .map(OrderItem::getId)
+                                .toList());
 
         return found.stream()
                 .filter(o -> itemsByOrder.containsKey(o.getId()))
@@ -86,18 +90,24 @@ public class KitchenServiceImpl implements KitchenService {
 
     @Transactional
     @Override
-    public List<KitchenOrderItemResponse> reject(UUID actorId, UUID itemId, long version, String reason) {
-        return transition(actorId, "reject", List.of(new KitchenItemRef(itemId.toString(), version)), reason.trim());
+    public List<KitchenOrderItemResponse> reject(
+            UUID actorId, UUID itemId, long version, String reason) {
+        return transition(
+                actorId,
+                "reject",
+                List.of(new KitchenItemRef(itemId.toString(), version)),
+                reason.trim());
     }
 
-    private List<KitchenOrderItemResponse> transition(UUID actorId, String type, List<KitchenItemRef> refs,
-            String reason) {
+    private List<KitchenOrderItemResponse> transition(
+            UUID actorId, String type, List<KitchenItemRef> refs, String reason) {
         User user = currentUser.require(actorId, Role.ADMIN, Role.KITCHEN);
         if (refs == null || refs.isEmpty()) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Select at least one item");
         }
         restaurantLock.acquire();
-        OrderItem.Status expected = type.equals("complete") ? OrderItem.Status.PREPARING : OrderItem.Status.SUBMITTED;
+        OrderItem.Status expected =
+                type.equals("complete") ? OrderItem.Status.PREPARING : OrderItem.Status.SUBMITTED;
 
         Set<UUID> seen = new HashSet<>();
         List<OrderItem> items = new ArrayList<>();
@@ -125,7 +135,8 @@ public class KitchenServiceImpl implements KitchenService {
                 case "complete" -> {
                     item.setStatus(OrderItem.Status.READY);
                     item.setReadyAt(Instant.now());
-                    workflow.notify(Role.WAITER, "READY", "Dish ready", item.getItemName(), session);
+                    workflow.notify(
+                            Role.WAITER, "READY", "Dish ready", item.getItemName(), session);
                 }
                 default -> {
                     item.setStatus(OrderItem.Status.REJECTED);
@@ -141,42 +152,88 @@ public class KitchenServiceImpl implements KitchenService {
         s.setRevision(s.getRevision() + 1);
         orderItems.flush();
         Map<UUID, List<AuditLog>> logs = history(items.stream().map(OrderItem::getId).toList());
-        return items.stream().map(i -> toResponse(i, logs.getOrDefault(i.getId(), List.of()))).toList();
+        return items.stream()
+                .map(i -> toResponse(i, logs.getOrDefault(i.getId(), List.of())))
+                .toList();
     }
 
     private Map<UUID, List<AuditLog>> history(List<UUID> itemIds) {
         if (itemIds.isEmpty()) {
             return Map.of();
         }
-        return auditLogs.findByTargetTypeAndTargetIdInAndActionInOrderByCreatedAtAsc("ORDER_ITEM", itemIds,
-                HISTORY_ACTIONS).stream().collect(Collectors.groupingBy(AuditLog::getTargetId));
+        return auditLogs
+                .findByTargetTypeAndTargetIdInAndActionInOrderByCreatedAtAsc(
+                        "ORDER_ITEM", itemIds, HISTORY_ACTIONS)
+                .stream()
+                .collect(Collectors.groupingBy(AuditLog::getTargetId));
     }
 
-    private KitchenOrderResponse toResponse(Order o, List<OrderItem> items, Map<UUID, List<AuditLog>> logs) {
+    private KitchenOrderResponse toResponse(
+            Order o, List<OrderItem> items, Map<UUID, List<AuditLog>> logs) {
         var table = o.getSession().getTable();
-        var priority = o.getPriorityAt() == null ? null
-                : new KitchenOrderResponse.Priority(o.getPriorityAt(), o.getPriorityBy() == null ? null : o.getPriorityBy().getId().toString(), o.getPriorityReason());
-        return new KitchenOrderResponse(o.getId(), "O-" + o.getId(), o.getSession().getId(), table.getCode(),
-                table.getArea().getName(), o.getSession().getGuestCount(), o.getWaiter().getId(), o.getRoundNumber(),
-                o.getCreatedAt(), priority,
-                items.stream().map(i -> toResponse(i, logs.getOrDefault(i.getId(), List.of()))).toList());
+        var priority =
+                o.getPriorityAt() == null
+                        ? null
+                        : new KitchenOrderResponse.Priority(
+                                o.getPriorityAt(),
+                                o.getPriorityBy() == null
+                                        ? null
+                                        : o.getPriorityBy().getId().toString(),
+                                o.getPriorityReason());
+        return new KitchenOrderResponse(
+                o.getId(),
+                "O-" + o.getId(),
+                o.getSession().getId(),
+                table.getCode(),
+                table.getArea().getName(),
+                o.getSession().getGuestCount(),
+                o.getWaiter().getId(),
+                o.getRoundNumber(),
+                o.getCreatedAt(),
+                priority,
+                items.stream()
+                        .map(i -> toResponse(i, logs.getOrDefault(i.getId(), List.of())))
+                        .toList());
     }
 
     private KitchenOrderItemResponse toResponse(OrderItem i, List<AuditLog> logs) {
         UUID chef = i.getChef() == null ? null : i.getChef().getId();
 
-        AuditLog reject = logs.stream().filter(a -> "reject".equals(a.getAction()))
-                .reduce((first, second) -> second).orElse(null);
-        return new KitchenOrderItemResponse(i.getId(), i.getOrder().getId(), i.getMenuItem().getId(),
-                i.getItemName(), i.getQuantity(), i.getNote() == null ? "" : i.getNote(), i.getStatus(),
-                i.getVersion(), i.getCreatedAt(), i.getStartedAt(), chef, i.getReadyAt(), chef, i.getServedAt(),
+        AuditLog reject =
+                logs.stream()
+                        .filter(a -> "reject".equals(a.getAction()))
+                        .reduce((first, second) -> second)
+                        .orElse(null);
+        return new KitchenOrderItemResponse(
+                i.getId(),
+                i.getOrder().getId(),
+                i.getMenuItem().getId(),
+                i.getItemName(),
+                i.getQuantity(),
+                i.getNote() == null ? "" : i.getNote(),
+                i.getStatus(),
+                i.getVersion(),
+                i.getCreatedAt(),
+                i.getStartedAt(),
+                chef,
+                i.getReadyAt(),
+                chef,
+                i.getServedAt(),
                 reject == null ? null : reject.getCreatedAt(),
                 reject == null || reject.getActor() == null ? null : reject.getActor().getId(),
                 i.getRejectionReason(),
-                logs.stream().map(a -> new KitchenOrderItemResponse.History(a.getCreatedAt(), switch (a.getAction()) {
-                    case "start" -> OrderItem.Status.PREPARING;
-                    case "complete" -> OrderItem.Status.READY;
-                    default -> OrderItem.Status.REJECTED;
-                }, a.getActor() == null ? null : a.getActor().getId(), a.getDescription())).toList());
+                logs.stream()
+                        .map(
+                                a ->
+                                        new KitchenOrderItemResponse.History(
+                                                a.getCreatedAt(),
+                                                switch (a.getAction()) {
+                                                    case "start" -> OrderItem.Status.PREPARING;
+                                                    case "complete" -> OrderItem.Status.READY;
+                                                    default -> OrderItem.Status.REJECTED;
+                                                },
+                                                a.getActor() == null ? null : a.getActor().getId(),
+                                                a.getDescription()))
+                        .toList());
     }
 }

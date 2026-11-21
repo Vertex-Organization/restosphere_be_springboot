@@ -35,7 +35,8 @@ public class CashierNotificationController {
     }
 
     @PostMapping("/notifications/read")
-    public List<CashierNotificationResponse> read(@AuthenticationPrincipal Jwt jwt,
+    public List<CashierNotificationResponse> read(
+            @AuthenticationPrincipal Jwt jwt,
             @Valid @RequestBody(required = false) CashierReadNotificationsRequest req) {
         return service.markRead(CurrentUserService.idOf(jwt), req == null ? null : req.ids());
     }

@@ -11,9 +11,9 @@ import com.vertex.restosphere.repository.IncidentRepository;
 import com.vertex.restosphere.repository.UserRepository;
 import com.vertex.restosphere.security.CurrentUserService;
 import com.vertex.restosphere.service.KitchenIncidentService;
-import com.vertex.restosphere.service.KitchenWriteSupport;
 import com.vertex.restosphere.service.RestaurantLock;
 import com.vertex.restosphere.service.ServiceWorkflow;
+import com.vertex.restosphere.service.WorkspaceCommit;
 import com.vertex.restosphere.service.WorkspaceStore;
 import java.util.List;
 import java.util.Set;
@@ -26,14 +26,14 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class KitchenIncidentServiceImpl implements KitchenIncidentService {
-    private static final Set<String> TYPES = Set.of("OUT_OF_STOCK", "EQUIPMENT", "CANNOT_PREPARE",
-            "NOTE_CLARIFICATION", "OTHER");
+    private static final Set<String> TYPES =
+            Set.of("OUT_OF_STOCK", "EQUIPMENT", "CANNOT_PREPARE", "NOTE_CLARIFICATION", "OTHER");
 
     private final CurrentUserService currentUser;
     private final RestaurantLock restaurantLock;
     private final WorkspaceStore store;
     private final ServiceWorkflow workflow;
-    private final KitchenWriteSupport writes;
+    private final WorkspaceCommit writes;
     private final IncidentRepository incidents;
     private final UserRepository users;
 
@@ -42,7 +42,9 @@ public class KitchenIncidentServiceImpl implements KitchenIncidentService {
     public List<KitchenIncidentResponse> list(UUID actorId) {
         currentUser.require(actorId, Role.ADMIN, Role.KITCHEN);
         List<UUID> managers = managerIds();
-        return incidents.findAllByOrderByCreatedAtAsc().stream().map(i -> toResponse(i, managers)).toList();
+        return incidents.findAllByOrderByCreatedAtAsc().stream()
+                .map(i -> toResponse(i, managers))
+                .toList();
     }
 
     @Transactional
@@ -80,7 +82,11 @@ public class KitchenIncidentServiceImpl implements KitchenIncidentService {
             incident.setOrderItem(item);
         }
         incidents.save(incident);
-        workflow.notify(Role.MANAGER, "INCIDENT", "Kitchen incident", incident.getDescription(),
+        workflow.notify(
+                Role.MANAGER,
+                "INCIDENT",
+                "Kitchen incident",
+                incident.getDescription(),
                 incident.getId().toString());
         writes.commit(user, "report-incident");
         store.flush();
@@ -88,7 +94,10 @@ public class KitchenIncidentServiceImpl implements KitchenIncidentService {
     }
 
     private List<UUID> managerIds() {
-        return users.findAll().stream().filter(u -> u.getRole() == Role.MANAGER).map(User::getId).toList();
+        return users.findAll().stream()
+                .filter(u -> u.getRole() == Role.MANAGER)
+                .map(User::getId)
+                .toList();
     }
 
     private static String trim(String s) {
@@ -101,11 +110,27 @@ public class KitchenIncidentServiceImpl implements KitchenIncidentService {
 
     private KitchenIncidentResponse toResponse(Incident i, List<UUID> managers) {
         OrderItem item = i.getOrderItem();
-        var response = i.getResolution() == null ? null : new KitchenIncidentResponse.Response(
-                i.getAssignee() == null ? null : i.getAssignee().getId(), i.getUpdatedAt(), i.getResolution());
-        return new KitchenIncidentResponse(i.getId(), "I-" + i.getId(), i.getType(), i.getSeverity(), i.getStatus(),
-                i.getTitle(), i.getDescription(), item == null ? null : item.getOrder().getId(),
-                item == null ? null : item.getId(), i.getReporter().getId(),
-                i.getAssignee() == null ? null : i.getAssignee().getId(), i.getCreatedAt(), managers, response);
+        var response =
+                i.getResolution() == null
+                        ? null
+                        : new KitchenIncidentResponse.Response(
+                                i.getAssignee() == null ? null : i.getAssignee().getId(),
+                                i.getUpdatedAt(),
+                                i.getResolution());
+        return new KitchenIncidentResponse(
+                i.getId(),
+                "I-" + i.getId(),
+                i.getType(),
+                i.getSeverity(),
+                i.getStatus(),
+                i.getTitle(),
+                i.getDescription(),
+                item == null ? null : item.getOrder().getId(),
+                item == null ? null : item.getId(),
+                i.getReporter().getId(),
+                i.getAssignee() == null ? null : i.getAssignee().getId(),
+                i.getCreatedAt(),
+                managers,
+                response);
     }
 }

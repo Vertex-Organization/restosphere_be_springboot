@@ -6,11 +6,29 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
 
-public record MenuItemResponse(UUID id, String name, UUID categoryId, String categoryName, BigDecimal price,
-        String description, String imageUrl, MenuItemStatus status, String unit, Instant updatedAt) {
+public record MenuItemResponse(
+        UUID id,
+        String name,
+        UUID categoryId,
+        String categoryName,
+        BigDecimal price,
+        String description,
+        String imageUrl,
+        MenuItemStatus status,
+        String unit,
+        Instant updatedAt) {
 
     public static MenuItemResponse from(MenuItem i) {
-        return new MenuItemResponse(i.getId(), i.getName(), i.getCategory().getId(), i.getCategory().getName(),
-                i.getPrice(), i.getDescription(), i.getImageUrl(), i.getStatus(), i.getPriceUnit(), i.getUpdatedAt());
+        return new MenuItemResponse(
+                i.getId(),
+                i.getName(),
+                i.getCategory().getId(),
+                i.getCategory().getName(),
+                i.getPrice(),
+                i.getDescription(),
+                i.getImageUrl(),
+                i.getStatus(),
+                i.getPriceUnit(),
+                i.getUpdatedAt());
     }
 }

@@ -1,6 +1,7 @@
 package com.vertex.restosphere.service.impl;
 
 import com.vertex.restosphere.common.enums.Role;
+import com.vertex.restosphere.common.util.Values;
 import com.vertex.restosphere.dto.request.CashierDiscountRequest;
 import com.vertex.restosphere.dto.response.CashierBillResponse;
 import com.vertex.restosphere.dto.response.CashierRequestResponse;
@@ -12,8 +13,8 @@ import com.vertex.restosphere.security.CurrentUserService;
 import com.vertex.restosphere.service.BillingWorkflow;
 import com.vertex.restosphere.service.CashierBillService;
 import com.vertex.restosphere.service.CashierDiscountService;
-import com.vertex.restosphere.service.CashierWriteSupport;
 import com.vertex.restosphere.service.RestaurantLock;
+import com.vertex.restosphere.service.WorkspaceCommit;
 import com.vertex.restosphere.service.WorkspaceStore;
 import java.math.BigDecimal;
 import java.util.Set;
@@ -31,7 +32,7 @@ public class CashierDiscountServiceImpl implements CashierDiscountService {
     private final RestaurantLock restaurantLock;
     private final WorkspaceStore store;
     private final BillingWorkflow billing;
-    private final CashierWriteSupport writes;
+    private final WorkspaceCommit writes;
     private final CashierBillService billViews;
 
     @Transactional
@@ -41,7 +42,16 @@ public class CashierDiscountServiceImpl implements CashierDiscountService {
         restaurantLock.acquire();
         Bill bill = prepare(billId, req.billVersion());
         Parsed d = parse(bill, req.discount());
-        if (d.amount().compareTo(CashierWriteSupport.whole(bill.getSubtotal().multiply(BigDecimal.valueOf(store.lock().getCashierDiscountPercent())).movePointLeft(2))) > 0) {
+        if (d.amount()
+                        .compareTo(
+                                Values.whole(
+                                        bill.getSubtotal()
+                                                .multiply(
+                                                        BigDecimal.valueOf(
+                                                                store.lock()
+                                                                        .getCashierDiscountPercent()))
+                                                .movePointLeft(2)))
+                > 0) {
             throw ApiException.conflict("Discount requires manager approval");
         }
         billing.applyDiscount(bill, d.mode(), d.value(), d.reason(), user);
@@ -71,8 +81,14 @@ public class CashierDiscountServiceImpl implements CashierDiscountService {
         restaurantLock.acquire();
         Bill bill = prepare(billId, req.billVersion());
         Parsed d = parse(bill, req.discount());
-        ApprovalRequest r = billing.request(ApprovalRequest.Type.DISCOUNT, "BILL", bill.getId(), d.amount(),
-                d.reason(), user);
+        ApprovalRequest r =
+                billing.request(
+                        ApprovalRequest.Type.DISCOUNT,
+                        "BILL",
+                        bill.getId(),
+                        d.amount(),
+                        d.reason(),
+                        user);
         r.setDiscountMode(d.mode());
         r.setDiscountValue(d.value());
         writes.commit(user, "request-discount");
@@ -82,7 +98,7 @@ public class CashierDiscountServiceImpl implements CashierDiscountService {
 
     private Bill prepare(UUID billId, long billVersion) {
         Bill bill = store.get(Bill.class, billId.toString());
-        writes.version(bill, billVersion);
+        billing.requireVersion(bill, billVersion);
         billing.recalculate(bill);
         billing.editable(bill);
         return bill;
@@ -91,24 +107,27 @@ public class CashierDiscountServiceImpl implements CashierDiscountService {
     private Parsed parse(Bill bill, CashierDiscountRequest.Discount d) {
         String mode = d.mode() == null ? "" : d.mode().trim();
         if (mode.isEmpty() || mode.length() > 20) {
-            throw WorkspaceStoreImpl.invalid("mode is required (max 20)");
+            throw Values.invalid("mode is required (max 20)");
         }
         if (d.value() == null) {
-            throw WorkspaceStoreImpl.invalid("Invalid value");
+            throw Values.invalid("Invalid value");
         }
-        BigDecimal value = CashierWriteSupport.money(d.value(), "value");
-        if (!Set.of("PERCENT", "AMOUNT").contains(mode) || value.signum() == 0
+        BigDecimal value = Values.money(d.value(), "value");
+        if (!Set.of("PERCENT", "AMOUNT").contains(mode)
+                || value.signum() == 0
                 || (mode.equals("PERCENT") && value.compareTo(BigDecimal.valueOf(100)) > 0)) {
-            throw WorkspaceStoreImpl.invalid("Invalid discount");
+            throw Values.invalid("Invalid discount");
         }
-        BigDecimal amount = mode.equals("PERCENT")
-                ? CashierWriteSupport.whole(bill.getSubtotal().multiply(value).movePointLeft(2)) : value;
+        BigDecimal amount =
+                mode.equals("PERCENT")
+                        ? Values.whole(bill.getSubtotal().multiply(value).movePointLeft(2))
+                        : value;
         if (amount.compareTo(bill.getSubtotal()) > 0) {
-            throw WorkspaceStoreImpl.invalid("Discount exceeds subtotal");
+            throw Values.invalid("Discount exceeds subtotal");
         }
         String reason = d.reason() == null ? "" : d.reason().trim();
         if (reason.isEmpty() || reason.length() > 1000) {
-            throw WorkspaceStoreImpl.invalid("reason is required (max 1000)");
+            throw Values.invalid("reason is required (max 1000)");
         }
         return new Parsed(mode, value, amount, reason);
     }

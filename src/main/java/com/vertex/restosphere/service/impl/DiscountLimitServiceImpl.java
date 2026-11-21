@@ -10,7 +10,7 @@ import com.vertex.restosphere.entity.User;
 import com.vertex.restosphere.repository.AuditLogRepository;
 import com.vertex.restosphere.security.CurrentUserService;
 import com.vertex.restosphere.service.DiscountLimitService;
-import com.vertex.restosphere.service.RestaurantSettingsProvider;
+import com.vertex.restosphere.service.WorkspaceStore;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -23,19 +23,19 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 public class DiscountLimitServiceImpl implements DiscountLimitService {
 
-    private final RestaurantSettingsProvider provider;
+    private final WorkspaceStore store;
     private final CurrentUserService currentUser;
     private final AuditLogRepository auditLogs;
 
     @Override
     public DiscountLimitResponse get(UUID actorId) {
         currentUser.require(actorId, Role.ADMIN);
-        return DiscountLimitResponse.from(provider.lockAndGet());
+        return DiscountLimitResponse.from(store.lock());
     }
 
     @Override
     public DiscountLimitResponse update(UUID actorId, DiscountLimitRequest req) {
-        RestaurantSettings s = provider.lockAndGet();
+        RestaurantSettings s = store.lock();
         User actor = currentUser.require(actorId, Role.ADMIN);
 
         List<String> changed = new ArrayList<>();

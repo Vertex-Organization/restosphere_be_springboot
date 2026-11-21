@@ -4,5 +4,5 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import java.math.BigDecimal;
 
-public record CashierCreateTransferRequest(@NotNull Long billVersion, @NotNull BigDecimal amount,
-        @NotBlank String idempotencyKey) {}
+public record CashierCreateTransferRequest(
+        @NotNull Long billVersion, @NotNull BigDecimal amount, @NotBlank String idempotencyKey) {}

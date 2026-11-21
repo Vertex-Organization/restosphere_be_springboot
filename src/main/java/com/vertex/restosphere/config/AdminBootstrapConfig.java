@@ -13,8 +13,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.util.StringUtils;
 
 /**
- * Tao tai khoan admin dau tien tu ADMIN_EMAIL/ADMIN_PASSWORD. Bo qua neu thieu bien
- * moi truong hoac email da ton tai, nen khong ghi de mat khau da doi.
+ * Tao tai khoan admin dau tien tu ADMIN_EMAIL/ADMIN_PASSWORD. Bo qua neu thieu bien moi truong hoac
+ * email da ton tai, nen khong ghi de mat khau da doi.
  */
 @Slf4j
 @Configuration(proxyBeanMethods = false)

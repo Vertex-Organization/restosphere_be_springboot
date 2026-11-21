@@ -1,29 +1,29 @@
 package com.vertex.restosphere.service.impl;
 
-import static com.vertex.restosphere.service.impl.ReservationWorkflowImpl.number;
-import static com.vertex.restosphere.service.impl.ReservationWorkflowImpl.required;
-import static com.vertex.restosphere.service.impl.ReservationWorkflowImpl.text;
-import static com.vertex.restosphere.service.impl.ReservationWorkflowImpl.validateQuantity;
-import static com.vertex.restosphere.service.impl.WorkspaceStoreImpl.id;
-import static com.vertex.restosphere.service.impl.WorkspaceStoreImpl.invalid;
+import static com.vertex.restosphere.common.util.Values.id;
+import static com.vertex.restosphere.common.util.Values.invalid;
+import static com.vertex.restosphere.common.util.Values.number;
+import static com.vertex.restosphere.common.util.Values.required;
+import static com.vertex.restosphere.common.util.Values.text;
+import static com.vertex.restosphere.common.util.Values.validateQuantity;
 
 import com.vertex.restosphere.common.enums.MenuItemStatus;
 import com.vertex.restosphere.common.enums.Role;
 import com.vertex.restosphere.common.enums.TableStatus;
+import com.vertex.restosphere.common.util.Values;
 import com.vertex.restosphere.entity.*;
 import com.vertex.restosphere.exception.ApiException;
 import com.vertex.restosphere.repository.*;
+import com.vertex.restosphere.service.BillingWorkflow;
+import com.vertex.restosphere.service.ServiceWorkflow;
+import com.vertex.restosphere.service.WaiterService;
+import com.vertex.restosphere.service.WorkspaceStore;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.EnumSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-
-import com.vertex.restosphere.service.BillingWorkflow;
-import com.vertex.restosphere.service.ServiceWorkflow;
-import com.vertex.restosphere.service.WaiterService;
-import com.vertex.restosphere.service.WorkspaceStore;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -33,9 +33,11 @@ import org.springframework.stereotype.Service;
 public class WaiterServiceImpl implements WaiterService {
 
     private static final Set<OrderItem.Status> NOT_SERVED_YET =
-            EnumSet.of(OrderItem.Status.SUBMITTED, OrderItem.Status.PREPARING, OrderItem.Status.READY);
+            EnumSet.of(
+                    OrderItem.Status.SUBMITTED, OrderItem.Status.PREPARING, OrderItem.Status.READY);
     private static final Set<OrderItem.Status> CANCELLABLE =
-            EnumSet.of(OrderItem.Status.PREPARING, OrderItem.Status.READY);
+            EnumSet.of(
+                    OrderItem.Status.SUBMITTED, OrderItem.Status.PREPARING, OrderItem.Status.READY);
     private static final int MAX_NOTE = 1000;
 
     private final WorkspaceStore db;
@@ -53,15 +55,28 @@ public class WaiterServiceImpl implements WaiterService {
         switch (type) {
             case "accept" -> accept(session, waiter);
             case "add-draft" -> addDraft(session, uuid(command, "menuItemId"), waiter);
-            case "edit-draft" -> editDraft(session, uuid(command, "draftId"),
-                    number(command, "quantity"), text(command, "note"), waiter);
+            case "edit-draft" ->
+                    editDraft(
+                            session,
+                            uuid(command, "draftId"),
+                            number(command, "quantity"),
+                            text(command, "note"),
+                            waiter);
             case "remove-draft" -> removeDraft(session, uuid(command, "draftId"), waiter);
             case "submit" -> submit(session, waiter);
             case "serve" -> serve(session, uuid(command, "itemId"), waiter);
-            case "request-cancel" -> requestCancel(session, uuid(command, "itemId"),
-                    required(command, "reason", MAX_NOTE), waiter);
-            case "request-priority" -> requestPriority(session, uuid(command, "orderId"),
-                    required(command, "reason", MAX_NOTE), waiter);
+            case "request-cancel" ->
+                    requestCancel(
+                            session,
+                            uuid(command, "itemId"),
+                            required(command, "reason", MAX_NOTE),
+                            waiter);
+            case "request-priority" ->
+                    requestPriority(
+                            session,
+                            uuid(command, "orderId"),
+                            required(command, "reason", MAX_NOTE),
+                            waiter);
             case "request-payment" -> requestPayment(session, waiter);
             case "withdraw-payment-request" -> withdrawPaymentRequest(session, waiter);
             case "guest-left" -> guestLeft(session, isConfirmed(command), waiter);
@@ -83,8 +98,15 @@ public class WaiterServiceImpl implements WaiterService {
         session.setWaiter(waiter);
         session.setAcceptedAt(Instant.now());
         if (session.getReservation() != null) {
-            for (ReservationItem preorder : reservationItems.findByReservation(session.getReservation())) {
-                drafts.save(newDraft(session, waiter, preorder.getMenuItem(), preorder.getQuantity(), preorder.getNote()));
+            for (ReservationItem preorder :
+                    reservationItems.findByReservation(session.getReservation())) {
+                drafts.save(
+                        newDraft(
+                                session,
+                                waiter,
+                                preorder.getMenuItem(),
+                                preorder.getQuantity(),
+                                preorder.getNote()));
             }
         }
     }
@@ -98,7 +120,8 @@ public class WaiterServiceImpl implements WaiterService {
     }
 
     @Override
-    public void editDraft(UUID sessionId, UUID draftId, BigDecimal quantity, String note, User waiter) {
+    public void editDraft(
+            UUID sessionId, UUID draftId, BigDecimal quantity, String note, User waiter) {
         TableSession session = orderingSession(sessionId, waiter);
         OrderDraft draft = ownDraft(session, waiter, draftId);
         String cleanNote = note == null ? "" : note.trim();
@@ -142,14 +165,16 @@ public class WaiterServiceImpl implements WaiterService {
         drafts.deleteAll(cart);
 
         billing.recalculate(billing.bill(session));
-        events.notify(Role.KITCHEN, "NEW_ORDER", "New order", session.getTable().getCode(), id(order));
+        events.notify(
+                Role.KITCHEN, "NEW_ORDER", "New order", session.getTable().getCode(), id(order));
     }
 
     @Override
     public void serve(UUID sessionId, UUID itemId, User waiter) {
         TableSession session = ownSession(sessionId, waiter);
         OrderItem item = sessionItem(session, itemId);
-        if (item.getStatus() != OrderItem.Status.READY) throw ApiException.conflict("Item is not ready");
+        if (item.getStatus() != OrderItem.Status.READY)
+            throw ApiException.conflict("Item is not ready");
         item.setStatus(OrderItem.Status.SERVED);
         item.setServedAt(Instant.now());
     }
@@ -158,13 +183,20 @@ public class WaiterServiceImpl implements WaiterService {
     public void requestCancel(UUID sessionId, UUID itemId, String reason, User waiter) {
         TableSession session = orderingSession(sessionId, waiter);
         OrderItem item = sessionItem(session, itemId);
-        if (!CANCELLABLE.contains(item.getStatus())) throw ApiException.conflict("Item cannot be cancelled");
+        if (!CANCELLABLE.contains(item.getStatus()))
+            throw ApiException.conflict("Item cannot be cancelled");
         if (approvals.existsByTypeAndTargetIdAndStatus(
                 ApprovalRequest.Type.CANCEL_ITEM, item.getId(), ApprovalRequest.Status.PENDING)) {
             throw ApiException.conflict("A cancel request is already pending");
         }
-        BigDecimal amount = BillingWorkflowImpl.whole(item.getUnitPrice().multiply(item.getQuantity()));
-        billing.request(ApprovalRequest.Type.CANCEL_ITEM, "ORDER_ITEM", item.getId(), amount, reason, waiter);
+        BigDecimal amount = Values.whole(item.getUnitPrice().multiply(item.getQuantity()));
+        billing.request(
+                ApprovalRequest.Type.CANCEL_ITEM,
+                "ORDER_ITEM",
+                item.getId(),
+                amount,
+                reason,
+                waiter);
     }
 
     @Override
@@ -181,8 +213,10 @@ public class WaiterServiceImpl implements WaiterService {
     @Override
     public void requestPayment(UUID sessionId, User waiter) {
         TableSession session = ownSession(sessionId, waiter);
-        if (session.getStatus() != TableSession.Status.OPEN) throw ApiException.conflict("Payment already requested");
-        if (drafts.existsBySession(session) || orderItems.existsByOrderSessionAndStatusIn(session, NOT_SERVED_YET)) {
+        if (session.getStatus() != TableSession.Status.OPEN)
+            throw ApiException.conflict("Payment already requested");
+        if (drafts.existsBySession(session)
+                || orderItems.existsByOrderSessionAndStatusIn(session, NOT_SERVED_YET)) {
             throw ApiException.conflict("Submit drafts and serve or resolve all items first");
         }
         Bill bill = billing.bill(session);
@@ -191,26 +225,38 @@ public class WaiterServiceImpl implements WaiterService {
 
         session.setStatus(TableSession.Status.PAYMENT_REQUESTED);
         bill.setRequestedAt(Instant.now());
-        events.notify(Role.CASHIER, "PAYMENT_REQUEST", "Payment requested", session.getTable().getCode(), id(bill));
+        events.notify(
+                Role.CASHIER,
+                "PAYMENT_REQUEST",
+                "Payment requested",
+                session.getTable().getCode(),
+                id(bill));
     }
 
     @Override
     public void withdrawPaymentRequest(UUID sessionId, User waiter) {
         TableSession session = ownSession(sessionId, waiter);
-        if (session.getStatus() != TableSession.Status.PAYMENT_REQUESTED) throw ApiException.conflict("Payment not requested");
+        if (session.getStatus() != TableSession.Status.PAYMENT_REQUESTED)
+            throw ApiException.conflict("Payment not requested");
         Bill bill = billing.bill(session);
         billing.editable(bill);
 
         session.setStatus(TableSession.Status.OPEN);
         bill.setRequestedAt(null);
-        events.notify(Role.CASHIER, "PAYMENT_REQUEST_WITHDRAWN", "Payment request withdrawn",
-                session.getTable().getCode(), id(bill));
+        events.notify(
+                Role.CASHIER,
+                "PAYMENT_REQUEST_WITHDRAWN",
+                "Payment request withdrawn",
+                session.getTable().getCode(),
+                id(bill));
     }
 
     @Override
     public void guestLeft(UUID sessionId, boolean confirmed, User waiter) {
         TableSession session = ownSession(sessionId, waiter);
-        if (!confirmed || session.getGuestLeftAt() != null || billing.bill(session).getStatus() != Bill.Status.PAID) {
+        if (!confirmed
+                || session.getGuestLeftAt() != null
+                || billing.bill(session).getStatus() != Bill.Status.PAID) {
             throw ApiException.conflict("Confirm departure after payment");
         }
         session.setGuestLeftAt(Instant.now());
@@ -220,14 +266,22 @@ public class WaiterServiceImpl implements WaiterService {
     @Override
     public void clean(UUID sessionId, boolean confirmed, User waiter) {
         TableSession session = ownSession(sessionId, waiter);
-        if (!confirmed || session.getGuestLeftAt() == null || session.getTable().getStatus() != TableStatus.CLEANING) {
+        if (!confirmed
+                || session.getGuestLeftAt() == null
+                || session.getTable().getStatus() != TableStatus.CLEANING) {
             throw ApiException.conflict("Guests must leave before cleaning");
         }
         session.setEndedAt(Instant.now());
         session.setStatus(TableSession.Status.CLOSED);
         session.getTable().setStatus(TableStatus.AVAILABLE);
-        if (session.getReservation() != null) session.getReservation().setStatus(Reservation.Status.COMPLETED);
-        events.notify(Role.RECEPTIONIST, "TABLE_READY", "Bàn " + session.getTable().getCode() + " đã sẵn sàng", "Đã dọn xong", id(session.getTable()));
+        if (session.getReservation() != null)
+            session.getReservation().setStatus(Reservation.Status.COMPLETED);
+        events.notify(
+                Role.RECEPTIONIST,
+                "TABLE_READY",
+                "Bàn " + session.getTable().getCode() + " đã sẵn sàng",
+                "Đã dọn xong",
+                id(session.getTable()));
     }
 
     private TableSession ownSession(UUID sessionId, User waiter) {
@@ -235,7 +289,8 @@ public class WaiterServiceImpl implements WaiterService {
         if (!same(session.getWaiter(), waiter)) {
             throw new ApiException(HttpStatus.FORBIDDEN, "Session belongs to another waiter");
         }
-        if (session.getStatus() == TableSession.Status.CLOSED) throw ApiException.conflict("Session is closed");
+        if (session.getStatus() == TableSession.Status.CLOSED)
+            throw ApiException.conflict("Session is closed");
         return session;
     }
 
@@ -264,11 +319,13 @@ public class WaiterServiceImpl implements WaiterService {
 
     private OrderItem sessionItem(TableSession session, UUID itemId) {
         OrderItem item = db.get(OrderItem.class, itemId.toString());
-        if (!same(item.getOrder().getSession(), session)) throw invalid("Item belongs to another session");
+        if (!same(item.getOrder().getSession(), session))
+            throw invalid("Item belongs to another session");
         return item;
     }
 
-    private static OrderDraft newDraft(TableSession session, User waiter, MenuItem menu, BigDecimal quantity, String note) {
+    private static OrderDraft newDraft(
+            TableSession session, User waiter, MenuItem menu, BigDecimal quantity, String note) {
         OrderDraft draft = new OrderDraft();
         draft.setSession(session);
         draft.setWaiter(waiter);

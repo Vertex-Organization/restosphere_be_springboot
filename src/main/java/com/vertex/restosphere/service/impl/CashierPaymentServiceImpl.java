@@ -1,6 +1,7 @@
 package com.vertex.restosphere.service.impl;
 
 import com.vertex.restosphere.common.enums.Role;
+import com.vertex.restosphere.common.util.Values;
 import com.vertex.restosphere.dto.request.CashierConfirmTransferRequest;
 import com.vertex.restosphere.dto.request.CashierCreateTransferRequest;
 import com.vertex.restosphere.dto.request.CashierPayCashRequest;
@@ -19,8 +20,9 @@ import com.vertex.restosphere.repository.RestaurantSettingsRepository;
 import com.vertex.restosphere.security.CurrentUserService;
 import com.vertex.restosphere.service.BillingWorkflow;
 import com.vertex.restosphere.service.CashierPaymentService;
-import com.vertex.restosphere.service.CashierWriteSupport;
 import com.vertex.restosphere.service.RestaurantLock;
+import com.vertex.restosphere.service.ServiceWorkflow;
+import com.vertex.restosphere.service.WorkspaceCommit;
 import com.vertex.restosphere.service.WorkspaceStore;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -38,15 +40,16 @@ public class CashierPaymentServiceImpl implements CashierPaymentService {
     private final RestaurantLock restaurantLock;
     private final WorkspaceStore store;
     private final BillingWorkflow billing;
-    private final CashierWriteSupport writes;
+    private final WorkspaceCommit writes;
+    private final ServiceWorkflow workflow;
     private final PaymentRepository payments;
     private final CashierShiftRepository shifts;
     private final RestaurantSettingsRepository settings;
 
     @Transactional(readOnly = true)
     @Override
-    public List<CashierPaymentResponse> history(UUID actorId, Instant from, Instant to, Payment.Method method,
-            String status) {
+    public List<CashierPaymentResponse> history(
+            UUID actorId, Instant from, Instant to, Payment.Method method, String status) {
         currentUser.require(actorId, Role.ADMIN, Role.CASHIER);
         Payment.Status wanted = null;
         if (status != null && !status.isBlank()) {
@@ -54,39 +57,56 @@ public class CashierPaymentServiceImpl implements CashierPaymentService {
             try {
                 wanted = Payment.Status.valueOf(name.equals("SUCCEEDED") ? "COMPLETED" : name);
             } catch (IllegalArgumentException e) {
-                throw WorkspaceStoreImpl.invalid("Invalid status");
+                throw Values.invalid("Invalid status");
             }
         }
-        return payments.search(from == null ? Instant.EPOCH : from,
-                to == null ? Instant.parse("9999-12-31T00:00:00Z") : to,
-                method == null ? List.of(Payment.Method.values()) : List.of(method),
-                wanted == null ? List.of(Payment.Status.values()) : List.of(wanted))
-                .stream().map(CashierPaymentResponse::from).toList();
+        return payments
+                .search(
+                        from == null ? Instant.EPOCH : from,
+                        to == null ? Instant.parse("9999-12-31T00:00:00Z") : to,
+                        method == null ? List.of(Payment.Method.values()) : List.of(method),
+                        wanted == null ? List.of(Payment.Status.values()) : List.of(wanted))
+                .stream()
+                .map(CashierPaymentResponse::from)
+                .toList();
     }
 
     @Transactional
     @Override
     public Outcome payCash(UUID actorId, UUID billId, CashierPayCashRequest req) {
-        return create(actorId, billId, Payment.Method.CASH, req.billVersion(), req.amount(), req.tendered(),
+        return create(
+                actorId,
+                billId,
+                Payment.Method.CASH,
+                req.billVersion(),
+                req.amount(),
+                req.tendered(),
                 req.idempotencyKey());
     }
 
     @Transactional
     @Override
     public Outcome createTransfer(UUID actorId, UUID billId, CashierCreateTransferRequest req) {
-        return create(actorId, billId, Payment.Method.TRANSFER, req.billVersion(), req.amount(), null,
+        return create(
+                actorId,
+                billId,
+                Payment.Method.TRANSFER,
+                req.billVersion(),
+                req.amount(),
+                null,
                 req.idempotencyKey());
     }
 
     @Transactional
     @Override
-    public CashierPaymentResponse confirmTransfer(UUID actorId, UUID paymentId, CashierConfirmTransferRequest req) {
+    public CashierPaymentResponse confirmTransfer(
+            UUID actorId, UUID paymentId, CashierConfirmTransferRequest req) {
         User user = currentUser.require(actorId, Role.ADMIN, Role.CASHIER);
         restaurantLock.acquire();
         Payment payment = pendingTransferOf(user, paymentId);
         String ref = req.bankReference() == null ? "" : req.bankReference().trim();
         if (ref.isEmpty() || ref.length() > 150) {
-            throw WorkspaceStoreImpl.invalid("bankReference is required (max 150)");
+            throw Values.invalid("bankReference is required (max 150)");
         }
         if (payments.existsByTransactionReference(ref)) {
             throw ApiException.conflict("Bank reference was already used");
@@ -95,9 +115,9 @@ public class CashierPaymentServiceImpl implements CashierPaymentService {
         payment.setVerifiedBy(user.getId().toString());
         payment.setStatus(Payment.Status.COMPLETED);
         payment.setPaidAt(Instant.now());
-        writes.settle(payment.getBill());
+        billing.settle(payment.getBill());
         writes.commit(user, "confirm-transfer");
-        writes.notifyIfPaid(payment);
+        notifyIfPaid(payment);
         store.flush();
         return CashierPaymentResponse.from(payment);
     }
@@ -126,46 +146,63 @@ public class CashierPaymentServiceImpl implements CashierPaymentService {
         return p;
     }
 
-    private Outcome create(UUID actorId, UUID billId, Payment.Method method, Long billVersion, BigDecimal rawAmount,
-            BigDecimal rawTendered, String rawKey) {
+    private Outcome create(
+            UUID actorId,
+            UUID billId,
+            Payment.Method method,
+            Long billVersion,
+            BigDecimal rawAmount,
+            BigDecimal rawTendered,
+            String rawKey) {
         boolean cash = method == Payment.Method.CASH;
         User user = currentUser.require(actorId, Role.ADMIN, Role.CASHIER);
         restaurantLock.acquire();
         String key = rawKey.trim();
         if (key.isEmpty() || key.length() > 150) {
-            throw WorkspaceStoreImpl.invalid("idempotencyKey is required (max 150)");
+            throw Values.invalid("idempotencyKey is required (max 150)");
         }
         var old = payments.findByIdempotencyKey(key);
         if (old.isPresent()) {
             Payment p = old.get();
-            if (!user.getId().toString().equals(p.getCreatedBy()) || !p.getBill().getId().equals(billId)
-                    || p.getAmount().compareTo(CashierWriteSupport.money(rawAmount, "amount")) != 0
+            if (!user.getId().toString().equals(p.getCreatedBy())
+                    || !p.getBill().getId().equals(billId)
+                    || p.getAmount().compareTo(Values.money(rawAmount, "amount")) != 0
                     || p.getMethod() != method
-                    || (cash && p.getTendered().compareTo(CashierWriteSupport.money(rawTendered, "tendered")) != 0)) {
+                    || (cash
+                            && p.getTendered().compareTo(Values.money(rawTendered, "tendered"))
+                                    != 0)) {
                 throw ApiException.conflict("Idempotency key reused with different payment");
             }
             return new Outcome(CashierPaymentResponse.from(p), false);
         }
         Bill bill = store.get(Bill.class, billId.toString());
-        writes.version(bill, billVersion);
+        billing.requireVersion(bill, billVersion);
         billing.recalculate(bill);
         if (bill.getStatus() != Bill.Status.OPEN
                 || bill.getSession().getStatus() != TableSession.Status.PAYMENT_REQUESTED) {
             throw ApiException.conflict("Bill is not awaiting payment");
         }
-        if (billing.items(bill).stream().anyMatch(i -> Set.of(OrderItem.Status.SUBMITTED,
-                OrderItem.Status.PREPARING, OrderItem.Status.READY).contains(i.getStatus()))) {
+        if (billing.items(bill).stream()
+                .anyMatch(
+                        i ->
+                                Set.of(
+                                                OrderItem.Status.SUBMITTED,
+                                                OrderItem.Status.PREPARING,
+                                                OrderItem.Status.READY)
+                                        .contains(i.getStatus()))) {
             throw ApiException.conflict("Unserved dishes remain");
         }
-        BigDecimal amount = CashierWriteSupport.money(rawAmount, "amount");
-        if (amount.signum() <= 0 || amount.compareTo(bill.getTotal().subtract(billing.received(bill))) > 0) {
-            throw WorkspaceStoreImpl.invalid("Payment exceeds outstanding amount");
+        BigDecimal amount = Values.money(rawAmount, "amount");
+        if (amount.signum() <= 0
+                || amount.compareTo(bill.getTotal().subtract(billing.received(bill))) > 0) {
+            throw Values.invalid("Payment exceeds outstanding amount");
         }
         if (payments.existsByBillIdAndStatus(bill.getId(), Payment.Status.PENDING)) {
             throw ApiException.conflict("A transfer is pending");
         }
-        CashierShift shift = shifts.findFirstByCashierIdAndClosedAtIsNull(user.getId())
-                .orElseThrow(() -> ApiException.conflict("Open a cashier shift first"));
+        CashierShift shift =
+                shifts.findFirstByCashierIdAndClosedAtIsNull(user.getId())
+                        .orElseThrow(() -> ApiException.conflict("Open a cashier shift first"));
         Payment payment = new Payment();
         payment.setBill(bill);
         payment.setCashierShift(shift);
@@ -173,9 +210,9 @@ public class CashierPaymentServiceImpl implements CashierPaymentService {
         payment.setCreatedBy(user.getId().toString());
         payment.setIdempotencyKey(key);
         if (cash) {
-            BigDecimal tendered = CashierWriteSupport.money(rawTendered, "tendered");
+            BigDecimal tendered = Values.money(rawTendered, "tendered");
             if (tendered.compareTo(amount) < 0) {
-                throw WorkspaceStoreImpl.invalid("Insufficient cash tendered");
+                throw Values.invalid("Insufficient cash tendered");
             }
             payment.setTendered(tendered);
             payment.setMethod(Payment.Method.CASH);
@@ -190,12 +227,24 @@ public class CashierPaymentServiceImpl implements CashierPaymentService {
         }
         store.save(payment);
         store.flush();
-        writes.settle(bill);
+        billing.settle(bill);
         writes.commit(user, cash ? "pay-cash" : "create-transfer");
         if (cash) {
-            writes.notifyIfPaid(payment);
+            notifyIfPaid(payment);
         }
         store.flush();
         return new Outcome(CashierPaymentResponse.from(payment), true);
+    }
+
+    private void notifyIfPaid(Payment payment) {
+        Bill bill = payment.getBill();
+        if (bill.getStatus() == Bill.Status.PAID) {
+            workflow.notify(
+                    Role.WAITER,
+                    "PAYMENT",
+                    "Payment received",
+                    bill.getCode(),
+                    bill.getSession().getId().toString());
+        }
     }
 }

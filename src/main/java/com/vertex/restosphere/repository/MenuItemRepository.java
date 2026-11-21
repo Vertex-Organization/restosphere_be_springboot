@@ -17,7 +17,4 @@ public interface MenuItemRepository extends JpaRepository<MenuItem, UUID> {
 
     @EntityGraph(attributePaths = "category")
     List<MenuItem> findByCategoryId(UUID categoryId);
-
-    @EntityGraph(attributePaths = "category")
-    List<MenuItem> findByCategoryVisibleTrue();
 }

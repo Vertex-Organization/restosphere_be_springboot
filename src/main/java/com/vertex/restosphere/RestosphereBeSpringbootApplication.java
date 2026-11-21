@@ -11,5 +11,4 @@ public class RestosphereBeSpringbootApplication {
     public static void main(String[] args) {
         SpringApplication.run(RestosphereBeSpringbootApplication.class, args);
     }
-
 }

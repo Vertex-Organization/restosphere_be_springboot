@@ -36,18 +36,23 @@ public class AdminUserController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public AdminUserResponse create(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody CreateUserRequest req) {
+    public AdminUserResponse create(
+            @AuthenticationPrincipal Jwt jwt, @Valid @RequestBody CreateUserRequest req) {
         return service.create(CurrentUserService.idOf(jwt), req);
     }
 
     @PatchMapping("/{id}/status")
-    public AdminUserResponse updateStatus(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID id,
+    public AdminUserResponse updateStatus(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable UUID id,
             @Valid @RequestBody UpdateUserStatusRequest req) {
         return service.updateStatus(CurrentUserService.idOf(jwt), id, req.status());
     }
 
     @PatchMapping("/{id}/role")
-    public AdminUserResponse updateRole(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID id,
+    public AdminUserResponse updateRole(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable UUID id,
             @Valid @RequestBody UpdateUserRoleRequest req) {
         return service.updateRole(CurrentUserService.idOf(jwt), id, req.role());
     }

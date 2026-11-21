@@ -34,7 +34,8 @@ public class AdminDiscountLimitController {
     }
 
     @PutMapping
-    public DiscountLimitResponse update(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody DiscountLimitRequest req) {
+    public DiscountLimitResponse update(
+            @AuthenticationPrincipal Jwt jwt, @Valid @RequestBody DiscountLimitRequest req) {
         return service.update(CurrentUserService.idOf(jwt), req);
     }
 }

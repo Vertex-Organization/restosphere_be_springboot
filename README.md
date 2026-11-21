@@ -56,12 +56,15 @@ App chạy ở `http://localhost:8080`. PostgreSQL được khởi động cùng
 | `DB_USERNAME` | `restosphere` | User database |
 | `DB_PASSWORD` | `restosphere` | Mật khẩu database, chỉ dùng mặc định khi dev |
 | `JPA_DDL_AUTO` | `update` | Chế độ `ddl-auto` của Hibernate, production nên dùng `validate` |
+| `SQL_INIT_MODE` | `always` | `always` chạy `dataset.sql` (dữ liệu demo 7 ngày, tài khoản mật khẩu `123456`) cùng lúc khởi động app, chạy lặp không ghi đè dữ liệu; đặt `never` để tắt, nhất là ở production |
+| `SWAGGER_ENABLED` | `false` | `true` để bật Swagger UI và `/v3/api-docs` |
+| `FORWARD_HEADERS_STRATEGY` | `none` | Đặt `framework` khi chạy sau reverse proxy để giới hạn tốc độ nhận đúng IP khách |
 
 Tài khoản admin chỉ được tạo khi email chưa tồn tại, nên khởi động lại app không ghi đè mật khẩu đã đổi.
 
 ### Tài khoản demo web và mobile
 
-Sau khi Hibernate tạo schema, chạy `src/main/resources/dataset.sql` trên database local (file này không tự chạy khi khởi động).
+Mặc định `dataset.sql` chạy tự động sau khi Hibernate tạo schema (đặt `SQL_INIT_MODE=never` để tắt). Chạy tay nếu cần:
 Ví dụ với PostgreSQL CLI: `psql -h localhost -U restosphere -d restosphere -v ON_ERROR_STOP=1 -f src/main/resources/dataset.sql`.
 
 Mật khẩu chung: `123456`, lưu dưới dạng BCrypt. Chỉ dùng dữ liệu này cho môi trường phát triển.
@@ -110,14 +113,14 @@ Cần Docker đang chạy.
 
 ```text
 src/main/java/com/vertex/restosphere
-├── common       # Enum và tiện ích dùng chung
+├── common       # Enum, tiện ích dùng chung (util/Values: đọc và kiểm tra payload)
 ├── config       # Cấu hình security, JWT, OpenAPI, tạo admin đầu tiên
 ├── controller   # REST controller
 ├── dto          # Request và response
 ├── entity       # JPA entity
 ├── exception    # Exception và xử lý lỗi tập trung
-├── mapper       # Chuyển đổi entity sang DTO
+├── mapper       # Chuyển entity sang Map/DTO cho workspace và snapshot
 ├── repository   # Spring Data repository
 ├── security     # Phát hành token và nạp thông tin người dùng
-└── service      # Nghiệp vụ
+└── service      # Nghiệp vụ: interface ở service/, cài đặt ở service/impl/
 ```

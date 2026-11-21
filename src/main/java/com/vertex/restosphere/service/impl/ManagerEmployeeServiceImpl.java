@@ -27,9 +27,10 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class ManagerEmployeeServiceImpl implements ManagerEmployeeService {
 
-    private static final Comparator<ManagerEmployeeResponse> ORDER = Comparator
-            .comparing(ManagerEmployeeResponse::department)
-            .thenComparing(ManagerEmployeeResponse::name, Collator.getInstance(Locale.of("vi")));
+    private static final Comparator<ManagerEmployeeResponse> ORDER =
+            Comparator.comparing(ManagerEmployeeResponse::department)
+                    .thenComparing(
+                            ManagerEmployeeResponse::name, Collator.getInstance(Locale.of("vi")));
 
     private final CurrentUserService currentUser;
     private final RestaurantLock restaurantLock;
@@ -41,12 +42,16 @@ public class ManagerEmployeeServiceImpl implements ManagerEmployeeService {
     @Override
     public List<ManagerEmployeeResponse> list(UUID actorId) {
         currentUser.require(actorId, Role.ADMIN, Role.MANAGER);
-        return users.findByRoleNot(Role.CUSTOMER).stream().map(ManagerEmployeeResponse::from).sorted(ORDER).toList();
+        return users.findByRoleNot(Role.CUSTOMER).stream()
+                .map(ManagerEmployeeResponse::from)
+                .sorted(ORDER)
+                .toList();
     }
 
     @Transactional
     @Override
-    public ManagerEmployeeResponse assignArea(UUID actorId, UUID id, AssignEmployeeAreaRequest req) {
+    public ManagerEmployeeResponse assignArea(
+            UUID actorId, UUID id, AssignEmployeeAreaRequest req) {
         restaurantLock.acquire();
         User actor = currentUser.require(actorId, Role.ADMIN, Role.MANAGER);
         User employee = users.findById(id).orElseThrow(() -> ApiException.notFound("Employee"));
@@ -57,7 +62,8 @@ public class ManagerEmployeeServiceImpl implements ManagerEmployeeService {
             throw ApiException.conflict("Employee is inactive");
         }
         Area area = areas.findById(req.areaId()).orElseThrow(() -> ApiException.notFound("Area"));
-        if (employee.getAssignedArea() != null && employee.getAssignedArea().getId().equals(area.getId())) {
+        if (employee.getAssignedArea() != null
+                && employee.getAssignedArea().getId().equals(area.getId())) {
             return ManagerEmployeeResponse.from(employee);
         }
         employee.setAssignedArea(area);

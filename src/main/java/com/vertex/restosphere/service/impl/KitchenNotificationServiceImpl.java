@@ -11,8 +11,8 @@ import com.vertex.restosphere.repository.NotificationRepository;
 import com.vertex.restosphere.repository.ShiftAssignmentRepository;
 import com.vertex.restosphere.security.CurrentUserService;
 import com.vertex.restosphere.service.KitchenNotificationService;
-import com.vertex.restosphere.service.KitchenWriteSupport;
 import com.vertex.restosphere.service.RestaurantLock;
+import com.vertex.restosphere.service.WorkspaceCommit;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -28,12 +28,15 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class KitchenNotificationServiceImpl implements KitchenNotificationService {
-    private static final List<String> PERMISSIONS = List.of("kitchen.items.update", "kitchen.incidents.create",
-            "kitchen.menu.availability");
+    private static final List<String> PERMISSIONS =
+            List.of(
+                    "kitchen.items.update",
+                    "kitchen.incidents.create",
+                    "kitchen.menu.availability");
 
     private final CurrentUserService currentUser;
     private final RestaurantLock restaurantLock;
-    private final KitchenWriteSupport writes;
+    private final WorkspaceCommit writes;
     private final NotificationRepository notifications;
     private final NotificationReadRepository reads;
     private final ShiftAssignmentRepository shifts;
@@ -81,8 +84,14 @@ public class KitchenNotificationServiceImpl implements KitchenNotificationServic
     public KitchenMeResponse me(UUID actorId) {
         User u = authorize(actorId);
         List<String> current = shifts.findCurrentShiftNames(u.getId(), Instant.now());
-        return new KitchenMeResponse(u.getId(), u.getFullName(), u.getEmail(), u.getRole(), u.getRole().name(),
-                current.isEmpty() ? "" : current.getFirst(), PERMISSIONS);
+        return new KitchenMeResponse(
+                u.getId(),
+                u.getFullName(),
+                u.getEmail(),
+                u.getRole(),
+                u.getRole().name(),
+                current.isEmpty() ? "" : current.getFirst(),
+                PERMISSIONS);
     }
 
     private User authorize(UUID actorId) {
@@ -97,10 +106,22 @@ public class KitchenNotificationServiceImpl implements KitchenNotificationServic
         for (Object[] row : reads.findReaders(found.stream().map(Notification::getId).toList())) {
             readers.computeIfAbsent((UUID) row[0], k -> new ArrayList<>()).add((UUID) row[1]);
         }
-        return found.stream().map(n -> new KitchenNotificationResponse(n.getId(), n.getKind(), n.getTitle(),
-                n.getBody(), n.getCreatedAt(), n.getPath(),
-                n.getAudienceRole() == Role.KITCHEN && ("NEW_ORDER".equals(n.getKind())
-                        || "PRIORITY".equals(n.getKind())) ? n.getPath() : null,
-                readers.getOrDefault(n.getId(), List.of()))).toList();
+        return found.stream()
+                .map(
+                        n ->
+                                new KitchenNotificationResponse(
+                                        n.getId(),
+                                        n.getKind(),
+                                        n.getTitle(),
+                                        n.getBody(),
+                                        n.getCreatedAt(),
+                                        n.getPath(),
+                                        n.getAudienceRole() == Role.KITCHEN
+                                                        && ("NEW_ORDER".equals(n.getKind())
+                                                                || "PRIORITY".equals(n.getKind()))
+                                                ? n.getPath()
+                                                : null,
+                                        readers.getOrDefault(n.getId(), List.of())))
+                .toList();
     }
 }

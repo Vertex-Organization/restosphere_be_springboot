@@ -93,17 +93,24 @@ class AdminUserApiIntegrationTests {
         setStatus(adminToken, waiter.getId(), "LOCKED")
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("LOCKED"));
-        assertThat(auditLogs.findAll()).singleElement().satisfies(a -> {
-            assertThat(a.getAction()).isEqualTo("ACCOUNT_LOCKED");
-            assertThat(a.getTargetType()).isEqualTo("USER");
-            assertThat(a.getTargetId()).isEqualTo(waiter.getId());
-            assertThat(a.getDescription()).isEqualTo(WAITER_EMAIL);
-        });
+        assertThat(auditLogs.findAll())
+                .singleElement()
+                .satisfies(
+                        a -> {
+                            assertThat(a.getAction()).isEqualTo("ACCOUNT_LOCKED");
+                            assertThat(a.getTargetType()).isEqualTo("USER");
+                            assertThat(a.getTargetId()).isEqualTo(waiter.getId());
+                            assertThat(a.getDescription()).isEqualTo(WAITER_EMAIL);
+                        });
         login(WAITER_EMAIL).andExpect(status().isUnauthorized());
-        assertThat(refreshTokens.findAll()).filteredOn(t -> t.getUser().getId().equals(waiter.getId()))
-                .isNotEmpty().allSatisfy(t -> assertThat(t.getRevokedAt()).isNotNull());
-        mockMvc.perform(post("/api/v1/auth/refresh").contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"refreshToken\":\"%s\"}".formatted(waiterRefresh)))
+        assertThat(refreshTokens.findAll())
+                .filteredOn(t -> t.getUser().getId().equals(waiter.getId()))
+                .isNotEmpty()
+                .allSatisfy(t -> assertThat(t.getRevokedAt()).isNotNull());
+        mockMvc.perform(
+                        post("/api/v1/auth/refresh")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"refreshToken\":\"%s\"}".formatted(waiterRefresh)))
                 .andExpect(status().isUnauthorized());
 
         // Khoa lan nua: khong doi trang thai thi khong ghi them log.
@@ -113,7 +120,8 @@ class AdminUserApiIntegrationTests {
         setStatus(adminToken, waiter.getId(), "ACTIVE")
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("ACTIVE"));
-        assertThat(auditLogs.findAll()).extracting(a -> a.getAction())
+        assertThat(auditLogs.findAll())
+                .extracting(a -> a.getAction())
                 .containsExactlyInAnyOrder("ACCOUNT_LOCKED", "ACCOUNT_UNLOCKED");
         login(WAITER_EMAIL).andExpect(status().isOk());
     }
@@ -131,7 +139,8 @@ class AdminUserApiIntegrationTests {
         admin.setEnabled(false);
         users.save(admin);
 
-        mockMvc.perform(get(USERS).header(HttpHeaders.AUTHORIZATION, adminToken)).andExpect(status().isForbidden());
+        mockMvc.perform(get(USERS).header(HttpHeaders.AUTHORIZATION, adminToken))
+                .andExpect(status().isForbidden());
         setStatus(adminToken, waiter.getId(), "LOCKED").andExpect(status().isForbidden());
     }
 
@@ -139,15 +148,21 @@ class AdminUserApiIntegrationTests {
     void invalidBodyAndUnknownUser() throws Exception {
         String adminToken = bearer(ADMIN_EMAIL);
         setStatus(adminToken, waiter.getId(), "ABC").andExpect(status().isBadRequest());
-        mockMvc.perform(patch(USERS + "/" + waiter.getId() + "/status").header(HttpHeaders.AUTHORIZATION, adminToken)
-                        .contentType(MediaType.APPLICATION_JSON).content("{}"))
+        mockMvc.perform(
+                        patch(USERS + "/" + waiter.getId() + "/status")
+                                .header(HttpHeaders.AUTHORIZATION, adminToken)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{}"))
                 .andExpect(status().isBadRequest());
         setStatus(adminToken, UUID.randomUUID(), "LOCKED").andExpect(status().isNotFound());
     }
 
     private ResultActions setStatus(String token, UUID id, String status) throws Exception {
-        return mockMvc.perform(patch(USERS + "/" + id + "/status").header(HttpHeaders.AUTHORIZATION, token)
-                .contentType(MediaType.APPLICATION_JSON).content("{\"status\":\"%s\"}".formatted(status)));
+        return mockMvc.perform(
+                patch(USERS + "/" + id + "/status")
+                        .header(HttpHeaders.AUTHORIZATION, token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":\"%s\"}".formatted(status)));
     }
 
     private User saveUser(String email, String fullName, Role role) {
@@ -164,11 +179,19 @@ class AdminUserApiIntegrationTests {
     }
 
     private String loginBody(String email) throws Exception {
-        return login(email).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        return login(email)
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
     }
 
     private ResultActions login(String email) throws Exception {
-        return mockMvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON)
-                .content("{\"email\":\"%s\",\"password\":\"%s\"}".formatted(email, PASSWORD)));
+        return mockMvc.perform(
+                post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(
+                                "{\"email\":\"%s\",\"password\":\"%s\"}"
+                                        .formatted(email, PASSWORD)));
     }
 }

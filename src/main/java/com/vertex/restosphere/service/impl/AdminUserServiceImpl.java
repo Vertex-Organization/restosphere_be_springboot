@@ -65,7 +65,9 @@ public class AdminUserServiceImpl implements AdminUserService {
             return AdminUserResponse.from(target);
         }
         target.setEnabled(enable);
-        if (!enable && target.getRole() == Role.ADMIN && users.countByRoleAndEnabledTrue(Role.ADMIN) == 0) {
+        if (!enable
+                && target.getRole() == Role.ADMIN
+                && users.countByRoleAndEnabledTrue(Role.ADMIN) == 0) {
             throw ApiException.conflict("Cannot remove last active administrator");
         }
         if (!enable) {
@@ -74,7 +76,9 @@ public class AdminUserServiceImpl implements AdminUserService {
 
         AuditLog log = new AuditLog();
         log.setActor(actor);
-        log.setAction((enable ? AdminAuditAction.ACCOUNT_UNLOCKED : AdminAuditAction.ACCOUNT_LOCKED).name());
+        log.setAction(
+                (enable ? AdminAuditAction.ACCOUNT_UNLOCKED : AdminAuditAction.ACCOUNT_LOCKED)
+                        .name());
         log.setTargetType("USER");
         log.setTargetId(target.getId());
         log.setDescription(target.getEmail());
@@ -96,7 +100,8 @@ public class AdminUserServiceImpl implements AdminUserService {
         if (target.getRole() == role) {
             return AdminUserResponse.from(target);
         }
-        if (target.getRole() == Role.ADMIN && target.isEnabled()
+        if (target.getRole() == Role.ADMIN
+                && target.isEnabled()
                 && users.countByRoleAndEnabledTrue(Role.ADMIN) <= 1) {
             throw ApiException.conflict("Cannot remove last active administrator");
         }
@@ -125,7 +130,8 @@ public class AdminUserServiceImpl implements AdminUserService {
         restaurantLock.acquire();
         User actor = currentUser.require(actorId, Role.ADMIN);
         if (!accountMailService.isEnabled()) {
-            throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "Email service is not configured");
+            throw new ApiException(
+                    HttpStatus.SERVICE_UNAVAILABLE, "Email service is not configured");
         }
         String email = EmailUtils.normalize(req.email());
         if (users.existsByEmail(email)) {

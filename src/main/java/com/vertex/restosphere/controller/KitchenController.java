@@ -35,25 +35,28 @@ public class KitchenController {
     private final KitchenService service;
 
     @GetMapping("/orders")
-    public List<KitchenOrderResponse> orders(@AuthenticationPrincipal Jwt jwt,
+    public List<KitchenOrderResponse> orders(
+            @AuthenticationPrincipal Jwt jwt,
             @RequestParam(required = false) OrderItem.Status status) {
         return service.listOrders(CurrentUserService.idOf(jwt), status);
     }
 
     @PostMapping("/items/start")
-    public List<KitchenOrderItemResponse> start(@AuthenticationPrincipal Jwt jwt,
-            @Valid @RequestBody KitchenItemsRequest req) {
+    public List<KitchenOrderItemResponse> start(
+            @AuthenticationPrincipal Jwt jwt, @Valid @RequestBody KitchenItemsRequest req) {
         return service.start(CurrentUserService.idOf(jwt), req.items());
     }
 
     @PostMapping("/items/complete")
-    public List<KitchenOrderItemResponse> complete(@AuthenticationPrincipal Jwt jwt,
-            @Valid @RequestBody KitchenItemsRequest req) {
+    public List<KitchenOrderItemResponse> complete(
+            @AuthenticationPrincipal Jwt jwt, @Valid @RequestBody KitchenItemsRequest req) {
         return service.complete(CurrentUserService.idOf(jwt), req.items());
     }
 
     @PostMapping("/items/{id}/reject")
-    public List<KitchenOrderItemResponse> reject(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID id,
+    public List<KitchenOrderItemResponse> reject(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable UUID id,
             @Valid @RequestBody KitchenRejectItemRequest req) {
         return service.reject(CurrentUserService.idOf(jwt), id, req.version(), req.reason());
     }

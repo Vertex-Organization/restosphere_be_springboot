@@ -9,7 +9,9 @@ import org.hibernate.annotations.Check;
 @Getter
 @Setter
 @Entity
-@Table(name = "orders", uniqueConstraints = @UniqueConstraint(columnNames = {"session_id", "round_number"}))
+@Table(
+        name = "orders",
+        uniqueConstraints = @UniqueConstraint(columnNames = {"session_id", "round_number"}))
 @Check(constraints = "round_number > 0")
 public class Order extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)

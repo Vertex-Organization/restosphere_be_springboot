@@ -29,7 +29,8 @@ public class TableController {
     private final TableService service;
 
     @GetMapping
-    public List<TableResponse> list(@RequestParam(required = false) UUID areaId,
+    public List<TableResponse> list(
+            @RequestParam(required = false) UUID areaId,
             @RequestParam(required = false) TableStatus status) {
         return service.list(areaId, status);
     }
@@ -48,14 +49,17 @@ public class TableController {
 
     @PutMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
-    public TableResponse update(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID id,
+    public TableResponse update(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable UUID id,
             @Valid @RequestBody TableRequest req) {
         return service.update(CurrentUserService.idOf(jwt), id, req);
     }
 
     @PatchMapping("/{id}/status")
     @PreAuthorize("hasAnyRole('ADMIN','MANAGER','RECEPTIONIST','WAITER')")
-    public TableResponse updateStatus(@PathVariable UUID id, @Valid @RequestBody TableStatusRequest req) {
+    public TableResponse updateStatus(
+            @PathVariable UUID id, @Valid @RequestBody TableStatusRequest req) {
         return service.updateStatus(id, req.status());
     }
 

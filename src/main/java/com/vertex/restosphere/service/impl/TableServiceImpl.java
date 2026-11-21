@@ -1,7 +1,5 @@
 package com.vertex.restosphere.service.impl;
 
-import com.vertex.restosphere.service.RestaurantLock;
-import com.vertex.restosphere.service.TableService;
 import com.vertex.restosphere.common.enums.Role;
 import com.vertex.restosphere.common.enums.TableStatus;
 import com.vertex.restosphere.dto.request.TableRequest;
@@ -20,6 +18,8 @@ import com.vertex.restosphere.repository.ReservationTableRepository;
 import com.vertex.restosphere.repository.RestaurantTableRepository;
 import com.vertex.restosphere.repository.TableSessionRepository;
 import com.vertex.restosphere.security.CurrentUserService;
+import com.vertex.restosphere.service.RestaurantLock;
+import com.vertex.restosphere.service.TableService;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
@@ -36,8 +36,12 @@ import org.springframework.transaction.annotation.Transactional;
 public class TableServiceImpl implements TableService {
 
     // Lich con giu ban (cung danh sach voi quy tac cu).
-    private static final Set<Reservation.Status> ACTIVE_RESERVATION = EnumSet.of(Reservation.Status.PENDING,
-            Reservation.Status.CONFIRMED, Reservation.Status.ARRIVED, Reservation.Status.SEATED);
+    private static final Set<Reservation.Status> ACTIVE_RESERVATION =
+            EnumSet.of(
+                    Reservation.Status.PENDING,
+                    Reservation.Status.CONFIRMED,
+                    Reservation.Status.ARRIVED,
+                    Reservation.Status.SEATED);
 
     private final RestaurantTableRepository tables;
     private final AreaRepository areas;
@@ -51,8 +55,10 @@ public class TableServiceImpl implements TableService {
     private void requireIdle(UUID id) {
         restaurantLock.acquire();
         if (sessions.existsByTableIdAndStatusNot(id, TableSession.Status.CLOSED)
-                || reservationTables.existsByTableIdAndReservationStatusIn(id, ACTIVE_RESERVATION)) {
-            throw ApiException.conflict("Table has an active session or reservation; use workspace commands");
+                || reservationTables.existsByTableIdAndReservationStatusIn(
+                        id, ACTIVE_RESERVATION)) {
+            throw ApiException.conflict(
+                    "Table has an active session or reservation; use workspace commands");
         }
     }
 
@@ -61,21 +67,34 @@ public class TableServiceImpl implements TableService {
     public List<ManagerTableResponse> listForManager(UUID actorId) {
         currentUser.require(actorId, Role.ADMIN, Role.MANAGER);
         Map<UUID, UUID> sessionByTable = new HashMap<>();
-        sessions.findOpenSessionIdsByTable().forEach(r -> sessionByTable.putIfAbsent((UUID) r[0], (UUID) r[1]));
-        Set<UUID> reserved = reservationTables.findTableIdsByReservationStatusIn(ACTIVE_RESERVATION);
+        sessions.findOpenSessionIdsByTable()
+                .forEach(r -> sessionByTable.putIfAbsent((UUID) r[0], (UUID) r[1]));
+        Set<UUID> reserved =
+                reservationTables.findTableIdsByReservationStatusIn(ACTIVE_RESERVATION);
         return tables.findAllByOrderByAreaNameAscCodeAsc().stream()
-                .map(t -> new ManagerTableResponse(t.getId(), t.getCode(), t.getArea().getId(), t.getArea().getName(),
-                        t.getCapacity(), t.getStatus(), sessionByTable.get(t.getId()), reserved.contains(t.getId())))
+                .map(
+                        t ->
+                                new ManagerTableResponse(
+                                        t.getId(),
+                                        t.getCode(),
+                                        t.getArea().getId(),
+                                        t.getArea().getName(),
+                                        t.getCapacity(),
+                                        t.getStatus(),
+                                        sessionByTable.get(t.getId()),
+                                        reserved.contains(t.getId())))
                 .toList();
     }
 
     @Transactional(readOnly = true)
     @Override
     public List<TableResponse> list(UUID areaId, TableStatus status) {
-        List<RestaurantTable> result = areaId != null && status != null ? tables.findByAreaIdAndStatus(areaId, status)
-                : areaId != null ? tables.findByAreaId(areaId)
-                : status != null ? tables.findByStatus(status)
-                : tables.findAll();
+        List<RestaurantTable> result =
+                areaId != null && status != null
+                        ? tables.findByAreaIdAndStatus(areaId, status)
+                        : areaId != null
+                                ? tables.findByAreaId(areaId)
+                                : status != null ? tables.findByStatus(status) : tables.findAll();
         return result.stream().map(TableResponse::from).toList();
     }
 
@@ -102,7 +121,8 @@ public class TableServiceImpl implements TableService {
         User actor = currentUser.require(actorId, Role.ADMIN, Role.MANAGER);
         RestaurantTable table = find(id);
         // Chi chan o day (khong dua vao requireIdle) de PATCH /status va DELETE giu hanh vi cu.
-        if (table.getStatus() == TableStatus.OCCUPIED || table.getStatus() == TableStatus.CLEANING) {
+        if (table.getStatus() == TableStatus.OCCUPIED
+                || table.getStatus() == TableStatus.CLEANING) {
             throw ApiException.conflict("Table is in service or being cleaned");
         }
         String code = req.code().trim();
@@ -110,10 +130,14 @@ public class TableServiceImpl implements TableService {
             throw ApiException.conflict("Table code already exists");
         }
         Area area = areas.findById(req.areaId()).orElseThrow(() -> ApiException.notFound("Area"));
-        TableStatus status = req.outOfService() == null ? table.getStatus()
-                : req.outOfService() ? TableStatus.OUT_OF_SERVICE : TableStatus.AVAILABLE;
-        if (code.equals(table.getCode()) && area.getId().equals(table.getArea().getId())
-                && req.capacity() == table.getCapacity() && status == table.getStatus()) {
+        TableStatus status =
+                req.outOfService() == null
+                        ? table.getStatus()
+                        : req.outOfService() ? TableStatus.OUT_OF_SERVICE : TableStatus.AVAILABLE;
+        if (code.equals(table.getCode())
+                && area.getId().equals(table.getArea().getId())
+                && req.capacity() == table.getCapacity()
+                && status == table.getStatus()) {
             return TableResponse.from(table);
         }
         table.setCode(code);
@@ -125,8 +149,14 @@ public class TableServiceImpl implements TableService {
         log.setAction("TABLE_UPDATED");
         log.setTargetType("TABLE");
         log.setTargetId(id);
-        log.setDescription("Cập nhật bố trí bàn " + code + " · " + req.capacity() + " ghế · " + area.getName()
-                + (status == TableStatus.OUT_OF_SERVICE ? " · tạm ngưng" : ""));
+        log.setDescription(
+                "Cập nhật bố trí bàn "
+                        + code
+                        + " · "
+                        + req.capacity()
+                        + " ghế · "
+                        + area.getName()
+                        + (status == TableStatus.OUT_OF_SERVICE ? " · tạm ngưng" : ""));
         auditLogs.save(log);
         return TableResponse.from(table);
     }
@@ -134,6 +164,10 @@ public class TableServiceImpl implements TableService {
     @Override
     public TableResponse updateStatus(UUID id, TableStatus status) {
         requireIdle(id);
+        if (status == TableStatus.OCCUPIED) {
+            throw ApiException.conflict(
+                    "Table becomes occupied only through reservation handover or walk-in");
+        }
         RestaurantTable table = find(id);
         table.setStatus(status);
         return TableResponse.from(table);
@@ -148,7 +182,8 @@ public class TableServiceImpl implements TableService {
     private void apply(RestaurantTable table, String code, TableRequest req) {
         table.setCode(code);
         table.setCapacity(req.capacity());
-        table.setArea(areas.findById(req.areaId()).orElseThrow(() -> ApiException.notFound("Area")));
+        table.setArea(
+                areas.findById(req.areaId()).orElseThrow(() -> ApiException.notFound("Area")));
     }
 
     private RestaurantTable find(UUID id) {

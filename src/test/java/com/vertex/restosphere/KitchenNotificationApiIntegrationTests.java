@@ -39,8 +39,11 @@ class KitchenNotificationApiIntegrationTests extends KitchenApiTestBase {
     }
 
     private boolean readByMe(List<Map<String, Object>> list, Notification n) {
-        Map<String, Object> m = list.stream().filter(x -> x.get("id").equals(n.getId().toString())).findFirst()
-                .orElseThrow();
+        Map<String, Object> m =
+                list.stream()
+                        .filter(x -> x.get("id").equals(n.getId().toString()))
+                        .findFirst()
+                        .orElseThrow();
         return ((List<?>) m.get("readBy")).contains(kitchen.getId().toString());
     }
 
@@ -50,8 +53,10 @@ class KitchenNotificationApiIntegrationTests extends KitchenApiTestBase {
             call(HttpMethod.GET, p, null, null).andExpect(status().isUnauthorized());
             call(HttpMethod.GET, p, waiterToken, null).andExpect(status().isForbidden());
         }
-        call(HttpMethod.POST, "/notifications/read", waiterToken, "{}").andExpect(status().isForbidden());
-        call(HttpMethod.POST, "/notifications/read", null, "{}").andExpect(status().isUnauthorized());
+        call(HttpMethod.POST, "/notifications/read", waiterToken, "{}")
+                .andExpect(status().isForbidden());
+        call(HttpMethod.POST, "/notifications/read", null, "{}")
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
@@ -71,30 +76,53 @@ class KitchenNotificationApiIntegrationTests extends KitchenApiTestBase {
 
         String body = ok(call(HttpMethod.GET, "/notifications", kitchenToken, null));
         List<Map<String, Object>> list = json(body, "$");
-        assertThat(list).extracting(m -> m.get("id")).containsExactlyInAnyOrder(newOrder.getId().toString(),
-                menu.getId().toString(), direct.getId().toString());
-        Map<String, Object> no = list.stream().filter(m -> m.get("id").equals(newOrder.getId().toString()))
-                .findFirst().orElseThrow();
-        assertThat(no).containsEntry("kind", "NEW_ORDER").containsEntry("title", "t-NEW_ORDER")
-                .containsEntry("body", "b-NEW_ORDER").containsEntry("orderId", orderId)
+        assertThat(list)
+                .extracting(m -> m.get("id"))
+                .containsExactlyInAnyOrder(
+                        newOrder.getId().toString(),
+                        menu.getId().toString(),
+                        direct.getId().toString());
+        Map<String, Object> no =
+                list.stream()
+                        .filter(m -> m.get("id").equals(newOrder.getId().toString()))
+                        .findFirst()
+                        .orElseThrow();
+        assertThat(no)
+                .containsEntry("kind", "NEW_ORDER")
+                .containsEntry("title", "t-NEW_ORDER")
+                .containsEntry("body", "b-NEW_ORDER")
+                .containsEntry("orderId", orderId)
                 .containsEntry("path", orderId);
         assertThat((List<Object>) no.get("readBy")).containsExactly(other.getId().toString());
         assertThat(no.get("at")).isNotNull();
-        Map<String, Object> mr = list.stream().filter(m -> m.get("id").equals(menu.getId().toString()))
-                .findFirst().orElseThrow();
+        Map<String, Object> mr =
+                list.stream()
+                        .filter(m -> m.get("id").equals(menu.getId().toString()))
+                        .findFirst()
+                        .orElseThrow();
         assertThat(mr.get("orderId")).isNull();
         assertThat((List<?>) mr.get("readBy")).isEmpty();
     }
 
     @Test
     void readSelectedMarksOnlyThoseVisibleToCallerAndIsIdempotent() throws Exception {
-        Notification a = notification("NEW_ORDER", Role.KITCHEN, null, UUID.randomUUID().toString());
+        Notification a =
+                notification("NEW_ORDER", Role.KITCHEN, null, UUID.randomUUID().toString());
         Notification b = notification("PRIORITY", Role.KITCHEN, null, UUID.randomUUID().toString());
         Notification waiterOnly = notification("READY", Role.WAITER, null, "z");
         long rev = revision();
 
-        String res = ok(call(HttpMethod.POST, "/notifications/read", kitchenToken,
-                "{\"ids\":[\"" + a.getId() + "\",\"" + waiterOnly.getId() + "\",\"garbage\"]}"));
+        String res =
+                ok(
+                        call(
+                                HttpMethod.POST,
+                                "/notifications/read",
+                                kitchenToken,
+                                "{\"ids\":[\""
+                                        + a.getId()
+                                        + "\",\""
+                                        + waiterOnly.getId()
+                                        + "\",\"garbage\"]}"));
         List<Map<String, Object>> list = json(res, "$");
         assertThat(list).hasSize(2);
         assertThat(readByMe(list, a)).isTrue();
@@ -103,7 +131,12 @@ class KitchenNotificationApiIntegrationTests extends KitchenApiTestBase {
         assertThat(revision()).isEqualTo(rev + 1);
         assertThat(auditCount("read-notifications")).isEqualTo(1);
 
-        ok(call(HttpMethod.POST, "/notifications/read", kitchenToken, "{\"ids\":[\"" + a.getId() + "\"]}"));
+        ok(
+                call(
+                        HttpMethod.POST,
+                        "/notifications/read",
+                        kitchenToken,
+                        "{\"ids\":[\"" + a.getId() + "\"]}"));
         assertThat(readsBy(kitchen)).isEqualTo(1);
 
         ok(call(HttpMethod.POST, "/notifications/read", kitchenToken, "{\"ids\":[\"garbage\"]}"));
@@ -113,13 +146,17 @@ class KitchenNotificationApiIntegrationTests extends KitchenApiTestBase {
 
     @Test
     void readWithoutIdsReadsEverythingVisible() throws Exception {
-        Notification a = notification("NEW_ORDER", Role.KITCHEN, null, UUID.randomUUID().toString());
+        Notification a =
+                notification("NEW_ORDER", Role.KITCHEN, null, UUID.randomUUID().toString());
         Notification b = notification("INCIDENT_REPLY", null, kitchen, "y");
         notification("READY", Role.WAITER, null, "z");
 
         for (String payload : new String[] {null, "{}", "{\"ids\":[]}"}) {
-            tx.executeWithoutResult(s -> em.createQuery("delete from NotificationRead r where r.user.id = :u")
-                    .setParameter("u", kitchen.getId()).executeUpdate());
+            tx.executeWithoutResult(
+                    s ->
+                            em.createQuery("delete from NotificationRead r where r.user.id = :u")
+                                    .setParameter("u", kitchen.getId())
+                                    .executeUpdate());
             String res = ok(call(HttpMethod.POST, "/notifications/read", kitchenToken, payload));
             List<Map<String, Object>> list = json(res, "$");
             assertThat(readByMe(list, a)).isTrue();
@@ -142,8 +179,11 @@ class KitchenNotificationApiIntegrationTests extends KitchenApiTestBase {
         assertThat((String) json(none, "$.username")).isEqualTo(kitchen.getEmail());
         assertThat((String) json(none, "$.role")).isEqualTo("KITCHEN");
         assertThat((String) json(none, "$.position")).isEqualTo("KITCHEN");
-        assertThat((List<String>) json(none, "$.permissions")).containsExactly("kitchen.items.update",
-                "kitchen.incidents.create", "kitchen.menu.availability");
+        assertThat((List<String>) json(none, "$.permissions"))
+                .containsExactly(
+                        "kitchen.items.update",
+                        "kitchen.incidents.create",
+                        "kitchen.menu.availability");
 
         assignShift("K5 Now", now.minus(1, ChronoUnit.HOURS), now.plus(1, ChronoUnit.HOURS));
         String cur = ok(call(HttpMethod.GET, "/me", kitchenToken, null));

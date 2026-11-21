@@ -30,8 +30,8 @@ public class CashierBillController {
     private final CashierBillService service;
 
     @GetMapping("/bills")
-    public List<CashierBillResponse> bills(@AuthenticationPrincipal Jwt jwt,
-            @RequestParam(required = false) String status) {
+    public List<CashierBillResponse> bills(
+            @AuthenticationPrincipal Jwt jwt, @RequestParam(required = false) String status) {
         return service.list(CurrentUserService.idOf(jwt), status);
     }
 

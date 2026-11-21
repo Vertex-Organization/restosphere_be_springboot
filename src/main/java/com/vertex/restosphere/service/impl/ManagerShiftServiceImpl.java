@@ -65,24 +65,38 @@ public class ManagerShiftServiceImpl implements ManagerShiftService {
             throw new ApiException(HttpStatus.BAD_REQUEST, "from must not be after to");
         }
         ZoneId zone = zone();
-        Specification<Shift> spec = (root, query, cb) -> {
-            List<Predicate> where = new ArrayList<>();
-            if (from != null) {
-                where.add(cb.greaterThanOrEqualTo(root.get("startsAt"), from.atStartOfDay(zone).toInstant()));
-            }
-            if (to != null) {
-                where.add(cb.lessThan(root.get("startsAt"), to.plusDays(1).atStartOfDay(zone).toInstant()));
-            }
-            return cb.and(where.toArray(Predicate[]::new));
-        };
+        Specification<Shift> spec =
+                (root, query, cb) -> {
+                    List<Predicate> where = new ArrayList<>();
+                    if (from != null) {
+                        where.add(
+                                cb.greaterThanOrEqualTo(
+                                        root.get("startsAt"), from.atStartOfDay(zone).toInstant()));
+                    }
+                    if (to != null) {
+                        where.add(
+                                cb.lessThan(
+                                        root.get("startsAt"),
+                                        to.plusDays(1).atStartOfDay(zone).toInstant()));
+                    }
+                    return cb.and(where.toArray(Predicate[]::new));
+                };
         List<Shift> list = shifts.findAll(spec, Sort.by("startsAt"));
         if (list.isEmpty()) {
             return List.of();
         }
-        Map<UUID, List<UUID>> staff = assignments.findWithUserByShiftIdIn(list.stream().map(Shift::getId).toList())
-                .stream().collect(Collectors.groupingBy(a -> a.getShift().getId(),
-                        Collectors.mapping(a -> a.getUser().getId(), Collectors.toList())));
-        return list.stream().map(s -> toResponse(s, staff.getOrDefault(s.getId(), List.of()), zone)).toList();
+        Map<UUID, List<UUID>> staff =
+                assignments
+                        .findWithUserByShiftIdIn(list.stream().map(Shift::getId).toList())
+                        .stream()
+                        .collect(
+                                Collectors.groupingBy(
+                                        a -> a.getShift().getId(),
+                                        Collectors.mapping(
+                                                a -> a.getUser().getId(), Collectors.toList())));
+        return list.stream()
+                .map(s -> toResponse(s, staff.getOrDefault(s.getId(), List.of()), zone))
+                .toList();
     }
 
     @Transactional
@@ -121,13 +135,17 @@ public class ManagerShiftServiceImpl implements ManagerShiftService {
         if (length.compareTo(MAX_PER_DAY) > 0) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Shift cannot exceed 12 hours");
         }
-        Shift shift = id == null ? new Shift() : shifts.findById(id).orElseThrow(() -> ApiException.notFound("Shift"));
+        Shift shift =
+                id == null
+                        ? new Shift()
+                        : shifts.findById(id).orElseThrow(() -> ApiException.notFound("Shift"));
 
         List<User> staff = employees(req.employeeIds());
         Instant dayStart = date.atStartOfDay(zone).toInstant();
         Instant dayEnd = date.plusDays(1).atStartOfDay(zone).toInstant();
         Map<UUID, Duration> worked = new HashMap<>();
-        for (ShiftAssignment a : assignments.findByUsersBetween(req.employeeIds(), dayStart, dayEnd)) {
+        for (ShiftAssignment a :
+                assignments.findByUsersBetween(req.employeeIds(), dayStart, dayEnd)) {
             Shift other = a.getShift();
             if (other.getId().equals(id)) {
                 continue;
@@ -144,8 +162,11 @@ public class ManagerShiftServiceImpl implements ManagerShiftService {
         }
 
         Set<UUID> newStaff = new HashSet<>(req.employeeIds());
-        if (id != null && name.equals(shift.getName()) && startsAt.equals(shift.getStartsAt())
-                && endsAt.equals(shift.getEndsAt()) && req.minimum() == shift.getMinimumStaff()
+        if (id != null
+                && name.equals(shift.getName())
+                && startsAt.equals(shift.getStartsAt())
+                && endsAt.equals(shift.getEndsAt())
+                && req.minimum() == shift.getMinimumStaff()
                 && newStaff.equals(currentStaff(id))) {
             return toResponse(shift, req.employeeIds(), zone);
         }
@@ -169,9 +190,20 @@ public class ManagerShiftServiceImpl implements ManagerShiftService {
         log.setAction(id == null ? "SHIFT_CREATED" : "SHIFT_UPDATED");
         log.setTargetType("SHIFT");
         log.setTargetId(shift.getId());
-        log.setDescription((id == null ? "Tạo ca " : "Cập nhật ca ") + name + " " + date.format(DAY_MONTH) + " ("
-                + start.format(HH_MM) + "–" + end.format(HH_MM) + "), " + staff.size() + "/" + req.minimum()
-                + " nhân viên");
+        log.setDescription(
+                (id == null ? "Tạo ca " : "Cập nhật ca ")
+                        + name
+                        + " "
+                        + date.format(DAY_MONTH)
+                        + " ("
+                        + start.format(HH_MM)
+                        + "–"
+                        + end.format(HH_MM)
+                        + "), "
+                        + staff.size()
+                        + "/"
+                        + req.minimum()
+                        + " nhân viên");
         auditLogs.save(log);
         return toResponse(shift, req.employeeIds(), zone);
     }
@@ -181,7 +213,8 @@ public class ManagerShiftServiceImpl implements ManagerShiftService {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Duplicate employee");
         }
         List<User> found = users.findAllById(ids);
-        if (found.size() != ids.size() || found.stream().anyMatch(u -> u.getRole() == Role.CUSTOMER)) {
+        if (found.size() != ids.size()
+                || found.stream().anyMatch(u -> u.getRole() == Role.CUSTOMER)) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Invalid employee");
         }
         if (found.stream().anyMatch(u -> !u.isEnabled())) {
@@ -191,18 +224,27 @@ public class ManagerShiftServiceImpl implements ManagerShiftService {
     }
 
     private Set<UUID> currentStaff(UUID shiftId) {
-        return assignments.findWithUserByShiftIdIn(List.of(shiftId)).stream().map(a -> a.getUser().getId())
+        return assignments.findWithUserByShiftIdIn(List.of(shiftId)).stream()
+                .map(a -> a.getUser().getId())
                 .collect(Collectors.toSet());
     }
 
     private ZoneId zone() {
-        return settings.findBySingletonKey(1).map(RestaurantSettings::getTimezone).map(ZoneId::of)
+        return settings.findBySingletonKey(1)
+                .map(RestaurantSettings::getTimezone)
+                .map(ZoneId::of)
                 .orElse(ZoneId.of("Asia/Ho_Chi_Minh"));
     }
 
     private static ShiftResponse toResponse(Shift s, List<UUID> employeeIds, ZoneId zone) {
         var start = s.getStartsAt().atZone(zone);
-        return new ShiftResponse(s.getId(), s.getName(), start.toLocalDate(), start.format(HH_MM),
-                s.getEndsAt().atZone(zone).format(HH_MM), s.getMinimumStaff(), employeeIds);
+        return new ShiftResponse(
+                s.getId(),
+                s.getName(),
+                start.toLocalDate(),
+                start.format(HH_MM),
+                s.getEndsAt().atZone(zone).format(HH_MM),
+                s.getMinimumStaff(),
+                employeeIds);
     }
 }

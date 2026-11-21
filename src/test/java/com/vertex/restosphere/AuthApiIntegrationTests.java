@@ -41,18 +41,12 @@ class AuthApiIntegrationTests {
     private static final String PASSWORD = "correct-horse-battery";
     private static final String ISSUER = "restosphere";
 
-    @Autowired
-    private MockMvc mockMvc;
-    @Autowired
-    private UserRepository userRepository;
-    @Autowired
-    private RefreshTokenRepository refreshTokenRepository;
-    @Autowired
-    private PasswordEncoder passwordEncoder;
-    @Autowired
-    private JwtEncoder jwtEncoder;
-    @Autowired
-    private JwtDecoder jwtDecoder;
+    @Autowired private MockMvc mockMvc;
+    @Autowired private UserRepository userRepository;
+    @Autowired private RefreshTokenRepository refreshTokenRepository;
+    @Autowired private PasswordEncoder passwordEncoder;
+    @Autowired private JwtEncoder jwtEncoder;
+    @Autowired private JwtDecoder jwtDecoder;
 
     private User user;
 
@@ -66,12 +60,15 @@ class AuthApiIntegrationTests {
 
     @Test
     void loginIssuesSignedJwtWithExpectedClaims() throws Exception {
-        String body = login(EMAIL, PASSWORD)
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.tokenType").value("Bearer"))
-                .andExpect(jsonPath("$.expiresIn").value(900))
-                .andExpect(jsonPath("$.refreshToken").isNotEmpty())
-                .andReturn().getResponse().getContentAsString();
+        String body =
+                login(EMAIL, PASSWORD)
+                        .andExpect(status().isOk())
+                        .andExpect(jsonPath("$.tokenType").value("Bearer"))
+                        .andExpect(jsonPath("$.expiresIn").value(900))
+                        .andExpect(jsonPath("$.refreshToken").isNotEmpty())
+                        .andReturn()
+                        .getResponse()
+                        .getContentAsString();
 
         Jwt jwt = jwtDecoder.decode(JsonPath.read(body, "$.accessToken"));
         assertThat(jwt.getSubject()).isEqualTo(user.getId().toString());
@@ -88,14 +85,24 @@ class AuthApiIntegrationTests {
 
     @Test
     void loginFailuresAreIndistinguishable() throws Exception {
-        for (String[] credentials : new String[][] {
-                {EMAIL, "wrong-password"},
-                {"nobody@restosphere.test", PASSWORD},
-                {DISABLED_EMAIL, PASSWORD}}) {
+        for (String[] credentials :
+                new String[][] {
+                    {EMAIL, "wrong-password"},
+                    {"nobody@restosphere.test", PASSWORD},
+                    {DISABLED_EMAIL, PASSWORD}
+                }) {
             login(credentials[0], credentials[1])
                     .andExpect(status().isUnauthorized())
                     .andExpect(jsonPath("$.detail").value("Invalid email or password"));
         }
+    }
+
+    @Test
+    void repeatedFailuresLockLoginTemporarily() throws Exception {
+        for (int i = 0; i < 10; i++) {
+            login(EMAIL, "wrong-password").andExpect(status().isUnauthorized());
+        }
+        login(EMAIL, PASSWORD).andExpect(status().isTooManyRequests());
     }
 
     @Test
@@ -111,12 +118,16 @@ class AuthApiIntegrationTests {
         mockMvc.perform(get("/api/v1/auth/me")).andExpect(status().isUnauthorized());
 
         String accessToken = JsonPath.read(loginBody(), "$.accessToken");
-        mockMvc.perform(get("/api/v1/auth/me").header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken))
+        mockMvc.perform(
+                        get("/api/v1/auth/me")
+                                .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.email").value(EMAIL))
                 .andExpect(jsonPath("$.role").value("WAITER"));
 
-        mockMvc.perform(get("/api/v1/auth/me").header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken + "x"))
+        mockMvc.perform(
+                        get("/api/v1/auth/me")
+                                .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken + "x"))
                 .andExpect(status().isUnauthorized());
     }
 
@@ -124,10 +135,13 @@ class AuthApiIntegrationTests {
     void expiredAndForeignIssuerTokensAreRejected() throws Exception {
         Instant past = Instant.now().minusSeconds(3600);
         String expired = encode(ISSUER, past, past.plusSeconds(60));
-        String foreignIssuer = encode("someone-else", Instant.now(), Instant.now().plusSeconds(600));
+        String foreignIssuer =
+                encode("someone-else", Instant.now(), Instant.now().plusSeconds(600));
 
         for (String token : new String[] {expired, foreignIssuer}) {
-            mockMvc.perform(get("/api/v1/auth/me").header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+            mockMvc.perform(
+                            get("/api/v1/auth/me")
+                                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
                     .andExpect(status().isUnauthorized());
         }
     }
@@ -136,9 +150,12 @@ class AuthApiIntegrationTests {
     void refreshRotatesTokenAndWorksWithStaleBearerHeader() throws Exception {
         String oldRefresh = JsonPath.read(loginBody(), "$.refreshToken");
 
-        String body = postToken("/api/v1/auth/refresh", oldRefresh, "Bearer expired.or.garbage")
-                .andExpect(status().isOk())
-                .andReturn().getResponse().getContentAsString();
+        String body =
+                postToken("/api/v1/auth/refresh", oldRefresh, "Bearer expired.or.garbage")
+                        .andExpect(status().isOk())
+                        .andReturn()
+                        .getResponse()
+                        .getContentAsString();
 
         String newRefresh = JsonPath.read(body, "$.refreshToken");
         assertThat(newRefresh).isNotEqualTo(oldRefresh);
@@ -148,8 +165,11 @@ class AuthApiIntegrationTests {
     @Test
     void reusingRotatedTokenRevokesWholeFamily() throws Exception {
         String stolen = JsonPath.read(loginBody(), "$.refreshToken");
-        String body = postToken("/api/v1/auth/refresh", stolen, null)
-                .andReturn().getResponse().getContentAsString();
+        String body =
+                postToken("/api/v1/auth/refresh", stolen, null)
+                        .andReturn()
+                        .getResponse()
+                        .getContentAsString();
         String latest = JsonPath.read(body, "$.refreshToken");
 
         postToken("/api/v1/auth/refresh", stolen, null).andExpect(status().isUnauthorized());
@@ -180,7 +200,9 @@ class AuthApiIntegrationTests {
 
         assertThat(refreshTokenRepository.findAll())
                 .singleElement()
-                .satisfies(token -> assertThat(token.getTokenHash()).isNotEqualTo(refresh).hasSize(64));
+                .satisfies(
+                        token ->
+                                assertThat(token.getTokenHash()).isNotEqualTo(refresh).hasSize(64));
     }
 
     private User saveUser(String email, boolean enabled) {
@@ -198,15 +220,20 @@ class AuthApiIntegrationTests {
     }
 
     private ResultActions login(String email, String password) throws Exception {
-        return mockMvc.perform(post("/api/v1/auth/login")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"email\":\"%s\",\"password\":\"%s\"}".formatted(email, password)));
+        return mockMvc.perform(
+                post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(
+                                "{\"email\":\"%s\",\"password\":\"%s\"}"
+                                        .formatted(email, password)));
     }
 
-    private ResultActions postToken(String path, String refreshToken, String authorization) throws Exception {
-        var request = post(path)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"refreshToken\":\"%s\"}".formatted(refreshToken));
+    private ResultActions postToken(String path, String refreshToken, String authorization)
+            throws Exception {
+        var request =
+                post(path)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"refreshToken\":\"%s\"}".formatted(refreshToken));
         if (authorization != null) {
             request.header(HttpHeaders.AUTHORIZATION, authorization);
         }
@@ -214,12 +241,13 @@ class AuthApiIntegrationTests {
     }
 
     private String encode(String issuer, Instant issuedAt, Instant expiresAt) {
-        JwtClaimsSet claims = JwtClaimsSet.builder()
-                .issuer(issuer)
-                .subject(user.getId().toString())
-                .issuedAt(issuedAt)
-                .expiresAt(expiresAt)
-                .build();
+        JwtClaimsSet claims =
+                JwtClaimsSet.builder()
+                        .issuer(issuer)
+                        .subject(user.getId().toString())
+                        .issuedAt(issuedAt)
+                        .expiresAt(expiresAt)
+                        .build();
         JwsHeader header = JwsHeader.with(HS256).type("JWT").build();
         return jwtEncoder.encode(JwtEncoderParameters.from(header, claims)).getTokenValue();
     }

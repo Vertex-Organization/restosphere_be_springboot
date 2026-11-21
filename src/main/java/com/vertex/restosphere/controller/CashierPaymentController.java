@@ -5,11 +5,11 @@ import com.vertex.restosphere.dto.request.CashierConfirmTransferRequest;
 import com.vertex.restosphere.dto.request.CashierCreateTransferRequest;
 import com.vertex.restosphere.dto.request.CashierPayCashRequest;
 import com.vertex.restosphere.dto.response.CashierPaymentResponse;
+import com.vertex.restosphere.entity.Payment;
 import com.vertex.restosphere.security.CurrentUserService;
 import com.vertex.restosphere.service.CashierPaymentService;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import com.vertex.restosphere.entity.Payment;
 import jakarta.validation.Valid;
 import java.time.Instant;
 import java.util.List;
@@ -39,27 +39,37 @@ public class CashierPaymentController {
     private final CashierPaymentService service;
 
     @GetMapping("/payments")
-    public List<CashierPaymentResponse> history(@AuthenticationPrincipal Jwt jwt,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to,
-            @RequestParam(required = false) Payment.Method method, @RequestParam(required = false) String status) {
+    public List<CashierPaymentResponse> history(
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+                    Instant from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+                    Instant to,
+            @RequestParam(required = false) Payment.Method method,
+            @RequestParam(required = false) String status) {
         return service.history(CurrentUserService.idOf(jwt), from, to, method, status);
     }
 
     @PostMapping("/bills/{id}/payments/cash")
-    public ResponseEntity<CashierPaymentResponse> payCash(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID id,
+    public ResponseEntity<CashierPaymentResponse> payCash(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable UUID id,
             @Valid @RequestBody CashierPayCashRequest req) {
         return respond(service.payCash(CurrentUserService.idOf(jwt), id, req));
     }
 
     @PostMapping("/bills/{id}/payments/transfer")
-    public ResponseEntity<CashierPaymentResponse> transfer(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID id,
+    public ResponseEntity<CashierPaymentResponse> transfer(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable UUID id,
             @Valid @RequestBody CashierCreateTransferRequest req) {
         return respond(service.createTransfer(CurrentUserService.idOf(jwt), id, req));
     }
 
     @PostMapping("/payments/{id}/confirm")
-    public CashierPaymentResponse confirm(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID id,
+    public CashierPaymentResponse confirm(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable UUID id,
             @RequestBody CashierConfirmTransferRequest req) {
         return service.confirmTransfer(CurrentUserService.idOf(jwt), id, req);
     }
@@ -69,7 +79,8 @@ public class CashierPaymentController {
         return service.cancelTransfer(CurrentUserService.idOf(jwt), id);
     }
 
-    private static ResponseEntity<CashierPaymentResponse> respond(CashierPaymentService.Outcome outcome) {
+    private static ResponseEntity<CashierPaymentResponse> respond(
+            CashierPaymentService.Outcome outcome) {
         return ResponseEntity.status(outcome.created() ? HttpStatus.CREATED : HttpStatus.OK)
                 .body(outcome.payment());
     }

@@ -14,7 +14,7 @@ import com.vertex.restosphere.repository.AuditLogRepository;
 import com.vertex.restosphere.security.CurrentUserService;
 import com.vertex.restosphere.service.AdminRestaurantService;
 import com.vertex.restosphere.service.ImageStorageService;
-import com.vertex.restosphere.service.RestaurantSettingsProvider;
+import com.vertex.restosphere.service.WorkspaceStore;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -34,23 +34,81 @@ public class AdminRestaurantServiceImpl implements AdminRestaurantService {
 
     private static final Pattern EMAIL = Pattern.compile("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
 
-    private record Field(String name, Function<RestaurantProfileRequest, String> in,
-            Function<RestaurantSettings, String> get, BiConsumer<RestaurantSettings, String> set,
-            int max, boolean link) {
-    }
+    private record Field(
+            String name,
+            Function<RestaurantProfileRequest, String> in,
+            Function<RestaurantSettings, String> get,
+            BiConsumer<RestaurantSettings, String> set,
+            int max,
+            boolean link) {}
 
-    private static final List<Field> FIELDS = List.of(
-            new Field("name", RestaurantProfileRequest::name, RestaurantSettings::getName, RestaurantSettings::setName, 150, false),
-            new Field("description", RestaurantProfileRequest::description, RestaurantSettings::getDescription, RestaurantSettings::setDescription, 255, false),
-            new Field("address", RestaurantProfileRequest::address, RestaurantSettings::getAddress, RestaurantSettings::setAddress, 255, false),
-            new Field("hotline", RestaurantProfileRequest::hotline, RestaurantSettings::getPhone, RestaurantSettings::setPhone, 30, false),
-            new Field("email", RestaurantProfileRequest::email, RestaurantSettings::getEmail, RestaurantSettings::setEmail, 255, false),
-            new Field("openingHours", RestaurantProfileRequest::openingHours, RestaurantSettings::getOpeningHours, RestaurantSettings::setOpeningHours, 255, false),
-            new Field("facebook", RestaurantProfileRequest::facebook, RestaurantSettings::getFacebook, RestaurantSettings::setFacebook, 255, true),
-            new Field("instagram", RestaurantProfileRequest::instagram, RestaurantSettings::getInstagram, RestaurantSettings::setInstagram, 255, true),
-            new Field("tiktok", RestaurantProfileRequest::tiktok, RestaurantSettings::getTiktok, RestaurantSettings::setTiktok, 255, true));
+    private static final List<Field> FIELDS =
+            List.of(
+                    new Field(
+                            "name",
+                            RestaurantProfileRequest::name,
+                            RestaurantSettings::getName,
+                            RestaurantSettings::setName,
+                            150,
+                            false),
+                    new Field(
+                            "description",
+                            RestaurantProfileRequest::description,
+                            RestaurantSettings::getDescription,
+                            RestaurantSettings::setDescription,
+                            255,
+                            false),
+                    new Field(
+                            "address",
+                            RestaurantProfileRequest::address,
+                            RestaurantSettings::getAddress,
+                            RestaurantSettings::setAddress,
+                            255,
+                            false),
+                    new Field(
+                            "hotline",
+                            RestaurantProfileRequest::hotline,
+                            RestaurantSettings::getPhone,
+                            RestaurantSettings::setPhone,
+                            30,
+                            false),
+                    new Field(
+                            "email",
+                            RestaurantProfileRequest::email,
+                            RestaurantSettings::getEmail,
+                            RestaurantSettings::setEmail,
+                            255,
+                            false),
+                    new Field(
+                            "openingHours",
+                            RestaurantProfileRequest::openingHours,
+                            RestaurantSettings::getOpeningHours,
+                            RestaurantSettings::setOpeningHours,
+                            255,
+                            false),
+                    new Field(
+                            "facebook",
+                            RestaurantProfileRequest::facebook,
+                            RestaurantSettings::getFacebook,
+                            RestaurantSettings::setFacebook,
+                            255,
+                            true),
+                    new Field(
+                            "instagram",
+                            RestaurantProfileRequest::instagram,
+                            RestaurantSettings::getInstagram,
+                            RestaurantSettings::setInstagram,
+                            255,
+                            true),
+                    new Field(
+                            "tiktok",
+                            RestaurantProfileRequest::tiktok,
+                            RestaurantSettings::getTiktok,
+                            RestaurantSettings::setTiktok,
+                            255,
+                            true));
 
-    private final RestaurantSettingsProvider provider;
+    private final WorkspaceStore store;
     private final CurrentUserService currentUser;
     private final AuditLogRepository auditLogs;
     private final ImageStorageService imageStorage;
@@ -58,12 +116,12 @@ public class AdminRestaurantServiceImpl implements AdminRestaurantService {
     @Override
     public RestaurantProfileResponse get(UUID actorId) {
         currentUser.require(actorId, Role.ADMIN);
-        return RestaurantProfileResponse.from(provider.lockAndGet());
+        return RestaurantProfileResponse.from(store.lock());
     }
 
     @Override
     public RestaurantProfileResponse update(UUID actorId, RestaurantProfileRequest req) {
-        RestaurantSettings settings = provider.lockAndGet();
+        RestaurantSettings settings = store.lock();
         User actor = currentUser.require(actorId, Role.ADMIN);
 
         List<String> values = FIELDS.stream().map(f -> validate(f, req)).toList();
@@ -84,12 +142,14 @@ public class AdminRestaurantServiceImpl implements AdminRestaurantService {
     }
 
     @Override
-    public RestaurantProfileResponse uploadImage(UUID actorId, String kind, RestaurantImageRequest req) {
+    public RestaurantProfileResponse uploadImage(
+            UUID actorId, String kind, RestaurantImageRequest req) {
         String field = imageField(kind);
-        RestaurantSettings settings = provider.lockAndGet();
+        RestaurantSettings settings = store.lock();
         User actor = currentUser.require(actorId, Role.ADMIN);
         if (!imageStorage.isEnabled()) {
-            throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "Image upload is not configured");
+            throw new ApiException(
+                    HttpStatus.SERVICE_UNAVAILABLE, "Image upload is not configured");
         }
         byte[] bytes = Base64ImageDecoder.decode(req.contentType(), req.data());
         String url = imageStorage.uploadRestaurantImage(kind, bytes);
@@ -101,7 +161,7 @@ public class AdminRestaurantServiceImpl implements AdminRestaurantService {
     @Override
     public RestaurantProfileResponse removeImage(UUID actorId, String kind) {
         String field = imageField(kind);
-        RestaurantSettings settings = provider.lockAndGet();
+        RestaurantSettings settings = store.lock();
         User actor = currentUser.require(actorId, Role.ADMIN);
         String current = kind.equals("logo") ? settings.getLogoUrl() : settings.getCoverUrl();
         if (current == null) {

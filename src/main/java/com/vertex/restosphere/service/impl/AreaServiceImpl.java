@@ -1,12 +1,12 @@
 package com.vertex.restosphere.service.impl;
 
-import com.vertex.restosphere.service.AreaService;
 import com.vertex.restosphere.dto.request.AreaRequest;
 import com.vertex.restosphere.dto.response.AreaResponse;
 import com.vertex.restosphere.entity.Area;
 import com.vertex.restosphere.exception.ApiException;
 import com.vertex.restosphere.repository.AreaRepository;
 import com.vertex.restosphere.repository.RestaurantTableRepository;
+import com.vertex.restosphere.service.AreaService;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;

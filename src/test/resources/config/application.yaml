@@ -5,3 +5,7 @@ app:
     bootstrap-admin:
       email: ""
       password: ""
+spring:
+  sql:
+    init:
+      mode: never

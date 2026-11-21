@@ -9,15 +9,19 @@ import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
-public interface AuditLogRepository extends JpaRepository<AuditLog, UUID>, JpaSpecificationExecutor<AuditLog> {
+public interface AuditLogRepository
+        extends JpaRepository<AuditLog, UUID>, JpaSpecificationExecutor<AuditLog> {
 
     @Override
     @EntityGraph(attributePaths = "actor")
     Page<AuditLog> findAll(Specification<AuditLog> spec, Pageable pageable);
 
     @EntityGraph(attributePaths = "actor")
-    java.util.List<AuditLog> findByTargetTypeAndTargetIdInAndActionInOrderByCreatedAtAsc(String targetType,
-            java.util.Collection<java.util.UUID> targetIds, java.util.Collection<String> actions);
+    java.util.List<AuditLog> findByTargetTypeAndTargetIdInAndActionInOrderByCreatedAtAsc(
+            String targetType,
+            java.util.Collection<java.util.UUID> targetIds,
+            java.util.Collection<String> actions);
 
-    java.util.List<AuditLog> findByTargetIdInOrderByCreatedAtAsc(java.util.Collection<java.util.UUID> targetIds);
+    java.util.List<AuditLog> findByTargetIdInOrderByCreatedAtAsc(
+            java.util.Collection<java.util.UUID> targetIds);
 }

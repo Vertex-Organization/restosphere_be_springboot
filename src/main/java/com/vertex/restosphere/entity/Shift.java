@@ -14,10 +14,13 @@ import org.hibernate.annotations.Check;
 public class Shift extends BaseEntity {
     @Column(nullable = false, length = 100)
     private String name;
+
     @Column(nullable = false)
     private Instant startsAt;
+
     @Column(nullable = false)
     private Instant endsAt;
+
     @Column(nullable = false)
     private int minimumStaff;
 }

@@ -26,11 +26,14 @@ public class AdminAuditLogController {
     private final AdminAuditLogService service;
 
     @GetMapping
-    public List<AuditLogResponse> list(@AuthenticationPrincipal Jwt jwt,
+    public List<AuditLogResponse> list(
+            @AuthenticationPrincipal Jwt jwt,
             @RequestParam(required = false) String action,
             @RequestParam(required = false) String actor,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+                    LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+                    LocalDate to,
             @RequestParam(required = false) Integer limit) {
         return service.list(CurrentUserService.idOf(jwt), action, actor, from, to, limit);
     }

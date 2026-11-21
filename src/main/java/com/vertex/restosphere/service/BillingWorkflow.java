@@ -1,42 +1,46 @@
 package com.vertex.restosphere.service;
 
 import com.vertex.restosphere.entity.ApprovalRequest;
-import com.vertex.restosphere.entity.AuditLog;
 import com.vertex.restosphere.entity.Bill;
 import com.vertex.restosphere.entity.OrderItem;
-import com.vertex.restosphere.entity.Payment;
 import com.vertex.restosphere.entity.TableSession;
 import com.vertex.restosphere.entity.User;
 import java.math.BigDecimal;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
-/** Hoa don, thanh toan, yeu cau phe duyet cua workspace command. Helper tinh (whole, money) o BillingWorkflowImpl. */
+/** Hóa đơn, tính tiền và yêu cầu phê duyệt dùng chung giữa các luồng nghiệp vụ. */
 public interface BillingWorkflow {
 
     Bill bill(TableSession session);
 
     List<OrderItem> items(Bill bill);
 
+    /** Tính lại tạm tính, giảm giá, phí dịch vụ, thuế và tổng; bỏ qua hóa đơn đã đóng. */
     void recalculate(Bill b);
 
+    /** Tổng đã thu thành công của hóa đơn. */
     BigDecimal received(Bill b);
 
+    /** Báo xung đột khi phiên bản hóa đơn client giữ đã cũ. */
+    void requireVersion(Bill b, long version);
+
+    /** Chặn sửa hóa đơn đã đóng hoặc đã có thanh toán. */
     void editable(Bill b);
 
-    String command(String type, Map<String, Object> c, User user);
+    /** Chuyển hóa đơn sang PAID khi đã thu đủ, ngược lại mở lại. */
+    void settle(Bill b);
 
     void applyDiscount(Bill b, String mode, BigDecimal value, String reason, User user);
 
-    ApprovalRequest request(ApprovalRequest.Type type, String target, UUID targetId, BigDecimal amount, String reason,
+    ApprovalRequest request(
+            ApprovalRequest.Type type,
+            String target,
+            UUID targetId,
+            BigDecimal amount,
+            String reason,
             User user);
 
-    void decide(Map<String, Object> c, User user);
-
-    Map<String, Object> view(Bill b);
-
-    Map<String, Object> view(Bill b, List<AuditLog> history);
-
-    Map<String, Object> payment(Payment p);
+    /** Duyệt hoặc từ chối yêu cầu và áp dụng hệ quả lên hóa đơn, món, thanh toán, thực đơn. */
+    void decide(UUID requestId, boolean approve, String reason, User user);
 }

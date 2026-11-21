@@ -7,6 +7,6 @@ import java.util.UUID;
 
 public interface AdminAuditLogService {
 
-    List<AuditLogResponse> list(UUID actorId, String action, String actor, LocalDate from, LocalDate to,
-            Integer limit);
+    List<AuditLogResponse> list(
+            UUID actorId, String action, String actor, LocalDate from, LocalDate to, Integer limit);
 }

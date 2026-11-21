@@ -42,25 +42,32 @@ public class CashierRequestController {
 
     @PostMapping("/bills/{id}/adjustment-requests")
     @ResponseStatus(HttpStatus.CREATED)
-    public CashierRequestResponse adjustment(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID id,
+    public CashierRequestResponse adjustment(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable UUID id,
             @Valid @RequestBody CashierAdjustmentRequestRequest req) {
         return service.requestAdjustment(CurrentUserService.idOf(jwt), id, req);
     }
 
     @PostMapping("/payments/{id}/void-requests")
     @ResponseStatus(HttpStatus.CREATED)
-    public CashierRequestResponse voidPayment(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID id,
+    public CashierRequestResponse voidPayment(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable UUID id,
             @Valid @RequestBody CashierReasonRequest req) {
         return service.requestVoid(CurrentUserService.idOf(jwt), id, req);
     }
 
     @PostMapping("/requests/{id}/withdraw")
-    public CashierRequestResponse withdraw(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID id) {
+    public CashierRequestResponse withdraw(
+            @AuthenticationPrincipal Jwt jwt, @PathVariable UUID id) {
         return service.withdraw(CurrentUserService.idOf(jwt), id);
     }
 
     @PostMapping("/bills/{id}/return-payment-request")
-    public CashierBillResponse returnPaymentRequest(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID id,
+    public CashierBillResponse returnPaymentRequest(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable UUID id,
             @Valid @RequestBody CashierReturnPaymentRequest req) {
         return service.returnPaymentRequest(CurrentUserService.idOf(jwt), id, req);
     }

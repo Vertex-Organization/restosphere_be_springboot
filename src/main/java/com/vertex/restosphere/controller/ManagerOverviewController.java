@@ -37,14 +37,18 @@ public class ManagerOverviewController {
     }
 
     @GetMapping("/payments")
-    public List<ManagerPaymentResponse> payments(@AuthenticationPrincipal Jwt jwt,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+    public List<ManagerPaymentResponse> payments(
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+                    LocalDate date) {
         return service.payments(CurrentUserService.idOf(jwt), date);
     }
 
     @GetMapping("/activity")
-    public List<ManagerActivityResponse> activity(@AuthenticationPrincipal Jwt jwt,
-            @RequestParam(required = false) UUID entityId, @RequestParam(defaultValue = "50") int limit) {
+    public List<ManagerActivityResponse> activity(
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestParam(required = false) UUID entityId,
+            @RequestParam(defaultValue = "50") int limit) {
         return service.activity(CurrentUserService.idOf(jwt), entityId, limit);
     }
 }

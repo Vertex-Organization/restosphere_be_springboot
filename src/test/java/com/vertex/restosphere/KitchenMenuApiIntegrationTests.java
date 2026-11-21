@@ -54,13 +54,21 @@ class KitchenMenuApiIntegrationTests extends KitchenApiTestBase {
 
         String body = ok(call(HttpMethod.GET, "/menu-items", kitchenToken, null));
         List<Map<String, Object>> items = json(body, "$");
-        Map<String, Object> first = items.stream().filter(i -> i.get("id").equals(a.getId().toString()))
-                .findFirst().orElseThrow();
-        assertThat(first).containsEntry("name", "K3 Alpha").containsEntry("status", "AVAILABLE")
+        Map<String, Object> first =
+                items.stream()
+                        .filter(i -> i.get("id").equals(a.getId().toString()))
+                        .findFirst()
+                        .orElseThrow();
+        assertThat(first)
+                .containsEntry("name", "K3 Alpha")
+                .containsEntry("status", "AVAILABLE")
                 .containsEntry("categoryId", a.getCategory().getId().toString());
         assertThat(first.get("updatedAt")).isNotNull();
-        assertThat(items).anyMatch(i -> i.get("id").equals(gone.getId().toString())
-                && i.get("status").equals("DISCONTINUED"));
+        assertThat(items)
+                .anyMatch(
+                        i ->
+                                i.get("id").equals(gone.getId().toString())
+                                        && i.get("status").equals("DISCONTINUED"));
     }
 
     @Test
@@ -68,18 +76,33 @@ class KitchenMenuApiIntegrationTests extends KitchenApiTestBase {
         MenuItem m = menu("K3 Pho");
         long rev = revision();
 
-        String body = ok(call(HttpMethod.PATCH, "/menu-items/" + m.getId() + "/status", kitchenToken,
-                statusBody("SOLD_OUT")));
+        String body =
+                ok(
+                        call(
+                                HttpMethod.PATCH,
+                                "/menu-items/" + m.getId() + "/status",
+                                kitchenToken,
+                                statusBody("SOLD_OUT")));
         assertThat((String) json(body, "$.status")).isEqualTo("SOLD_OUT");
         assertThat((String) json(body, "$.id")).isEqualTo(m.getId().toString());
         assertThat(reload(m).getStatus()).isEqualTo(MenuItemStatus.SOLD_OUT);
         assertThat(revision()).isEqualTo(rev + 1);
-        assertThat(count("select count(n) from Notification n where n.kind = 'MENU_AVAILABILITY' "
-                + "and n.audienceRole = com.vertex.restosphere.common.enums.Role.WAITER and n.body = 'K3 Pho' "
-                + "and n.path = :p0", m.getId().toString())).isEqualTo(1);
+        assertThat(
+                        count(
+                                "select count(n) from Notification n where n.kind ="
+                                        + " 'MENU_AVAILABILITY' and n.audienceRole ="
+                                        + " com.vertex.restosphere.common.enums.Role.WAITER and n.body"
+                                        + " = 'K3 Pho' and n.path = :p0",
+                                m.getId().toString()))
+                .isEqualTo(1);
         assertThat(auditCount("set-menu-status")).isEqualTo(1);
 
-        ok(call(HttpMethod.PATCH, "/menu-items/" + m.getId() + "/status", kitchenToken, statusBody("AVAILABLE")));
+        ok(
+                call(
+                        HttpMethod.PATCH,
+                        "/menu-items/" + m.getId() + "/status",
+                        kitchenToken,
+                        statusBody("AVAILABLE")));
         assertThat(reload(m).getStatus()).isEqualTo(MenuItemStatus.AVAILABLE);
         assertThat(revision()).isEqualTo(rev + 2);
     }
@@ -93,15 +116,29 @@ class KitchenMenuApiIntegrationTests extends KitchenApiTestBase {
         long rev = revision();
         String path = "/menu-items/" + m.getId() + "/status";
 
-        call(HttpMethod.PATCH, path, kitchenToken, statusBody("DISCONTINUED")).andExpect(status().isBadRequest());
-        call(HttpMethod.PATCH, path, kitchenToken, statusBody("BOGUS")).andExpect(status().isBadRequest());
+        call(HttpMethod.PATCH, path, kitchenToken, statusBody("DISCONTINUED"))
+                .andExpect(status().isBadRequest());
+        call(HttpMethod.PATCH, path, kitchenToken, statusBody("BOGUS"))
+                .andExpect(status().isBadRequest());
         call(HttpMethod.PATCH, path, kitchenToken, "{}").andExpect(status().isBadRequest());
-        call(HttpMethod.PATCH, "/menu-items/" + gone.getId() + "/status", kitchenToken, statusBody("AVAILABLE"))
+        call(
+                        HttpMethod.PATCH,
+                        "/menu-items/" + gone.getId() + "/status",
+                        kitchenToken,
+                        statusBody("AVAILABLE"))
                 .andExpect(status().isBadRequest());
-        call(HttpMethod.PATCH, "/menu-items/not-a-uuid/status", kitchenToken, statusBody("SOLD_OUT"))
+        call(
+                        HttpMethod.PATCH,
+                        "/menu-items/not-a-uuid/status",
+                        kitchenToken,
+                        statusBody("SOLD_OUT"))
                 .andExpect(status().isBadRequest());
-        call(HttpMethod.PATCH, "/menu-items/" + UUID.randomUUID() + "/status", kitchenToken,
-                statusBody("SOLD_OUT")).andExpect(status().isNotFound());
+        call(
+                        HttpMethod.PATCH,
+                        "/menu-items/" + UUID.randomUUID() + "/status",
+                        kitchenToken,
+                        statusBody("SOLD_OUT"))
+                .andExpect(status().isNotFound());
 
         assertThat(reload(m).getStatus()).isEqualTo(MenuItemStatus.AVAILABLE);
         assertThat(reload(gone).getStatus()).isEqualTo(MenuItemStatus.DISCONTINUED);
@@ -114,8 +151,13 @@ class KitchenMenuApiIntegrationTests extends KitchenApiTestBase {
         MenuItem m = menu("K3 Bun");
         long rev = revision();
 
-        String body = created(call(HttpMethod.POST, "/menu-requests", kitchenToken,
-                requestBody(m.getId(), "SOLD_OUT")));
+        String body =
+                created(
+                        call(
+                                HttpMethod.POST,
+                                "/menu-requests",
+                                kitchenToken,
+                                requestBody(m.getId(), "SOLD_OUT")));
         assertThat((String) json(body, "$.menuItemId")).isEqualTo(m.getId().toString());
         assertThat((String) json(body, "$.requested")).isEqualTo("SOLD_OUT");
         assertThat((String) json(body, "$.status")).isEqualTo("PENDING");
@@ -125,8 +167,14 @@ class KitchenMenuApiIntegrationTests extends KitchenApiTestBase {
         assertThat(reload(m).getStatus()).isEqualTo(MenuItemStatus.AVAILABLE);
         assertThat(revision()).isEqualTo(rev + 1);
         assertThat(auditCount("request-menu-status")).isEqualTo(1);
-        var stored = tx.execute(s -> em.createQuery("from ApprovalRequest a where a.targetId = :t",
-                ApprovalRequest.class).setParameter("t", m.getId()).getSingleResult());
+        var stored =
+                tx.execute(
+                        s ->
+                                em.createQuery(
+                                                "from ApprovalRequest a where a.targetId = :t",
+                                                ApprovalRequest.class)
+                                        .setParameter("t", m.getId())
+                                        .getSingleResult());
         assertThat(stored.getType()).isEqualTo(ApprovalRequest.Type.MENU_STATUS);
         assertThat(stored.getTargetType()).isEqualTo("MENU_ITEM");
         assertThat(stored.getReason()).isEqualTo("Menu availability: SOLD_OUT");
@@ -141,27 +189,52 @@ class KitchenMenuApiIntegrationTests extends KitchenApiTestBase {
         gone.setStatus(MenuItemStatus.DISCONTINUED);
         gone = persist(gone);
 
-        call(HttpMethod.POST, "/menu-requests", kitchenToken, requestBody(m.getId(), "DISCONTINUED"))
+        call(
+                        HttpMethod.POST,
+                        "/menu-requests",
+                        kitchenToken,
+                        requestBody(m.getId(), "DISCONTINUED"))
                 .andExpect(status().isBadRequest());
         call(HttpMethod.POST, "/menu-requests", kitchenToken, requestBody(m.getId(), "BOGUS"))
                 .andExpect(status().isBadRequest());
         call(HttpMethod.POST, "/menu-requests", kitchenToken, "{\"status\":\"SOLD_OUT\"}")
                 .andExpect(status().isBadRequest());
-        call(HttpMethod.POST, "/menu-requests", kitchenToken, requestBody(gone.getId(), "AVAILABLE"))
+        call(
+                        HttpMethod.POST,
+                        "/menu-requests",
+                        kitchenToken,
+                        requestBody(gone.getId(), "AVAILABLE"))
                 .andExpect(status().isBadRequest());
         call(HttpMethod.POST, "/menu-requests", kitchenToken, requestBody("not-a-uuid", "SOLD_OUT"))
                 .andExpect(status().isBadRequest());
-        call(HttpMethod.POST, "/menu-requests", kitchenToken, requestBody(UUID.randomUUID(), "SOLD_OUT"))
+        call(
+                        HttpMethod.POST,
+                        "/menu-requests",
+                        kitchenToken,
+                        requestBody(UUID.randomUUID(), "SOLD_OUT"))
                 .andExpect(status().isNotFound());
-        assertThat(count("select count(a) from ApprovalRequest a where a.requestedBy.id = :p0", kitchen.getId()))
+        assertThat(
+                        count(
+                                "select count(a) from ApprovalRequest a where a.requestedBy.id ="
+                                        + " :p0",
+                                kitchen.getId()))
                 .isZero();
 
-        created(call(HttpMethod.POST, "/menu-requests", kitchenToken, requestBody(m.getId(), "SOLD_OUT")));
+        created(
+                call(
+                        HttpMethod.POST,
+                        "/menu-requests",
+                        kitchenToken,
+                        requestBody(m.getId(), "SOLD_OUT")));
         long rev = revision();
         call(HttpMethod.POST, "/menu-requests", kitchenToken, requestBody(m.getId(), "SOLD_OUT"))
                 .andExpect(status().isConflict());
         assertThat(revision()).isEqualTo(rev);
-        assertThat(count("select count(a) from ApprovalRequest a where a.requestedBy.id = :p0", kitchen.getId()))
+        assertThat(
+                        count(
+                                "select count(a) from ApprovalRequest a where a.requestedBy.id ="
+                                        + " :p0",
+                                kitchen.getId()))
                 .isEqualTo(1);
     }
 
@@ -187,15 +260,25 @@ class KitchenMenuApiIntegrationTests extends KitchenApiTestBase {
         other.setReason("x");
         other.setRequestedBy(kitchen);
         persist(other);
-        created(call(HttpMethod.POST, "/menu-requests", kitchenToken, requestBody(b.getId(), "SOLD_OUT")));
+        created(
+                call(
+                        HttpMethod.POST,
+                        "/menu-requests",
+                        kitchenToken,
+                        requestBody(b.getId(), "SOLD_OUT")));
 
         String body = ok(call(HttpMethod.GET, "/menu-requests", kitchenToken, null));
         List<Map<String, Object>> list = json(body, "$");
         assertThat(list).hasSize(2);
-        assertThat(list.get(0)).containsEntry("id", decided.getId().toString())
-                .containsEntry("menuItemId", a.getId().toString()).containsEntry("requested", "SOLD_OUT")
-                .containsEntry("status", "APPROVED").containsEntry("decidedBy", waiter.getId().toString());
+        assertThat(list.get(0))
+                .containsEntry("id", decided.getId().toString())
+                .containsEntry("menuItemId", a.getId().toString())
+                .containsEntry("requested", "SOLD_OUT")
+                .containsEntry("status", "APPROVED")
+                .containsEntry("decidedBy", waiter.getId().toString());
         assertThat(list.get(0).get("decidedAt")).isNotNull();
-        assertThat(list.get(1)).containsEntry("menuItemId", b.getId().toString()).containsEntry("status", "PENDING");
+        assertThat(list.get(1))
+                .containsEntry("menuItemId", b.getId().toString())
+                .containsEntry("status", "PENDING");
     }
 }

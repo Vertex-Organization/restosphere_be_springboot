@@ -40,25 +40,42 @@ public class ManagerOrderServiceImpl implements ManagerOrderService {
     @Override
     public List<ManagerOrderResponse> list(UUID actorId, LocalDate date) {
         currentUser.require(actorId, Role.ADMIN, Role.MANAGER);
-        ZoneId zone = settings.findBySingletonKey(1).map(RestaurantSettings::getTimezone).map(ZoneId::of)
-                .orElse(ZoneId.of("Asia/Ho_Chi_Minh"));
+        ZoneId zone =
+                settings.findBySingletonKey(1)
+                        .map(RestaurantSettings::getTimezone)
+                        .map(ZoneId::of)
+                        .orElse(ZoneId.of("Asia/Ho_Chi_Minh"));
         LocalDate day = date == null ? LocalDate.now(zone) : date;
-        List<Order> list = orders.findForManager(TableSession.Status.CLOSED,
-                day.atStartOfDay(zone).toInstant(), day.plusDays(1).atStartOfDay(zone).toInstant());
+        List<Order> list =
+                orders.findForManager(
+                        TableSession.Status.CLOSED,
+                        day.atStartOfDay(zone).toInstant(),
+                        day.plusDays(1).atStartOfDay(zone).toInstant());
         if (list.isEmpty()) {
             return List.of();
         }
-        Map<UUID, List<OrderItem>> itemsByOrder = orderItems.findByOrderIdIn(list.stream().map(Order::getId).toList())
-                .stream().collect(Collectors.groupingBy(i -> i.getOrder().getId()));
-        Set<UUID> sessionIds = list.stream().map(o -> o.getSession().getId()).collect(Collectors.toSet());
-        Set<UUID> paidSessions = approvalQueries.findBillsBySessionIdIn(sessionIds).stream()
-                .filter(b -> b.getStatus() == Bill.Status.PAID).map(b -> b.getSession().getId())
-                .collect(Collectors.toSet());
-        Comparator<OrderItem> byCreated = Comparator.comparing(OrderItem::getCreatedAt)
-                .thenComparing(OrderItem::getId);
-        return list.stream().map(o -> ManagerOrderResponse.from(o,
-                itemsByOrder.getOrDefault(o.getId(), List.of()).stream().sorted(byCreated)
-                        .map(ManagerOrderItemResponse::from).toList(),
-                paidSessions.contains(o.getSession().getId()))).toList();
+        Map<UUID, List<OrderItem>> itemsByOrder =
+                orderItems.findByOrderIdIn(list.stream().map(Order::getId).toList()).stream()
+                        .collect(Collectors.groupingBy(i -> i.getOrder().getId()));
+        Set<UUID> sessionIds =
+                list.stream().map(o -> o.getSession().getId()).collect(Collectors.toSet());
+        Set<UUID> paidSessions =
+                approvalQueries.findBillsBySessionIdIn(sessionIds).stream()
+                        .filter(b -> b.getStatus() == Bill.Status.PAID)
+                        .map(b -> b.getSession().getId())
+                        .collect(Collectors.toSet());
+        Comparator<OrderItem> byCreated =
+                Comparator.comparing(OrderItem::getCreatedAt).thenComparing(OrderItem::getId);
+        return list.stream()
+                .map(
+                        o ->
+                                ManagerOrderResponse.from(
+                                        o,
+                                        itemsByOrder.getOrDefault(o.getId(), List.of()).stream()
+                                                .sorted(byCreated)
+                                                .map(ManagerOrderItemResponse::from)
+                                                .toList(),
+                                        paidSessions.contains(o.getSession().getId())))
+                .toList();
     }
 }

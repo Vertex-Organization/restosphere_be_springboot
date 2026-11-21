@@ -18,17 +18,19 @@ import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
 
 /**
- * Chi luu SHA-256 cua token, khong luu token goc. Moi lan login tao mot family moi;
- * cac token xoay vong tu lan login do dung chung family de co the thu hoi ca chuoi.
+ * Chi luu SHA-256 cua token, khong luu token goc. Moi lan login tao mot family moi; cac token xoay
+ * vong tu lan login do dung chung family de co the thu hoi ca chuoi.
  */
 @Getter
 @Setter
 @NoArgsConstructor
 @Entity
-@Table(name = "refresh_tokens", indexes = {
-        @Index(name = "idx_refresh_tokens_family_id", columnList = "family_id"),
-        @Index(name = "idx_refresh_tokens_user_id", columnList = "user_id")
-})
+@Table(
+        name = "refresh_tokens",
+        indexes = {
+            @Index(name = "idx_refresh_tokens_family_id", columnList = "family_id"),
+            @Index(name = "idx_refresh_tokens_user_id", columnList = "user_id")
+        })
 public class RefreshToken {
 
     @Id

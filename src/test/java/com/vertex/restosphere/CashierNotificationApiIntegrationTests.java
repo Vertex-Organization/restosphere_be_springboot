@@ -33,7 +33,10 @@ class CashierNotificationApiIntegrationTests extends CashierApiTestBase {
     }
 
     private Map<String, Object> find(List<Map<String, Object>> list, Notification n) {
-        return list.stream().filter(x -> x.get("id").equals(n.getId().toString())).findFirst().orElseThrow();
+        return list.stream()
+                .filter(x -> x.get("id").equals(n.getId().toString()))
+                .findFirst()
+                .orElseThrow();
     }
 
     @Test
@@ -42,8 +45,10 @@ class CashierNotificationApiIntegrationTests extends CashierApiTestBase {
             call(HttpMethod.GET, p, null, null).andExpect(status().isUnauthorized());
             call(HttpMethod.GET, p, waiterToken, null).andExpect(status().isForbidden());
         }
-        call(HttpMethod.POST, "/notifications/read", waiterToken, "{}").andExpect(status().isForbidden());
-        call(HttpMethod.POST, "/notifications/read", null, "{}").andExpect(status().isUnauthorized());
+        call(HttpMethod.POST, "/notifications/read", waiterToken, "{}")
+                .andExpect(status().isForbidden());
+        call(HttpMethod.POST, "/notifications/read", null, "{}")
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
@@ -55,9 +60,14 @@ class CashierNotificationApiIntegrationTests extends CashierApiTestBase {
         User other = saveUser("c9-cashier2@restosphere.test", Role.CASHIER);
         Notification forOther = notification("TRANSFER_FAILED", null, other, "bill-3");
 
-        List<Map<String, Object>> list = json(ok(call(HttpMethod.GET, "/notifications", cashierToken, null)), "$");
+        List<Map<String, Object>> list =
+                json(ok(call(HttpMethod.GET, "/notifications", cashierToken, null)), "$");
         List<String> ids = list.stream().map(m -> (String) m.get("id")).toList();
-        assertThat(ids).contains(bill.getId().toString(), decided.getId().toString(), personal.getId().toString())
+        assertThat(ids)
+                .contains(
+                        bill.getId().toString(),
+                        decided.getId().toString(),
+                        personal.getId().toString())
                 .doesNotContain(waiterOnly.getId().toString(), forOther.getId().toString());
         assertThat(find(list, bill).get("billId")).isEqualTo("bill-1");
         assertThat(find(list, bill).get("requestId")).isNull();
@@ -72,15 +82,28 @@ class CashierNotificationApiIntegrationTests extends CashierApiTestBase {
         Notification b = notification("PAYMENT_REQUEST", Role.CASHIER, null, "b");
         long before = revision();
 
-        List<Map<String, Object>> list = json(ok(call(HttpMethod.POST, "/notifications/read", cashierToken,
-                "{\"ids\":[\"%s\",\"not-a-uuid\"]}".formatted(a.getId()))), "$");
-        assertThat((List<Object>) find(list, a).get("readBy")).containsExactly(cashier.getId().toString());
+        List<Map<String, Object>> list =
+                json(
+                        ok(
+                                call(
+                                        HttpMethod.POST,
+                                        "/notifications/read",
+                                        cashierToken,
+                                        "{\"ids\":[\"%s\",\"not-a-uuid\"]}".formatted(a.getId()))),
+                        "$");
+        assertThat((List<Object>) find(list, a).get("readBy"))
+                .containsExactly(cashier.getId().toString());
         assertThat((List<?>) find(list, b).get("readBy")).isEmpty();
         assertThat(readsBy(cashier)).isEqualTo(1);
         assertThat(revision()).isEqualTo(before + 1);
         assertThat(auditCount("read-notifications")).isEqualTo(1);
 
-        ok(call(HttpMethod.POST, "/notifications/read", cashierToken, "{\"ids\":[\"%s\"]}".formatted(a.getId())));
+        ok(
+                call(
+                        HttpMethod.POST,
+                        "/notifications/read",
+                        cashierToken,
+                        "{\"ids\":[\"%s\"]}".formatted(a.getId())));
         assertThat(readsBy(cashier)).isEqualTo(1);
     }
 
@@ -103,8 +126,8 @@ class CashierNotificationApiIntegrationTests extends CashierApiTestBase {
         assertThat(this.<String>json(body, "$.username")).isEqualTo(cashier.getEmail());
         assertThat(this.<String>json(body, "$.role")).isEqualTo("CASHIER");
         assertThat(this.<Integer>json(body, "$.discountLimitPercent")).isEqualTo(10);
-        assertThat(this.<List<String>>json(body, "$.permissions")).contains("bills.view", "payments.create",
-                "shifts.manage");
+        assertThat(this.<List<String>>json(body, "$.permissions"))
+                .contains("bills.view", "payments.create", "shifts.manage");
         assertThat(this.<String>json(body, "$.shift")).isEmpty();
     }
 }

@@ -13,12 +13,27 @@ public interface IncidentRepository extends JpaRepository<Incident, UUID> {
     @EntityGraph(attributePaths = {"reporter", "assignee", "orderItem", "orderItem.order"})
     List<Incident> findAllByOrderByCreatedAtAsc();
 
-    // Nap reporter, assignee, mon, order, phien, ban trong 1 query: response can nhan Ban/Luot/Ten mon.
-    @EntityGraph(attributePaths = {"reporter", "assignee", "orderItem", "orderItem.order",
-            "orderItem.order.session", "orderItem.order.session.table"})
+    // Nap reporter, assignee, mon, order, phien, ban trong 1 query: response can nhan Ban/Luot/Ten
+    // mon.
+    @EntityGraph(
+            attributePaths = {
+                "reporter",
+                "assignee",
+                "orderItem",
+                "orderItem.order",
+                "orderItem.order.session",
+                "orderItem.order.session.table"
+            })
     List<Incident> findAllByOrderByCreatedAtDesc();
 
-    @EntityGraph(attributePaths = {"reporter", "assignee", "orderItem", "orderItem.order",
-            "orderItem.order.session", "orderItem.order.session.table"})
+    @EntityGraph(
+            attributePaths = {
+                "reporter",
+                "assignee",
+                "orderItem",
+                "orderItem.order",
+                "orderItem.order.session",
+                "orderItem.order.session.table"
+            })
     Optional<Incident> findWithDetailsById(UUID id);
 }

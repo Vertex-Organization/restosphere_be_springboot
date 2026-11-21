@@ -32,7 +32,9 @@ public class ManagerEmployeeController {
     }
 
     @PatchMapping("/{id}/area")
-    public ManagerEmployeeResponse assignArea(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID id,
+    public ManagerEmployeeResponse assignArea(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable UUID id,
             @Valid @RequestBody AssignEmployeeAreaRequest req) {
         return service.assignArea(CurrentUserService.idOf(jwt), id, req);
     }

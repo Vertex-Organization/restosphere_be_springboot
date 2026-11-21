@@ -14,10 +14,13 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
 
     // Don trong ngay + don cua phien chua dong; nap san ban, khu, waiter (khong N+1).
     @EntityGraph(attributePaths = {"session.table.area", "waiter"})
-    @Query("select o from Order o where ((o.createdAt >= :from and o.createdAt < :to) "
-            + "or o.session.status <> :closed) order by o.createdAt asc, o.id asc")
-    List<Order> findForManager(@Param("closed") TableSession.Status closed,
-            @Param("from") Instant from, @Param("to") Instant to);
+    @Query(
+            "select o from Order o where ((o.createdAt >= :from and o.createdAt < :to) "
+                    + "or o.session.status <> :closed) order by o.createdAt asc, o.id asc")
+    List<Order> findForManager(
+            @Param("closed") TableSession.Status closed,
+            @Param("from") Instant from,
+            @Param("to") Instant to);
 
     @EntityGraph(attributePaths = {"session.table.area", "waiter"})
     @Query("select o from Order o order by o.createdAt asc")

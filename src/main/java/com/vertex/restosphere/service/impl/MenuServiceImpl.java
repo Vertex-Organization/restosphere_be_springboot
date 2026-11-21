@@ -1,7 +1,5 @@
 package com.vertex.restosphere.service.impl;
 
-import com.vertex.restosphere.service.MenuService;
-import com.vertex.restosphere.service.RestaurantLock;
 import com.vertex.restosphere.common.enums.MenuItemStatus;
 import com.vertex.restosphere.common.enums.Role;
 import com.vertex.restosphere.dto.request.MenuCategoryRequest;
@@ -20,6 +18,8 @@ import com.vertex.restosphere.repository.OrderDraftRepository;
 import com.vertex.restosphere.repository.OrderItemRepository;
 import com.vertex.restosphere.repository.ReservationItemRepository;
 import com.vertex.restosphere.security.CurrentUserService;
+import com.vertex.restosphere.service.MenuService;
+import com.vertex.restosphere.service.RestaurantLock;
 import java.math.BigDecimal;
 import java.util.Comparator;
 import java.util.List;
@@ -51,11 +51,15 @@ public class MenuServiceImpl implements MenuService {
     public List<MenuCategoryResponse> listCategories(boolean includeHidden) {
         return categories.findAll().stream()
                 .filter(c -> includeHidden || c.isVisible())
-                .sorted(Comparator.comparingInt(MenuCategory::getSortOrder).thenComparing(MenuCategory::getName))
-                .map(MenuCategoryResponse::from).toList();
+                .sorted(
+                        Comparator.comparingInt(MenuCategory::getSortOrder)
+                                .thenComparing(MenuCategory::getName))
+                .map(MenuCategoryResponse::from)
+                .toList();
     }
 
-    // Ghi danh muc: khoa truoc roi moi kiem tra actor trong DB (giong phan Admin), de lenh workspace cu
+    // Ghi danh muc: khoa truoc roi moi kiem tra actor trong DB (giong phan Admin), de lenh
+    // workspace cu
     // (category.save/delete cung khoa nay) va REST khong chen nhau khi kiem tra trung ten.
     @Override
     public MenuCategoryResponse createCategory(UUID actorId, MenuCategoryRequest req) {
@@ -85,7 +89,9 @@ public class MenuServiceImpl implements MenuService {
             throw ApiException.conflict("Category name already exists");
         }
         String group = req.group() == null ? c.getMenuGroup() : req.group();
-        if (name.equals(c.getName()) && req.sortOrder() == c.getSortOrder() && req.visible() == c.isVisible()
+        if (name.equals(c.getName())
+                && req.sortOrder() == c.getSortOrder()
+                && req.visible() == c.isVisible()
                 && group.equals(c.getMenuGroup())) {
             return MenuCategoryResponse.from(c);
         }
@@ -124,13 +130,19 @@ public class MenuServiceImpl implements MenuService {
     @Transactional(readOnly = true)
     @Override
     public List<MenuItemResponse> listItems(UUID categoryId, boolean includeHidden) {
-        List<MenuItem> result = categoryId != null ? items.findByCategoryId(categoryId) : items.findAll();
+        List<MenuItem> result =
+                categoryId != null ? items.findByCategoryId(categoryId) : items.findAll();
         return result.stream()
-                .filter(i -> includeHidden
-                        || (i.getCategory().isVisible() && i.getStatus() != MenuItemStatus.DISCONTINUED))
-                .sorted(Comparator.comparingInt((MenuItem i) -> i.getCategory().getSortOrder())
-                        .thenComparing(MenuItem::getName))
-                .map(MenuItemResponse::from).toList();
+                .filter(
+                        i ->
+                                includeHidden
+                                        || (i.getCategory().isVisible()
+                                                && i.getStatus() != MenuItemStatus.DISCONTINUED))
+                .sorted(
+                        Comparator.comparingInt((MenuItem i) -> i.getCategory().getSortOrder())
+                                .thenComparing(MenuItem::getName))
+                .map(MenuItemResponse::from)
+                .toList();
     }
 
     // Ghi mon: cung thu tu nhu danh muc (khoa -> actor trong DB -> kiem tra -> audit).
@@ -158,8 +170,10 @@ public class MenuServiceImpl implements MenuService {
         User actor = currentUser.require(actorId, Role.ADMIN, Role.MANAGER);
         MenuItem item = findItem(id);
         // Mon dang o danh muc an van sua duoc; chi chan khi chuyen SANG danh muc an.
-        MenuCategory category = req.categoryId().equals(item.getCategory().getId())
-                ? item.getCategory() : visibleCategory(req.categoryId());
+        MenuCategory category =
+                req.categoryId().equals(item.getCategory().getId())
+                        ? item.getCategory()
+                        : visibleCategory(req.categoryId());
         String name = req.name().strip();
         String description = blankToNull(req.description());
         String imageUrl = blankToNull(req.imageUrl());
@@ -167,9 +181,13 @@ public class MenuServiceImpl implements MenuService {
         String unit = req.unit() == null ? item.getPriceUnit() : req.unit();
         BigDecimal oldPrice = item.getPrice();
         boolean priceChanged = req.price().compareTo(oldPrice) != 0;
-        if (name.equals(item.getName()) && category == item.getCategory() && !priceChanged
-                && Objects.equals(description, item.getDescription()) && Objects.equals(imageUrl, item.getImageUrl())
-                && status == item.getStatus() && unit.equals(item.getPriceUnit())) {
+        if (name.equals(item.getName())
+                && category == item.getCategory()
+                && !priceChanged
+                && Objects.equals(description, item.getDescription())
+                && Objects.equals(imageUrl, item.getImageUrl())
+                && status == item.getStatus()
+                && unit.equals(item.getPriceUnit())) {
             return MenuItemResponse.from(item);
         }
         item.setName(name);
@@ -181,8 +199,12 @@ public class MenuServiceImpl implements MenuService {
         item.setPriceUnit(unit);
         // Flush de updatedAt trong response la gia tri moi.
         items.flush();
-        String text = "Cập nhật món " + name
-                + (priceChanged ? " (giá " + vnd(oldPrice) + " → " + vnd(req.price()) + ")" : "");
+        String text =
+                "Cập nhật món "
+                        + name
+                        + (priceChanged
+                                ? " (giá " + vnd(oldPrice) + " → " + vnd(req.price()) + ")"
+                                : "");
         auditItem(actor, "MENU_ITEM_UPDATED", item.getId(), text);
         return MenuItemResponse.from(item);
     }
@@ -200,7 +222,8 @@ public class MenuServiceImpl implements MenuService {
         User actor = currentUser.require(actorId, Role.ADMIN, Role.MANAGER);
         MenuItem item = findItem(id);
         // Mon da vao don / nhap don / dat truoc thi giu lai de lich su va hoa don con tham chieu.
-        if (orderItems.existsByMenuItemId(id) || orderDrafts.existsByMenuItemId(id)
+        if (orderItems.existsByMenuItemId(id)
+                || orderDrafts.existsByMenuItemId(id)
                 || reservationItems.existsByMenuItemId(id)) {
             throw ApiException.conflict("Menu item is in use, set it to DISCONTINUED instead");
         }

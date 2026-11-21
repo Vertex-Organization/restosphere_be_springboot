@@ -1,48 +1,82 @@
 package com.vertex.restosphere.service.impl;
 
-import com.vertex.restosphere.service.WorkspaceStore;
-import com.vertex.restosphere.entity.*;
+import com.vertex.restosphere.entity.RestaurantSettings;
 import com.vertex.restosphere.exception.ApiException;
+import com.vertex.restosphere.service.RestaurantLock;
+import com.vertex.restosphere.service.WorkspaceStore;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
-import java.util.*;
+import java.util.List;
+import java.util.UUID;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 
 @Component
+@RequiredArgsConstructor
 public class WorkspaceStoreImpl implements WorkspaceStore {
-    @PersistenceContext EntityManager em;
-    @Override public <T> List<T> all(Class<T> type) { return em.createQuery("from " + type.getSimpleName(), type).getResultList(); }
-    @Override public <T> List<T> query(Class<T> type, String jpql, Object... params) {
+
+    private static final String NOT_FOUND =
+            "Không tìm thấy dữ liệu. Có thể đã bị xóa hoặc thay đổi, vui lòng tải lại.";
+
+    @PersistenceContext private EntityManager em;
+    private final RestaurantLock restaurantLock;
+
+    @Override
+    public <T> List<T> all(Class<T> type) {
+        return em.createQuery("from " + type.getSimpleName(), type).getResultList();
+    }
+
+    @Override
+    public <T> List<T> query(Class<T> type, String jpql, Object... params) {
         var q = em.createQuery(jpql, type);
-        for (int i = 0; i < params.length; i++) q.setParameter(i + 1, params[i]);
+        for (int i = 0; i < params.length; i++) {
+            q.setParameter(i + 1, params[i]);
+        }
         return q.getResultList();
     }
-    @Override public <T> T get(Class<T> type, String id) {
+
+    @Override
+    public <T> T get(Class<T> type, String id) {
         UUID uuid;
-        try { uuid = UUID.fromString(id); } catch (Exception e) { throw invalid("Không tìm thấy dữ liệu. Vui lòng tải lại."); }
+        try {
+            uuid = UUID.fromString(id);
+        } catch (IllegalArgumentException e) {
+            throw ApiException.badRequest("Không tìm thấy dữ liệu. Vui lòng tải lại.");
+        }
         T value = em.find(type, uuid);
-        if (value == null) throw new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy dữ liệu. Có thể đã bị xóa hoặc thay đổi, vui lòng tải lại.");
+        if (value == null) {
+            throw new ApiException(HttpStatus.NOT_FOUND, NOT_FOUND);
+        }
         return value;
     }
-    @Override public <T> T save(T value) { em.persist(value); return value; }
-    @Override public void remove(Object value) { em.remove(value); }
-    @Override public void flush() { em.flush(); }
-    @Override public RestaurantSettings lock() {
-        // Serialize cross-domain commands across application instances, including first settings creation.
-        em.createNativeQuery("select pg_advisory_xact_lock(738246110)", Object.class).getResultList();
+
+    @Override
+    public <T> T save(T value) {
+        em.persist(value);
+        return value;
+    }
+
+    @Override
+    public void remove(Object value) {
+        em.remove(value);
+    }
+
+    @Override
+    public void flush() {
+        em.flush();
+    }
+
+    /** Lấy khóa toàn nhà hàng rồi trả cài đặt; tạo cài đặt mặc định ở lần đầu. */
+    @Override
+    public RestaurantSettings lock() {
+        restaurantLock.acquire();
         var settings = all(RestaurantSettings.class);
-        if (!settings.isEmpty()) return settings.getFirst();
-        var value = new RestaurantSettings(); value.setName("RestoSphere"); return save(value);
+        if (!settings.isEmpty()) {
+            return settings.getFirst();
+        }
+        var value = new RestaurantSettings();
+        value.setName("RestoSphere");
+        return save(value);
     }
-    public static ApiException invalid(String message) { return new ApiException(HttpStatus.BAD_REQUEST, message); }
-    public static Map<String,Object> map(Object... pairs) {
-        Map<String,Object> result = new LinkedHashMap<>();
-        for (int i=0;i<pairs.length;i+=2) if(pairs[i+1]!=null) result.put(pairs[i].toString(), pairs[i+1]);
-        return result;
-    }
-    public static String code(String prefix, BaseEntity entity) {
-        return entity == null ? "" : prefix + "-" + entity.getId().toString().substring(0, 8).toUpperCase();
-    }
-    public static String id(BaseEntity entity) { return entity == null ? "" : entity.getId().toString(); }
 }

@@ -21,7 +21,12 @@ class KitchenIncidentApiIntegrationTests extends KitchenApiTestBase {
     }
 
     private String body(String type, String severity, String description) {
-        return "{\"type\":\"" + type + "\",\"severity\":\"" + severity + "\",\"description\":\"" + description
+        return "{\"type\":\""
+                + type
+                + "\",\"severity\":\""
+                + severity
+                + "\",\"description\":\""
+                + description
                 + "\"}";
     }
 
@@ -33,7 +38,8 @@ class KitchenIncidentApiIntegrationTests extends KitchenApiTestBase {
     void authIsEnforced() throws Exception {
         call(HttpMethod.GET, "/incidents", null, null).andExpect(status().isUnauthorized());
         call(HttpMethod.GET, "/incidents", waiterToken, null).andExpect(status().isForbidden());
-        call(HttpMethod.POST, "/incidents", waiterToken, body("OTHER", "LOW", "x")).andExpect(status().isForbidden());
+        call(HttpMethod.POST, "/incidents", waiterToken, body("OTHER", "LOW", "x"))
+                .andExpect(status().isForbidden());
         assertThat(incidentCount()).isZero();
     }
 
@@ -42,8 +48,13 @@ class KitchenIncidentApiIntegrationTests extends KitchenApiTestBase {
         User manager = saveUser("k4-manager@restosphere.test", Role.MANAGER);
         long rev = revision();
 
-        String res = created(call(HttpMethod.POST, "/incidents", kitchenToken,
-                body("EQUIPMENT", "HIGH", "  Lo nuong hong  ")));
+        String res =
+                created(
+                        call(
+                                HttpMethod.POST,
+                                "/incidents",
+                                kitchenToken,
+                                body("EQUIPMENT", "HIGH", "  Lo nuong hong  ")));
         String id = json(res, "$.id");
         assertThat((String) json(res, "$.code")).isEqualTo("I-" + id);
         assertThat((String) json(res, "$.type")).isEqualTo("EQUIPMENT");
@@ -53,12 +64,18 @@ class KitchenIncidentApiIntegrationTests extends KitchenApiTestBase {
         assertThat((String) json(res, "$.description")).isEqualTo("Lo nuong hong");
         assertThat((String) json(res, "$.reporterId")).isEqualTo(kitchen.getId().toString());
         assertThat((Object) json(res, "$.at")).isNotNull();
-        assertThat((List<String>) json(res, "$.notifiedStaffIds")).containsExactly(manager.getId().toString());
+        assertThat((List<String>) json(res, "$.notifiedStaffIds"))
+                .containsExactly(manager.getId().toString());
 
         assertThat(revision()).isEqualTo(rev + 1);
         assertThat(auditCount("report-incident")).isEqualTo(1);
-        assertThat(count("select count(n) from Notification n where n.kind = 'INCIDENT' "
-                + "and n.audienceRole = com.vertex.restosphere.common.enums.Role.MANAGER and n.path = :p0", id))
+        assertThat(
+                        count(
+                                "select count(n) from Notification n where n.kind = 'INCIDENT' and"
+                                        + " n.audienceRole ="
+                                        + " com.vertex.restosphere.common.enums.Role.MANAGER and n.path"
+                                        + " = :p0",
+                                id))
                 .isEqualTo(1);
     }
 
@@ -69,32 +86,68 @@ class KitchenIncidentApiIntegrationTests extends KitchenApiTestBase {
         Order o2 = order(f.session(), 2);
         OrderItem item = item(o1, f.menu());
 
-        String ok = created(call(HttpMethod.POST, "/incidents", kitchenToken,
-                "{\"type\":\"CANNOT_PREPARE\",\"severity\":\"MEDIUM\",\"description\":\"Het bot\",\"orderId\":\""
-                        + o1.getId() + "\",\"itemId\":\"" + item.getId() + "\"}"));
+        String ok =
+                created(
+                        call(
+                                HttpMethod.POST,
+                                "/incidents",
+                                kitchenToken,
+                                "{\"type\":\"CANNOT_PREPARE\",\"severity\":\"MEDIUM\",\"description\":\"Het"
+                                        + " bot\",\"orderId\":\""
+                                        + o1.getId()
+                                        + "\",\"itemId\":\""
+                                        + item.getId()
+                                        + "\"}"));
         assertThat((String) json(ok, "$.itemId")).isEqualTo(item.getId().toString());
         assertThat((String) json(ok, "$.orderId")).isEqualTo(o1.getId().toString());
 
-        String itemOnly = created(call(HttpMethod.POST, "/incidents", kitchenToken,
-                "{\"type\":\"OTHER\",\"severity\":\"LOW\",\"description\":\"a\",\"itemId\":\"" + item.getId()
-                        + "\"}"));
+        String itemOnly =
+                created(
+                        call(
+                                HttpMethod.POST,
+                                "/incidents",
+                                kitchenToken,
+                                "{\"type\":\"OTHER\",\"severity\":\"LOW\",\"description\":\"a\",\"itemId\":\""
+                                        + item.getId()
+                                        + "\"}"));
         assertThat((String) json(itemOnly, "$.orderId")).isEqualTo(o1.getId().toString());
-        String orderOnly = created(call(HttpMethod.POST, "/incidents", kitchenToken,
-                "{\"type\":\"OTHER\",\"severity\":\"LOW\",\"description\":\"b\",\"orderId\":\"" + o2.getId()
-                        + "\"}"));
+        String orderOnly =
+                created(
+                        call(
+                                HttpMethod.POST,
+                                "/incidents",
+                                kitchenToken,
+                                "{\"type\":\"OTHER\",\"severity\":\"LOW\",\"description\":\"b\",\"orderId\":\""
+                                        + o2.getId()
+                                        + "\"}"));
         assertThat((Object) json(orderOnly, "$.orderId")).isNull();
 
         long before = incidentCount();
         long rev = revision();
-        call(HttpMethod.POST, "/incidents", kitchenToken,
-                "{\"type\":\"OTHER\",\"severity\":\"LOW\",\"description\":\"c\",\"orderId\":\"" + o2.getId()
-                        + "\",\"itemId\":\"" + item.getId() + "\"}").andExpect(status().isBadRequest());
-        call(HttpMethod.POST, "/incidents", kitchenToken,
-                "{\"type\":\"OTHER\",\"severity\":\"LOW\",\"description\":\"c\",\"itemId\":\"nope\"}")
+        call(
+                        HttpMethod.POST,
+                        "/incidents",
+                        kitchenToken,
+                        "{\"type\":\"OTHER\",\"severity\":\"LOW\",\"description\":\"c\",\"orderId\":\""
+                                + o2.getId()
+                                + "\",\"itemId\":\""
+                                + item.getId()
+                                + "\"}")
                 .andExpect(status().isBadRequest());
-        call(HttpMethod.POST, "/incidents", kitchenToken,
-                "{\"type\":\"OTHER\",\"severity\":\"LOW\",\"description\":\"c\",\"itemId\":\"" + UUID.randomUUID()
-                        + "\"}").andExpect(status().isNotFound());
+        call(
+                        HttpMethod.POST,
+                        "/incidents",
+                        kitchenToken,
+                        "{\"type\":\"OTHER\",\"severity\":\"LOW\",\"description\":\"c\",\"itemId\":\"nope\"}")
+                .andExpect(status().isBadRequest());
+        call(
+                        HttpMethod.POST,
+                        "/incidents",
+                        kitchenToken,
+                        "{\"type\":\"OTHER\",\"severity\":\"LOW\",\"description\":\"c\",\"itemId\":\""
+                                + UUID.randomUUID()
+                                + "\"}")
+                .andExpect(status().isNotFound());
         assertThat(incidentCount()).isEqualTo(before);
         assertThat(revision()).isEqualTo(rev);
     }
@@ -102,22 +155,36 @@ class KitchenIncidentApiIntegrationTests extends KitchenApiTestBase {
     @Test
     void validationErrorsAre400AndLeaveNothingBehind() throws Exception {
         long rev = revision();
-        call(HttpMethod.POST, "/incidents", kitchenToken, body("NOPE", "LOW", "x")).andExpect(status().isBadRequest());
+        call(HttpMethod.POST, "/incidents", kitchenToken, body("NOPE", "LOW", "x"))
+                .andExpect(status().isBadRequest());
         call(HttpMethod.POST, "/incidents", kitchenToken, body("OTHER", "SEVERE", "x"))
                 .andExpect(status().isBadRequest());
         call(HttpMethod.POST, "/incidents", kitchenToken, body("OTHER", "LOW", "   "))
                 .andExpect(status().isBadRequest());
         call(HttpMethod.POST, "/incidents", kitchenToken, body("OTHER", "LOW", "x".repeat(2001)))
                 .andExpect(status().isBadRequest());
-        call(HttpMethod.POST, "/incidents", kitchenToken, "{\"severity\":\"LOW\",\"description\":\"x\"}")
+        call(
+                        HttpMethod.POST,
+                        "/incidents",
+                        kitchenToken,
+                        "{\"severity\":\"LOW\",\"description\":\"x\"}")
                 .andExpect(status().isBadRequest());
-        call(HttpMethod.POST, "/incidents", kitchenToken, "{\"type\":\"OTHER\",\"description\":\"x\"}")
+        call(
+                        HttpMethod.POST,
+                        "/incidents",
+                        kitchenToken,
+                        "{\"type\":\"OTHER\",\"description\":\"x\"}")
                 .andExpect(status().isBadRequest());
         assertThat(incidentCount()).isZero();
         assertThat(revision()).isEqualTo(rev);
         assertThat(auditCount("report-incident")).isZero();
 
-        created(call(HttpMethod.POST, "/incidents", kitchenToken, body("OUT_OF_STOCK", "CRITICAL", "x".repeat(2000))));
+        created(
+                call(
+                        HttpMethod.POST,
+                        "/incidents",
+                        kitchenToken,
+                        body("OUT_OF_STOCK", "CRITICAL", "x".repeat(2000))));
         assertThat(incidentCount()).isEqualTo(1);
     }
 
@@ -146,14 +213,20 @@ class KitchenIncidentApiIntegrationTests extends KitchenApiTestBase {
         String res = ok(call(HttpMethod.GET, "/incidents", kitchenToken, null));
         List<Map<String, Object>> list = json(res, "$");
         assertThat(list).hasSize(2);
-        assertThat(list.get(0)).containsEntry("id", mine.getId().toString()).containsEntry("status", "OPEN");
+        assertThat(list.get(0))
+                .containsEntry("id", mine.getId().toString())
+                .containsEntry("status", "OPEN");
         assertThat(list.get(0).get("response")).isNull();
         Map<String, Object> second = list.get(1);
-        assertThat(second).containsEntry("id", theirs.getId().toString()).containsEntry("status", "RESOLVED")
+        assertThat(second)
+                .containsEntry("id", theirs.getId().toString())
+                .containsEntry("status", "RESOLVED")
                 .containsEntry("reporterId", other.getId().toString())
                 .containsEntry("assigneeId", manager.getId().toString());
-        assertThat((Map<String, Object>) second.get("response")).containsEntry("text", "Da sua")
+        assertThat((Map<String, Object>) second.get("response"))
+                .containsEntry("text", "Da sua")
                 .containsEntry("by", manager.getId().toString());
-        assertThat((List<String>) second.get("notifiedStaffIds")).containsExactly(manager.getId().toString());
+        assertThat((List<String>) second.get("notifiedStaffIds"))
+                .containsExactly(manager.getId().toString());
     }
 }

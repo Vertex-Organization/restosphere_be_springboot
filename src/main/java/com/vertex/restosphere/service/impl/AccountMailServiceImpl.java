@@ -20,7 +20,8 @@ public class AccountMailServiceImpl implements AccountMailService {
     private final String from;
     private final String loginUrl;
 
-    public AccountMailServiceImpl(ObjectProvider<JavaMailSender> mailSender,
+    public AccountMailServiceImpl(
+            ObjectProvider<JavaMailSender> mailSender,
             @Value("${app.mail.enabled:false}") boolean enabled,
             @Value("${app.mail.from:}") String from,
             @Value("${app.mail.login-url:}") String loginUrl) {
@@ -41,7 +42,8 @@ public class AccountMailServiceImpl implements AccountMailService {
         message.setFrom(from);
         message.setTo(user.getEmail());
         message.setSubject(SUBJECT);
-        message.setText("""
+        message.setText(
+                """
                 Xin chào %s,
 
                 Quản trị viên đã tạo tài khoản RestoSphere cho bạn.
@@ -51,8 +53,13 @@ public class AccountMailServiceImpl implements AccountMailService {
 
                 Đăng nhập tại: %s
                 Vui lòng không chia sẻ mật khẩu này cho người khác.
-                """.formatted(user.getFullName(), user.getEmail(), roleLabel(user.getRole()), temporaryPassword,
-                loginUrl));
+                """
+                        .formatted(
+                                user.getFullName(),
+                                user.getEmail(),
+                                roleLabel(user.getRole()),
+                                temporaryPassword,
+                                loginUrl));
         mailSender.getObject().send(message);
     }
 

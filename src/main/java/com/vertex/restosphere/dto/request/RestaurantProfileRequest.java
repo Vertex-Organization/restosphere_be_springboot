@@ -14,5 +14,4 @@ public record RestaurantProfileRequest(
         @Size(max = 255) String openingHours,
         @Size(max = 255) String facebook,
         @Size(max = 255) String instagram,
-        @Size(max = 255) String tiktok) {
-}
+        @Size(max = 255) String tiktok) {}

@@ -76,25 +76,31 @@ abstract class KitchenApiTestBase {
 
     @AfterEach
     void tearDown() {
-        tx.executeWithoutResult(s -> {
-            if (!testUsers.isEmpty()) {
-                em.createQuery("delete from NotificationRead r where r.user in :u").setParameter("u", testUsers)
-                        .executeUpdate();
-                em.createQuery("delete from Incident i where i.reporter in :u").setParameter("u", testUsers)
-                        .executeUpdate();
-                em.createQuery("delete from ApprovalRequest a where a.requestedBy in :u")
-                        .setParameter("u", testUsers).executeUpdate();
-            }
-            em.createQuery("delete from Notification where kind in ('MENU_AVAILABILITY','INCIDENT')")
-                    .executeUpdate();
-            for (int i = created.size() - 1; i >= 0; i--) {
-                Object e = em.find(created.get(i).getClass(), idOf(created.get(i)));
-                if (e != null) {
-                    em.remove(e);
-                    em.flush();
-                }
-            }
-        });
+        tx.executeWithoutResult(
+                s -> {
+                    if (!testUsers.isEmpty()) {
+                        em.createQuery("delete from NotificationRead r where r.user in :u")
+                                .setParameter("u", testUsers)
+                                .executeUpdate();
+                        em.createQuery("delete from Incident i where i.reporter in :u")
+                                .setParameter("u", testUsers)
+                                .executeUpdate();
+                        em.createQuery("delete from ApprovalRequest a where a.requestedBy in :u")
+                                .setParameter("u", testUsers)
+                                .executeUpdate();
+                    }
+                    em.createQuery(
+                                    "delete from Notification where kind in"
+                                            + " ('MENU_AVAILABILITY','INCIDENT')")
+                            .executeUpdate();
+                    for (int i = created.size() - 1; i >= 0; i--) {
+                        Object e = em.find(created.get(i).getClass(), idOf(created.get(i)));
+                        if (e != null) {
+                            em.remove(e);
+                            em.flush();
+                        }
+                    }
+                });
         created.clear();
         cleanUsers();
     }
@@ -134,17 +140,21 @@ abstract class KitchenApiTestBase {
     }
 
     long count(String jpql, Object... params) {
-        return tx.execute(s -> {
-            var q = em.createQuery(jpql, Long.class);
-            for (int i = 0; i < params.length; i++) {
-                q.setParameter("p" + i, params[i]);
-            }
-            return q.getSingleResult();
-        });
+        return tx.execute(
+                s -> {
+                    var q = em.createQuery(jpql, Long.class);
+                    for (int i = 0; i < params.length; i++) {
+                        q.setParameter("p" + i, params[i]);
+                    }
+                    return q.getSingleResult();
+                });
     }
 
     long auditCount(String action) {
-        return count("select count(a) from AuditLog a where a.targetType = 'WORKSPACE' and a.action = :p0", action);
+        return count(
+                "select count(a) from AuditLog a where a.targetType = 'WORKSPACE' and a.action ="
+                        + " :p0",
+                action);
     }
 
     record Fixture(Area area, RestaurantTable table, TableSession session, MenuItem menu) {}
@@ -200,11 +210,13 @@ abstract class KitchenApiTestBase {
     }
 
     <T> T persist(T entity) {
-        T saved = tx.execute(s -> {
-            T merged = em.merge(entity);
-            em.flush();
-            return merged;
-        });
+        T saved =
+                tx.execute(
+                        s -> {
+                            T merged = em.merge(entity);
+                            em.flush();
+                            return merged;
+                        });
         created.removeIf(c -> c.getClass() == saved.getClass() && idOf(c).equals(idOf(saved)));
         created.add(saved);
         return saved;
@@ -230,10 +242,17 @@ abstract class KitchenApiTestBase {
     }
 
     String bearer(String email) throws Exception {
-        String body = mockMvc.perform(request(HttpMethod.POST, "/api/v1/auth/login")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"email\":\"%s\",\"password\":\"%s\"}".formatted(email, PASSWORD)))
-                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        String body =
+                mockMvc.perform(
+                                request(HttpMethod.POST, "/api/v1/auth/login")
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content(
+                                                "{\"email\":\"%s\",\"password\":\"%s\"}"
+                                                        .formatted(email, PASSWORD)))
+                        .andExpect(status().isOk())
+                        .andReturn()
+                        .getResponse()
+                        .getContentAsString();
         return "Bearer " + JsonPath.read(body, "$.accessToken");
     }
 }

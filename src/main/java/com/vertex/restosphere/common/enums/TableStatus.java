@@ -6,4 +6,3 @@ public enum TableStatus {
     CLEANING,
     OUT_OF_SERVICE
 }
-

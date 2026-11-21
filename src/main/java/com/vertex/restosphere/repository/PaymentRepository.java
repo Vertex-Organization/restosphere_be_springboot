@@ -22,14 +22,18 @@ public interface PaymentRepository extends JpaRepository<Payment, UUID> {
 
     List<Payment> findByBillIdInOrderByCreatedAtAsc(Collection<UUID> billIds);
 
-    @Query("select coalesce(sum(p.amount), 0) from Payment p where p.cashierShift.id = :shiftId "
-            + "and p.method = com.vertex.restosphere.entity.Payment.Method.CASH "
-            + "and p.status = com.vertex.restosphere.entity.Payment.Status.COMPLETED")
+    @Query(
+            "select coalesce(sum(p.amount), 0) from Payment p where p.cashierShift.id = :shiftId "
+                    + "and p.method = com.vertex.restosphere.entity.Payment.Method.CASH "
+                    + "and p.status = com.vertex.restosphere.entity.Payment.Status.COMPLETED")
     BigDecimal sumCompletedCash(@Param("shiftId") UUID shiftId);
 
-    @Query("select p from Payment p where p.createdAt >= :from and p.createdAt <= :to and p.method in :methods "
-            + "and p.status in :statuses order by p.createdAt desc, p.id")
-    List<Payment> search(@Param("from") java.time.Instant from, @Param("to") java.time.Instant to,
+    @Query(
+            "select p from Payment p where p.createdAt >= :from and p.createdAt <= :to and p.method"
+                    + " in :methods and p.status in :statuses order by p.createdAt desc, p.id")
+    List<Payment> search(
+            @Param("from") java.time.Instant from,
+            @Param("to") java.time.Instant to,
             @Param("methods") Collection<Payment.Method> methods,
             @Param("statuses") Collection<Payment.Status> statuses);
 }

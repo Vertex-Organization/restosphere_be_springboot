@@ -30,15 +30,20 @@ public class ManagerReservationController {
     private final ManagerReservationService service;
 
     @GetMapping
-    public List<ManagerReservationResponse> list(@AuthenticationPrincipal Jwt jwt,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+    public List<ManagerReservationResponse> list(
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+                    LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+                    LocalDate to,
             @RequestParam(required = false) Reservation.Status status) {
         return service.list(CurrentUserService.idOf(jwt), from, to, status);
     }
 
     @PatchMapping("/{id}/table")
-    public ManagerReservationResponse changeTable(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID id,
+    public ManagerReservationResponse changeTable(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable UUID id,
             @Valid @RequestBody ChangeReservationTableRequest req) {
         return service.changeTable(CurrentUserService.idOf(jwt), id, req);
     }

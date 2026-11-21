@@ -22,7 +22,8 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     // Cung mot thong bao cho moi truong hop de khong lo email nao ton tai hoac bi khoa.
     @ExceptionHandler({BadCredentialsException.class, AccountStatusException.class})
     ProblemDetail handleLoginFailure() {
-        return ProblemDetail.forStatusAndDetail(HttpStatus.UNAUTHORIZED, "Invalid email or password");
+        return ProblemDetail.forStatusAndDetail(
+                HttpStatus.UNAUTHORIZED, "Invalid email or password");
     }
 
     @ExceptionHandler(ApiException.class)
@@ -34,7 +35,8 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     // shortcut: thông báo chung, không chỉ ra cột nào trùng; tách theo tên constraint khi UI cần.
     @ExceptionHandler(DataIntegrityViolationException.class)
     ProblemDetail handleIntegrity() {
-        return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, "Data conflicts with an existing record");
+        return ProblemDetail.forStatusAndDetail(
+                HttpStatus.CONFLICT, "Data conflicts with an existing record");
     }
 
     @ExceptionHandler(InvalidRefreshTokenException.class)
@@ -44,9 +46,13 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     @Override
     protected ResponseEntity<Object> handleMethodArgumentNotValid(
-            MethodArgumentNotValidException ex, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
+            MethodArgumentNotValidException ex,
+            HttpHeaders headers,
+            HttpStatusCode status,
+            WebRequest request) {
         Map<String, String> errors = new LinkedHashMap<>();
-        ex.getBindingResult().getFieldErrors()
+        ex.getBindingResult()
+                .getFieldErrors()
                 .forEach(error -> errors.putIfAbsent(error.getField(), error.getDefaultMessage()));
 
         ProblemDetail body = ex.getBody();

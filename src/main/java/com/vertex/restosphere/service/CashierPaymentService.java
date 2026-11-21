@@ -13,13 +13,15 @@ public interface CashierPaymentService {
 
     record Outcome(CashierPaymentResponse payment, boolean created) {}
 
-    List<CashierPaymentResponse> history(UUID actorId, Instant from, Instant to, Payment.Method method, String status);
+    List<CashierPaymentResponse> history(
+            UUID actorId, Instant from, Instant to, Payment.Method method, String status);
 
     Outcome payCash(UUID actorId, UUID billId, CashierPayCashRequest req);
 
     Outcome createTransfer(UUID actorId, UUID billId, CashierCreateTransferRequest req);
 
-    CashierPaymentResponse confirmTransfer(UUID actorId, UUID paymentId, CashierConfirmTransferRequest req);
+    CashierPaymentResponse confirmTransfer(
+            UUID actorId, UUID paymentId, CashierConfirmTransferRequest req);
 
     CashierPaymentResponse cancelTransfer(UUID actorId, UUID paymentId);
 }

@@ -63,10 +63,24 @@ public class ManagerNotificationServiceImpl implements ManagerNotificationServic
         if (list.isEmpty()) {
             return List.of();
         }
-        Map<UUID, List<UUID>> readers = reads.findReaders(list.stream().map(Notification::getId).toList()).stream()
-                .collect(Collectors.groupingBy(row -> (UUID) row[0],
-                        Collectors.mapping(row -> (UUID) row[1], Collectors.toList())));
-        return list.stream().map(n -> new ManagerNotificationResponse(n.getId(), n.getKind(), n.getTitle(),
-                n.getBody(), n.getCreatedAt(), n.getPath(), readers.getOrDefault(n.getId(), List.of()))).toList();
+        Map<UUID, List<UUID>> readers =
+                reads.findReaders(list.stream().map(Notification::getId).toList()).stream()
+                        .collect(
+                                Collectors.groupingBy(
+                                        row -> (UUID) row[0],
+                                        Collectors.mapping(
+                                                row -> (UUID) row[1], Collectors.toList())));
+        return list.stream()
+                .map(
+                        n ->
+                                new ManagerNotificationResponse(
+                                        n.getId(),
+                                        n.getKind(),
+                                        n.getTitle(),
+                                        n.getBody(),
+                                        n.getCreatedAt(),
+                                        n.getPath(),
+                                        readers.getOrDefault(n.getId(), List.of())))
+                .toList();
     }
 }

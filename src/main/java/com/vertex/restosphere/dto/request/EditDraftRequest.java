@@ -5,5 +5,5 @@ import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
 
-public record EditDraftRequest(@NotNull @Positive BigDecimal quantity, @Size(max = 1000) String note) {
-}
+public record EditDraftRequest(
+        @NotNull @Positive BigDecimal quantity, @Size(max = 1000) String note) {}

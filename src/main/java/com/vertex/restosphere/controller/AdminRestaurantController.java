@@ -31,19 +31,22 @@ public class AdminRestaurantController {
     }
 
     @PutMapping
-    public RestaurantProfileResponse update(@AuthenticationPrincipal Jwt jwt,
-            @Valid @RequestBody RestaurantProfileRequest req) {
+    public RestaurantProfileResponse update(
+            @AuthenticationPrincipal Jwt jwt, @Valid @RequestBody RestaurantProfileRequest req) {
         return service.update(CurrentUserService.idOf(jwt), req);
     }
 
     @PostMapping("/images/{kind}")
-    public RestaurantProfileResponse uploadImage(@AuthenticationPrincipal Jwt jwt, @PathVariable String kind,
+    public RestaurantProfileResponse uploadImage(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable String kind,
             @Valid @RequestBody RestaurantImageRequest req) {
         return service.uploadImage(CurrentUserService.idOf(jwt), kind, req);
     }
 
     @DeleteMapping("/images/{kind}")
-    public RestaurantProfileResponse removeImage(@AuthenticationPrincipal Jwt jwt, @PathVariable String kind) {
+    public RestaurantProfileResponse removeImage(
+            @AuthenticationPrincipal Jwt jwt, @PathVariable String kind) {
         return service.removeImage(CurrentUserService.idOf(jwt), kind);
     }
 }

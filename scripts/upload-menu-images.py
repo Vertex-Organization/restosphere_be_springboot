@@ -1,6 +1,6 @@
 """Upload the exact Sea Crown FE menu photos; print SQL only after all succeed.
 
-Run from the backend root: python upload-menu-images.py
+Run from the backend root: python scripts/upload-menu-images.py
 Credentials are read from the ignored .env, never printed.
 """
 import hashlib
@@ -13,7 +13,7 @@ import uuid
 
 
 def main():
-    root = Path(__file__).resolve().parent
+    root = Path(__file__).resolve().parent.parent
     env = dict(line.split("=", 1) for line in (root / ".env").read_text().splitlines()
                if "=" in line and not line.startswith("#"))
     cloud = env["CLOUDINARY_CLOUD_NAME"]

@@ -2,17 +2,15 @@ package com.vertex.restosphere.service;
 
 import com.vertex.restosphere.common.enums.Role;
 import com.vertex.restosphere.entity.User;
-import java.util.Map;
 import java.util.UUID;
 
-/** Lenh cua phuc vu, bep; thong bao va audit chung. */
+/** Thông báo, audit log và đánh dấu đã đọc dùng chung giữa các luồng nghiệp vụ. */
 public interface ServiceWorkflow {
-
-    void kitchen(String type, Map<String, Object> c, User user);
 
     void notify(Role role, String kind, String title, String body, String target);
 
     void audit(User actor, String action, UUID target, String entity, String description);
 
-    void read(Map<String, Object> c, User user);
+    /** Đánh dấu đã đọc các thông báo theo {@code ids}/{@code id}; không có thì đọc tất cả. */
+    void read(java.util.Map<String, Object> c, User user);
 }

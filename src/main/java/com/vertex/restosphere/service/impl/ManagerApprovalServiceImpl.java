@@ -47,18 +47,20 @@ public class ManagerApprovalServiceImpl implements ManagerApprovalService {
 
     @Transactional(readOnly = true)
     @Override
-    public List<ApprovalResponse> list(UUID actorId, ApprovalRequest.Status status, ApprovalRequest.Type type) {
+    public List<ApprovalResponse> list(
+            UUID actorId, ApprovalRequest.Status status, ApprovalRequest.Type type) {
         currentUser.require(actorId, Role.ADMIN, Role.MANAGER);
-        Specification<ApprovalRequest> spec = (root, query, cb) -> {
-            List<Predicate> where = new ArrayList<>();
-            if (status != null) {
-                where.add(cb.equal(root.get("status"), status));
-            }
-            if (type != null) {
-                where.add(cb.equal(root.get("type"), type));
-            }
-            return cb.and(where.toArray(Predicate[]::new));
-        };
+        Specification<ApprovalRequest> spec =
+                (root, query, cb) -> {
+                    List<Predicate> where = new ArrayList<>();
+                    if (status != null) {
+                        where.add(cb.equal(root.get("status"), status));
+                    }
+                    if (type != null) {
+                        where.add(cb.equal(root.get("type"), type));
+                    }
+                    return cb.and(where.toArray(Predicate[]::new));
+                };
         return toResponses(approvals.findAll(spec, Sort.by(Sort.Direction.DESC, "createdAt")));
     }
 
@@ -71,90 +73,156 @@ public class ManagerApprovalServiceImpl implements ManagerApprovalService {
         if (reason.length() < 5) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Reason must be at least 5 characters");
         }
-        ApprovalRequest r = approvals.findById(id).orElseThrow(() -> ApiException.notFound("Approval request"));
-        billingWorkflow.decide(Map.of("id", id.toString(), "approve", req.approve(), "reason", reason), actor);
-        serviceWorkflow.notify(r.getRequestedBy().getRole(), "REQUEST_DECIDED", "Request decided",
-                r.getStatus().name(), id.toString());
+        ApprovalRequest r =
+                approvals.findById(id).orElseThrow(() -> ApiException.notFound("Approval request"));
+        billingWorkflow.decide(id, req.approve(), reason, actor);
+        serviceWorkflow.notify(
+                r.getRequestedBy().getRole(),
+                "REQUEST_DECIDED",
+                "Request decided",
+                r.getStatus().name(),
+                id.toString());
 
         AuditLog log = new AuditLog();
         log.setActor(actor);
         log.setAction(req.approve() ? "APPROVAL_APPROVED" : "APPROVAL_REJECTED");
         log.setTargetType("APPROVAL_REQUEST");
         log.setTargetId(r.getId());
-        log.setDescription((req.approve() ? "Phê duyệt" : "Từ chối") + " yêu cầu " + typeName(r.getType()) + " "
-                + code(r) + ": " + reason);
+        log.setDescription(
+                (req.approve() ? "Phê duyệt" : "Từ chối")
+                        + " yêu cầu "
+                        + typeName(r.getType())
+                        + " "
+                        + code(r)
+                        + ": "
+                        + reason);
         auditLogs.save(log);
         return toResponses(List.of(r)).getFirst();
     }
 
     private List<ApprovalResponse> toResponses(List<ApprovalRequest> list) {
-        Map<UUID, Bill> bills = load(targets(list, "BILL"), approvals::findBillsWithTableByIdIn, Bill::getId);
-        Map<UUID, OrderItem> items = load(targets(list, "ORDER_ITEM"), approvals::findOrderItemsWithTableByIdIn,
-                OrderItem::getId);
-        Map<UUID, Bill> billBySession = load(
-                items.values().stream().map(i -> i.getOrder().getSession().getId()).collect(Collectors.toSet()),
-                approvals::findBillsBySessionIdIn, b -> b.getSession().getId());
-        Map<UUID, Payment> payments = load(targets(list, "PAYMENT"), approvals::findPaymentsWithBillByIdIn,
-                Payment::getId);
-        Map<UUID, MenuItem> menu = load(targets(list, "MENU_ITEM"), approvals::findMenuItemsByIdIn, MenuItem::getId);
-        Map<UUID, Reservation> reservations = load(targets(list, "RESERVATION"), approvals::findReservationsByIdIn,
-                Reservation::getId);
+        Map<UUID, Bill> bills =
+                load(targets(list, "BILL"), approvals::findBillsWithTableByIdIn, Bill::getId);
+        Map<UUID, OrderItem> items =
+                load(
+                        targets(list, "ORDER_ITEM"),
+                        approvals::findOrderItemsWithTableByIdIn,
+                        OrderItem::getId);
+        Map<UUID, Bill> billBySession =
+                load(
+                        items.values().stream()
+                                .map(i -> i.getOrder().getSession().getId())
+                                .collect(Collectors.toSet()),
+                        approvals::findBillsBySessionIdIn,
+                        b -> b.getSession().getId());
+        Map<UUID, Payment> payments =
+                load(
+                        targets(list, "PAYMENT"),
+                        approvals::findPaymentsWithBillByIdIn,
+                        Payment::getId);
+        Map<UUID, MenuItem> menu =
+                load(targets(list, "MENU_ITEM"), approvals::findMenuItemsByIdIn, MenuItem::getId);
+        Map<UUID, Reservation> reservations =
+                load(
+                        targets(list, "RESERVATION"),
+                        approvals::findReservationsByIdIn,
+                        Reservation::getId);
 
-        return list.stream().map(r -> {
-            UUID target = r.getTargetId();
-            UUID billId = null;
-            UUID paymentId = null;
-            UUID itemId = null;
-            String label = null;
-            switch (r.getTargetType()) {
-                case "BILL" -> {
-                    billId = target;
-                    Bill b = bills.get(target);
-                    label = b == null ? null : "Hóa đơn " + b.getCode() + " · Bàn " + b.getSession().getTable().getCode();
-                }
-                case "ORDER_ITEM" -> {
-                    itemId = target;
-                    OrderItem i = items.get(target);
-                    if (i != null) {
-                        Bill b = billBySession.get(i.getOrder().getSession().getId());
-                        billId = b == null ? null : b.getId();
-                        label = i.getItemName() + " · Bàn " + i.getOrder().getSession().getTable().getCode();
-                    }
-                }
-                case "PAYMENT" -> {
-                    paymentId = target;
-                    Payment p = payments.get(target);
-                    if (p != null) {
-                        billId = p.getBill().getId();
-                        label = "Thanh toán " + p.getMethod() + " · Hóa đơn " + p.getBill().getCode();
-                    }
-                }
-                case "MENU_ITEM" -> {
-                    MenuItem m = menu.get(target);
-                    label = m == null ? null : m.getName();
-                }
-                case "RESERVATION" -> {
-                    Reservation res = reservations.get(target);
-                    label = res == null ? null : res.getCode();
-                }
-                default -> {
-                }
-            }
-            return new ApprovalResponse(r.getId(), code(r), r.getType(), r.getStatus(), r.getTargetType(), target,
-                    label == null ? target.toString() : label, billId, paymentId, itemId, r.getAmount(),
-                    r.getMenuStatus(), r.getReason(), r.getRequestedBy().getId(), r.getCreatedAt(),
-                    r.getDecidedBy() == null ? null : r.getDecidedBy().getId(), r.getDecidedAt(), r.getDecisionNote());
-        }).toList();
+        return list.stream()
+                .map(
+                        r -> {
+                            UUID target = r.getTargetId();
+                            UUID billId = null;
+                            UUID paymentId = null;
+                            UUID itemId = null;
+                            String label = null;
+                            switch (r.getTargetType()) {
+                                case "BILL" -> {
+                                    billId = target;
+                                    Bill b = bills.get(target);
+                                    label =
+                                            b == null
+                                                    ? null
+                                                    : "Hóa đơn "
+                                                            + b.getCode()
+                                                            + " · Bàn "
+                                                            + b.getSession().getTable().getCode();
+                                }
+                                case "ORDER_ITEM" -> {
+                                    itemId = target;
+                                    OrderItem i = items.get(target);
+                                    if (i != null) {
+                                        Bill b =
+                                                billBySession.get(
+                                                        i.getOrder().getSession().getId());
+                                        billId = b == null ? null : b.getId();
+                                        label =
+                                                i.getItemName()
+                                                        + " · Bàn "
+                                                        + i.getOrder()
+                                                                .getSession()
+                                                                .getTable()
+                                                                .getCode();
+                                    }
+                                }
+                                case "PAYMENT" -> {
+                                    paymentId = target;
+                                    Payment p = payments.get(target);
+                                    if (p != null) {
+                                        billId = p.getBill().getId();
+                                        label =
+                                                "Thanh toán "
+                                                        + p.getMethod()
+                                                        + " · Hóa đơn "
+                                                        + p.getBill().getCode();
+                                    }
+                                }
+                                case "MENU_ITEM" -> {
+                                    MenuItem m = menu.get(target);
+                                    label = m == null ? null : m.getName();
+                                }
+                                case "RESERVATION" -> {
+                                    Reservation res = reservations.get(target);
+                                    label = res == null ? null : res.getCode();
+                                }
+                                default -> {}
+                            }
+                            return new ApprovalResponse(
+                                    r.getId(),
+                                    code(r),
+                                    r.getType(),
+                                    r.getStatus(),
+                                    r.getTargetType(),
+                                    target,
+                                    label == null ? target.toString() : label,
+                                    billId,
+                                    paymentId,
+                                    itemId,
+                                    r.getAmount(),
+                                    r.getMenuStatus(),
+                                    r.getReason(),
+                                    r.getRequestedBy().getId(),
+                                    r.getCreatedAt(),
+                                    r.getDecidedBy() == null ? null : r.getDecidedBy().getId(),
+                                    r.getDecidedAt(),
+                                    r.getDecisionNote());
+                        })
+                .toList();
     }
 
     private static Set<UUID> targets(List<ApprovalRequest> list, String targetType) {
-        return list.stream().filter(r -> targetType.equals(r.getTargetType())).map(ApprovalRequest::getTargetId)
+        return list.stream()
+                .filter(r -> targetType.equals(r.getTargetType()))
+                .map(ApprovalRequest::getTargetId)
                 .collect(Collectors.toSet());
     }
 
-    private static <T> Map<UUID, T> load(Set<UUID> ids, Function<Set<UUID>, List<T>> query, Function<T, UUID> key) {
-        return ids.isEmpty() ? Map.of() : query.apply(ids).stream()
-                .collect(Collectors.toMap(key, Function.identity(), (a, b) -> a));
+    private static <T> Map<UUID, T> load(
+            Set<UUID> ids, Function<Set<UUID>, List<T>> query, Function<T, UUID> key) {
+        return ids.isEmpty()
+                ? Map.of()
+                : query.apply(ids).stream()
+                        .collect(Collectors.toMap(key, Function.identity(), (a, b) -> a));
     }
 
     private static String code(ApprovalRequest r) {

@@ -3,15 +3,15 @@ package com.vertex.restosphere.service.impl;
 import com.vertex.restosphere.entity.RestaurantSettings;
 import com.vertex.restosphere.entity.User;
 import com.vertex.restosphere.repository.RestaurantSettingsRepository;
-import com.vertex.restosphere.service.KitchenWriteSupport;
 import com.vertex.restosphere.service.ServiceWorkflow;
+import com.vertex.restosphere.service.WorkspaceCommit;
 import com.vertex.restosphere.service.WorkspaceStore;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 @Component
 @RequiredArgsConstructor
-public class KitchenWriteSupportImpl implements KitchenWriteSupport {
+public class WorkspaceCommitImpl implements WorkspaceCommit {
 
     private final RestaurantSettingsRepository settings;
     private final WorkspaceStore store;

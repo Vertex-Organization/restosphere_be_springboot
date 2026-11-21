@@ -11,8 +11,7 @@ public final class ImageTypeDetector {
     private static final byte[] RIFF = "RIFF".getBytes(StandardCharsets.US_ASCII);
     private static final byte[] WEBP = "WEBP".getBytes(StandardCharsets.US_ASCII);
 
-    private ImageTypeDetector() {
-    }
+    private ImageTypeDetector() {}
 
     public static Optional<String> detect(byte[] bytes) {
         if (startsWith(bytes, 0, PNG)) {

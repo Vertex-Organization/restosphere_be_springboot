@@ -13,11 +13,13 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, UUID> {
     @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"menuItem", "chef"})
     java.util.List<OrderItem> findByOrderIdIn(java.util.Collection<UUID> orderIds);
 
-    boolean existsByOrderSessionAndStatusIn(TableSession session, Collection<OrderItem.Status> statuses);
+    boolean existsByOrderSessionAndStatusIn(
+            TableSession session, Collection<OrderItem.Status> statuses);
 
     java.util.List<OrderItem> findByOrderSessionIdOrderByCreatedAtAsc(UUID sessionId);
 
-    @org.springframework.data.jpa.repository.Query("select i from OrderItem i join fetch i.order where i.id in :ids")
+    @org.springframework.data.jpa.repository.Query(
+            "select i from OrderItem i join fetch i.order where i.id in :ids")
     java.util.List<OrderItem> findWithOrderByIdIn(
             @org.springframework.data.repository.query.Param("ids") java.util.Collection<UUID> ids);
 }

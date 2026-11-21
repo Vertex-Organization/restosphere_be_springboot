@@ -2,11 +2,9 @@ package com.vertex.restosphere.config;
 
 import com.nimbusds.jose.jwk.source.ImmutableSecret;
 import com.vertex.restosphere.security.JwtProperties;
-
 import java.nio.charset.StandardCharsets;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
-
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -25,7 +23,8 @@ public class JwtConfig {
 
     @Bean
     SecretKey jwtSecretKey(JwtProperties properties) {
-        return new SecretKeySpec(properties.secret().getBytes(StandardCharsets.UTF_8), "HmacSHA256");
+        return new SecretKeySpec(
+                properties.secret().getBytes(StandardCharsets.UTF_8), "HmacSHA256");
     }
 
     @Bean
@@ -35,9 +34,10 @@ public class JwtConfig {
 
     @Bean
     JwtDecoder jwtDecoder(SecretKey jwtSecretKey, JwtProperties properties) {
-        NimbusJwtDecoder decoder = NimbusJwtDecoder.withSecretKey(jwtSecretKey)
-                .macAlgorithm(MacAlgorithm.HS256)
-                .build();
+        NimbusJwtDecoder decoder =
+                NimbusJwtDecoder.withSecretKey(jwtSecretKey)
+                        .macAlgorithm(MacAlgorithm.HS256)
+                        .build();
         decoder.setJwtValidator(JwtValidators.createDefaultWithIssuer(properties.issuer()));
         return decoder;
     }

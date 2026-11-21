@@ -8,8 +8,7 @@ public final class Base64ImageDecoder {
 
     private static final int MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
-    private Base64ImageDecoder() {
-    }
+    private Base64ImageDecoder() {}
 
     public static byte[] decode(String contentType, String data) {
         byte[] bytes;

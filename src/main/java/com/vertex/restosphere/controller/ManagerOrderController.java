@@ -26,8 +26,10 @@ public class ManagerOrderController {
     private final ManagerOrderService service;
 
     @GetMapping
-    public List<ManagerOrderResponse> list(@AuthenticationPrincipal Jwt jwt,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+    public List<ManagerOrderResponse> list(
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+                    LocalDate date) {
         return service.list(CurrentUserService.idOf(jwt), date);
     }
 }

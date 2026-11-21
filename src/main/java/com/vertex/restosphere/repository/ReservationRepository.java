@@ -9,7 +9,8 @@ import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
-public interface ReservationRepository extends JpaRepository<Reservation, UUID>, JpaSpecificationExecutor<Reservation> {
+public interface ReservationRepository
+        extends JpaRepository<Reservation, UUID>, JpaSpecificationExecutor<Reservation> {
 
     // Nap khu vuc cung query de lay ten khu khong bi N+1.
     @Override

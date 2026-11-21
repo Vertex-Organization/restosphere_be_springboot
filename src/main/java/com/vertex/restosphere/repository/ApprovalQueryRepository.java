@@ -16,8 +16,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 
-public interface ApprovalQueryRepository extends JpaRepository<ApprovalRequest, UUID>,
-        JpaSpecificationExecutor<ApprovalRequest> {
+public interface ApprovalQueryRepository
+        extends JpaRepository<ApprovalRequest, UUID>, JpaSpecificationExecutor<ApprovalRequest> {
 
     @Override
     @EntityGraph(attributePaths = {"requestedBy", "decidedBy"})
@@ -26,7 +26,9 @@ public interface ApprovalQueryRepository extends JpaRepository<ApprovalRequest, 
     @Query("select b from Bill b join fetch b.session s join fetch s.table where b.id in :ids")
     List<Bill> findBillsWithTableByIdIn(Collection<UUID> ids);
 
-    @Query("select i from OrderItem i join fetch i.order o join fetch o.session s join fetch s.table where i.id in :ids")
+    @Query(
+            "select i from OrderItem i join fetch i.order o join fetch o.session s join fetch"
+                    + " s.table where i.id in :ids")
     List<OrderItem> findOrderItemsWithTableByIdIn(Collection<UUID> ids);
 
     @Query("select b from Bill b where b.session.id in :sessionIds")

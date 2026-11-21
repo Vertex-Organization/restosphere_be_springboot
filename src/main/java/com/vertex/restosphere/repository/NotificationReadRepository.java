@@ -12,8 +12,11 @@ import org.springframework.data.repository.query.Param;
 
 public interface NotificationReadRepository extends JpaRepository<NotificationRead, UUID> {
 
-    // Cap [notificationId, userId] cho nhieu thong bao mot query (khong N+1, khong nap entity User).
-    @Query("select r.notification.id, r.user.id from NotificationRead r where r.notification.id in :ids")
+    // Cap [notificationId, userId] cho nhieu thong bao mot query (khong N+1, khong nap entity
+    // User).
+    @Query(
+            "select r.notification.id, r.user.id from NotificationRead r where r.notification.id in"
+                    + " :ids")
     List<Object[]> findReaders(@Param("ids") Collection<UUID> notificationIds);
 
     @Query("select r.notification.id from NotificationRead r where r.user = :user")

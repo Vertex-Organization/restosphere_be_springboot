@@ -40,7 +40,9 @@ public class KitchenMenuController {
     }
 
     @PatchMapping("/menu-items/{id}/status")
-    public KitchenMenuItemResponse setStatus(@AuthenticationPrincipal Jwt jwt, @PathVariable String id,
+    public KitchenMenuItemResponse setStatus(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable String id,
             @Valid @RequestBody KitchenMenuStatusRequest req) {
         return service.setStatus(CurrentUserService.idOf(jwt), id, req.status());
     }
@@ -52,8 +54,8 @@ public class KitchenMenuController {
 
     @PostMapping("/menu-requests")
     @ResponseStatus(HttpStatus.CREATED)
-    public KitchenMenuRequestResponse requestStatus(@AuthenticationPrincipal Jwt jwt,
-            @Valid @RequestBody KitchenMenuRequestCreate req) {
+    public KitchenMenuRequestResponse requestStatus(
+            @AuthenticationPrincipal Jwt jwt, @Valid @RequestBody KitchenMenuRequestCreate req) {
         return service.request(CurrentUserService.idOf(jwt), req.menuItemId().trim(), req.status());
     }
 }

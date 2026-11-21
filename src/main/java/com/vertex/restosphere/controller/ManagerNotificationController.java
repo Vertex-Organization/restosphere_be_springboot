@@ -31,7 +31,8 @@ public class ManagerNotificationController {
     }
 
     @PostMapping("/read")
-    public List<ManagerNotificationResponse> markRead(@AuthenticationPrincipal Jwt jwt,
+    public List<ManagerNotificationResponse> markRead(
+            @AuthenticationPrincipal Jwt jwt,
             @Valid @RequestBody(required = false) ManagerReadNotificationsRequest req) {
         return service.markRead(CurrentUserService.idOf(jwt), req == null ? null : req.ids());
     }

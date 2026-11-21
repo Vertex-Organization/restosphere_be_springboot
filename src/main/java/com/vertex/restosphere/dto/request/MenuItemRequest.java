@@ -19,5 +19,4 @@ public record MenuItemRequest(
         // Rong, duong dan noi bo "/..." (khong phai "//") hoac https://.
         @Size(max = 500) @Pattern(regexp = "\\s*|\\s*(/(?!/)|https://).*") String imageUrl,
         MenuItemStatus status,
-        @Pattern(regexp = "portion|kg") String unit) {
-}
+        @Pattern(regexp = "portion|kg") String unit) {}

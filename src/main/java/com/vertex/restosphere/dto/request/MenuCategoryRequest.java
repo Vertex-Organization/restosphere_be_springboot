@@ -8,6 +8,8 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 /** group null: tao moi thi "food", sua thi giu nhom cu. */
-public record MenuCategoryRequest(@NotBlank @Size(max = 100) String name, @Min(0) @Max(999) int sortOrder,
-        @NotNull Boolean visible, @Pattern(regexp = "food|drink") String group) {
-}
+public record MenuCategoryRequest(
+        @NotBlank @Size(max = 100) String name,
+        @Min(0) @Max(999) int sortOrder,
+        @NotNull Boolean visible,
+        @Pattern(regexp = "food|drink") String group) {}

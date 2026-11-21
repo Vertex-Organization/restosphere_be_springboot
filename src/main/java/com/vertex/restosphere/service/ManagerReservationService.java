@@ -9,7 +9,9 @@ import java.util.UUID;
 
 public interface ManagerReservationService {
 
-    List<ManagerReservationResponse> list(UUID actorId, LocalDate from, LocalDate to, Reservation.Status status);
+    List<ManagerReservationResponse> list(
+            UUID actorId, LocalDate from, LocalDate to, Reservation.Status status);
 
-    ManagerReservationResponse changeTable(UUID actorId, UUID id, ChangeReservationTableRequest req);
+    ManagerReservationResponse changeTable(
+            UUID actorId, UUID id, ChangeReservationTableRequest req);
 }

@@ -29,72 +29,107 @@ public class WaiterOrderController {
     private final WaiterService waiter;
 
     @PostMapping("/accept")
-    public Map<String, Object> accept(@PathVariable UUID sessionId, @AuthenticationPrincipal Jwt jwt) {
+    public Map<String, Object> accept(
+            @PathVariable UUID sessionId, @AuthenticationPrincipal Jwt jwt) {
         return workspace.waiter(jwt.getSubject(), "accept", u -> waiter.accept(sessionId, u));
     }
 
     @PostMapping("/drafts")
-    public Map<String, Object> addDraft(@PathVariable UUID sessionId, @Valid @RequestBody AddDraftRequest req,
+    public Map<String, Object> addDraft(
+            @PathVariable UUID sessionId,
+            @Valid @RequestBody AddDraftRequest req,
             @AuthenticationPrincipal Jwt jwt) {
-        return workspace.waiter(jwt.getSubject(), "add-draft", u -> waiter.addDraft(sessionId, req.menuItemId(), u));
+        return workspace.waiter(
+                jwt.getSubject(),
+                "add-draft",
+                u -> waiter.addDraft(sessionId, req.menuItemId(), u));
     }
 
     @PatchMapping("/drafts/{draftId}")
-    public Map<String, Object> editDraft(@PathVariable UUID sessionId, @PathVariable UUID draftId,
-            @Valid @RequestBody EditDraftRequest req, @AuthenticationPrincipal Jwt jwt) {
-        return workspace.waiter(jwt.getSubject(), "edit-draft",
+    public Map<String, Object> editDraft(
+            @PathVariable UUID sessionId,
+            @PathVariable UUID draftId,
+            @Valid @RequestBody EditDraftRequest req,
+            @AuthenticationPrincipal Jwt jwt) {
+        return workspace.waiter(
+                jwt.getSubject(),
+                "edit-draft",
                 u -> waiter.editDraft(sessionId, draftId, req.quantity(), req.note(), u));
     }
 
     @DeleteMapping("/drafts/{draftId}")
-    public Map<String, Object> removeDraft(@PathVariable UUID sessionId, @PathVariable UUID draftId,
+    public Map<String, Object> removeDraft(
+            @PathVariable UUID sessionId,
+            @PathVariable UUID draftId,
             @AuthenticationPrincipal Jwt jwt) {
-        return workspace.waiter(jwt.getSubject(), "remove-draft", u -> waiter.removeDraft(sessionId, draftId, u));
+        return workspace.waiter(
+                jwt.getSubject(), "remove-draft", u -> waiter.removeDraft(sessionId, draftId, u));
     }
 
     @PostMapping("/orders")
-    public Map<String, Object> submit(@PathVariable UUID sessionId, @AuthenticationPrincipal Jwt jwt) {
+    public Map<String, Object> submit(
+            @PathVariable UUID sessionId, @AuthenticationPrincipal Jwt jwt) {
         return workspace.waiter(jwt.getSubject(), "submit", u -> waiter.submit(sessionId, u));
     }
 
     @PostMapping("/orders/{orderId}/priority")
-    public Map<String, Object> requestPriority(@PathVariable UUID sessionId, @PathVariable UUID orderId,
-            @Valid @RequestBody ReasonRequest req, @AuthenticationPrincipal Jwt jwt) {
-        return workspace.waiter(jwt.getSubject(), "request-priority",
+    public Map<String, Object> requestPriority(
+            @PathVariable UUID sessionId,
+            @PathVariable UUID orderId,
+            @Valid @RequestBody ReasonRequest req,
+            @AuthenticationPrincipal Jwt jwt) {
+        return workspace.waiter(
+                jwt.getSubject(),
+                "request-priority",
                 u -> waiter.requestPriority(sessionId, orderId, req.reason(), u));
     }
 
     @PostMapping("/items/{itemId}/serve")
-    public Map<String, Object> serve(@PathVariable UUID sessionId, @PathVariable UUID itemId,
+    public Map<String, Object> serve(
+            @PathVariable UUID sessionId,
+            @PathVariable UUID itemId,
             @AuthenticationPrincipal Jwt jwt) {
         return workspace.waiter(jwt.getSubject(), "serve", u -> waiter.serve(sessionId, itemId, u));
     }
 
     @PostMapping("/items/{itemId}/cancel-request")
-    public Map<String, Object> requestCancel(@PathVariable UUID sessionId, @PathVariable UUID itemId,
-            @Valid @RequestBody ReasonRequest req, @AuthenticationPrincipal Jwt jwt) {
-        return workspace.waiter(jwt.getSubject(), "request-cancel",
+    public Map<String, Object> requestCancel(
+            @PathVariable UUID sessionId,
+            @PathVariable UUID itemId,
+            @Valid @RequestBody ReasonRequest req,
+            @AuthenticationPrincipal Jwt jwt) {
+        return workspace.waiter(
+                jwt.getSubject(),
+                "request-cancel",
                 u -> waiter.requestCancel(sessionId, itemId, req.reason(), u));
     }
 
     @PostMapping("/payment-request")
-    public Map<String, Object> requestPayment(@PathVariable UUID sessionId, @AuthenticationPrincipal Jwt jwt) {
-        return workspace.waiter(jwt.getSubject(), "request-payment", u -> waiter.requestPayment(sessionId, u));
+    public Map<String, Object> requestPayment(
+            @PathVariable UUID sessionId, @AuthenticationPrincipal Jwt jwt) {
+        return workspace.waiter(
+                jwt.getSubject(), "request-payment", u -> waiter.requestPayment(sessionId, u));
     }
 
     @DeleteMapping("/payment-request")
-    public Map<String, Object> withdrawPaymentRequest(@PathVariable UUID sessionId, @AuthenticationPrincipal Jwt jwt) {
-        return workspace.waiter(jwt.getSubject(), "withdraw-payment-request",
+    public Map<String, Object> withdrawPaymentRequest(
+            @PathVariable UUID sessionId, @AuthenticationPrincipal Jwt jwt) {
+        return workspace.waiter(
+                jwt.getSubject(),
+                "withdraw-payment-request",
                 u -> waiter.withdrawPaymentRequest(sessionId, u));
     }
 
     @PostMapping("/guest-left")
-    public Map<String, Object> guestLeft(@PathVariable UUID sessionId, @AuthenticationPrincipal Jwt jwt) {
-        return workspace.waiter(jwt.getSubject(), "guest-left", u -> waiter.guestLeft(sessionId, true, u));
+    public Map<String, Object> guestLeft(
+            @PathVariable UUID sessionId, @AuthenticationPrincipal Jwt jwt) {
+        return workspace.waiter(
+                jwt.getSubject(), "guest-left", u -> waiter.guestLeft(sessionId, true, u));
     }
 
     @PostMapping("/clean")
-    public Map<String, Object> clean(@PathVariable UUID sessionId, @AuthenticationPrincipal Jwt jwt) {
+    public Map<String, Object> clean(
+            @PathVariable UUID sessionId, @AuthenticationPrincipal Jwt jwt) {
         return workspace.waiter(jwt.getSubject(), "clean", u -> waiter.clean(sessionId, true, u));
     }
 }

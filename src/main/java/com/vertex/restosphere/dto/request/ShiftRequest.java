@@ -16,5 +16,4 @@ public record ShiftRequest(
         @NotNull @Pattern(regexp = "([01]\\d|2[0-3]):[0-5]\\d") String start,
         @NotNull @Pattern(regexp = "([01]\\d|2[0-3]):[0-5]\\d") String end,
         @NotNull @Min(1) @Max(30) Integer minimum,
-        @NotEmpty @Size(max = 50) List<@NotNull UUID> employeeIds) {
-}
+        @NotEmpty @Size(max = 50) List<@NotNull UUID> employeeIds) {}

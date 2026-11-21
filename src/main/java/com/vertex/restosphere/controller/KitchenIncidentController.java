@@ -37,8 +37,8 @@ public class KitchenIncidentController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public KitchenIncidentResponse report(@AuthenticationPrincipal Jwt jwt,
-            @Valid @RequestBody KitchenIncidentRequest req) {
+    public KitchenIncidentResponse report(
+            @AuthenticationPrincipal Jwt jwt, @Valid @RequestBody KitchenIncidentRequest req) {
         return service.report(CurrentUserService.idOf(jwt), req);
     }
 }

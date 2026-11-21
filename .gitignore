@@ -36,3 +36,23 @@ build/
 ### Local demo data (not shared) ###
 src/main/resources/waiter-demo.sql
 src/main/resources/waiter-demo-reset.sql
+
+### Personal settings and output (shared agent config stays trackable) ###
+/.local/
+/.opencode/*.local.json
+/.opencode/*.local.jsonc
+/opencode.local.json
+/opencode.local.jsonc
+/AGENTS.local.md
+/CLAUDE.local.md
+.env.local
+.env.*.local
+/.cache/
+/.tmp/
+/.vs/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+Desktop.ini

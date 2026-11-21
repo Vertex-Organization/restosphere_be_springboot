@@ -28,14 +28,17 @@ public class ManagerApprovalController {
     private final ManagerApprovalService service;
 
     @GetMapping
-    public List<ApprovalResponse> list(@AuthenticationPrincipal Jwt jwt,
+    public List<ApprovalResponse> list(
+            @AuthenticationPrincipal Jwt jwt,
             @RequestParam(required = false) ApprovalRequest.Status status,
             @RequestParam(required = false) ApprovalRequest.Type type) {
         return service.list(CurrentUserService.idOf(jwt), status, type);
     }
 
     @PostMapping("/{id}/decision")
-    public ApprovalResponse decide(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID id,
+    public ApprovalResponse decide(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable UUID id,
             @Valid @RequestBody ApprovalDecisionRequest req) {
         return service.decide(CurrentUserService.idOf(jwt), id, req);
     }

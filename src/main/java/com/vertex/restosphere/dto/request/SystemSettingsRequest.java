@@ -22,10 +22,12 @@ public record SystemSettingsRequest(
         @NotNull Boolean emailNotifications) {
 
     public record Billing(
-            @NotNull @DecimalMin("0") @DecimalMax("30") @Digits(integer = 3, fraction = 2) BigDecimal serviceChargePercent,
-            @NotNull @DecimalMin("0") @DecimalMax("20") @Digits(integer = 3, fraction = 2) BigDecimal vatPercent,
-            @Pattern(regexp = "\\s*(\\d{6,20})?\\s*", message = "must be 6-20 digits") String bankAccount,
+            @NotNull @DecimalMin("0") @DecimalMax("30") @Digits(integer = 3, fraction = 2)
+                    BigDecimal serviceChargePercent,
+            @NotNull @DecimalMin("0") @DecimalMax("20") @Digits(integer = 3, fraction = 2)
+                    BigDecimal vatPercent,
+            @Pattern(regexp = "\\s*(\\d{6,20})?\\s*", message = "must be 6-20 digits")
+                    String bankAccount,
             @Size(max = 100) String bankName,
-            @Size(max = 100) String bankAccountName) {
-    }
+            @Size(max = 100) String bankAccountName) {}
 }

@@ -24,16 +24,34 @@ public class CloudinaryImageStorageServiceImpl implements ImageStorageService {
 
     @Override
     public String uploadRestaurantImage(String kind, byte[] bytes) {
-        return upload(bytes, ObjectUtils.asMap(
-                "folder", "restosphere/restaurant", "public_id", kind,
-                "overwrite", true, "invalidate", true, "resource_type", "image"));
+        return upload(
+                bytes,
+                ObjectUtils.asMap(
+                        "folder",
+                        "restosphere/restaurant",
+                        "public_id",
+                        kind,
+                        "overwrite",
+                        true,
+                        "invalidate",
+                        true,
+                        "resource_type",
+                        "image"));
     }
 
     @Override
     public String uploadMenuImage(byte[] bytes) {
-        return upload(bytes, ObjectUtils.asMap(
-                "folder", "restosphere/menu-uploads", "public_id", UUID.randomUUID().toString(),
-                "overwrite", false, "resource_type", "image"));
+        return upload(
+                bytes,
+                ObjectUtils.asMap(
+                        "folder",
+                        "restosphere/menu-uploads",
+                        "public_id",
+                        UUID.randomUUID().toString(),
+                        "overwrite",
+                        false,
+                        "resource_type",
+                        "image"));
     }
 
     private String upload(byte[] bytes, Map<String, Object> options) {

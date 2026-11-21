@@ -39,8 +39,10 @@ public class RefreshTokenServiceImpl implements RefreshTokenService {
     @Override
     @Transactional(noRollbackFor = InvalidRefreshTokenException.class)
     public RotatedToken rotate(String rawToken) {
-        RefreshToken current = refreshTokenRepository.findByTokenHashForUpdate(HashUtils.sha256Hex(rawToken))
-                .orElseThrow(InvalidRefreshTokenException::new);
+        RefreshToken current =
+                refreshTokenRepository
+                        .findByTokenHashForUpdate(HashUtils.sha256Hex(rawToken))
+                        .orElseThrow(InvalidRefreshTokenException::new);
         Instant now = Instant.now();
 
         if (current.getRevokedAt() != null) {
@@ -60,8 +62,12 @@ public class RefreshTokenServiceImpl implements RefreshTokenService {
     @Override
     @Transactional
     public void revoke(String rawToken) {
-        refreshTokenRepository.findByTokenHash(HashUtils.sha256Hex(rawToken))
-                .ifPresent(token -> refreshTokenRepository.revokeFamily(token.getFamilyId(), Instant.now()));
+        refreshTokenRepository
+                .findByTokenHash(HashUtils.sha256Hex(rawToken))
+                .ifPresent(
+                        token ->
+                                refreshTokenRepository.revokeFamily(
+                                        token.getFamilyId(), Instant.now()));
     }
 
     private String create(User user, UUID familyId) {

@@ -30,8 +30,8 @@ public class AdminSettingsController {
     }
 
     @PutMapping
-    public SystemSettingsResponse update(@AuthenticationPrincipal Jwt jwt,
-            @Valid @RequestBody SystemSettingsRequest req) {
+    public SystemSettingsResponse update(
+            @AuthenticationPrincipal Jwt jwt, @Valid @RequestBody SystemSettingsRequest req) {
         return service.update(CurrentUserService.idOf(jwt), req);
     }
 }

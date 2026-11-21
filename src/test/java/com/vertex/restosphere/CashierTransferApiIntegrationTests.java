@@ -24,24 +24,33 @@ class CashierTransferApiIntegrationTests extends CashierApiTestBase {
 
     @BeforeEach
     void configureBank() {
-        tx.executeWithoutResult(t -> {
-            RestaurantSettings s = settings.findBySingletonKey(1).orElseGet(() -> {
-                RestaurantSettings created = new RestaurantSettings();
-                created.setName("RestoSphere");
-                return settings.save(created);
-            });
-            oldBank = s.getBankAccountNumber();
-            s.setBankAccountNumber("0123456789");
-        });
+        tx.executeWithoutResult(
+                t -> {
+                    RestaurantSettings s =
+                            settings.findBySingletonKey(1)
+                                    .orElseGet(
+                                            () -> {
+                                                RestaurantSettings created =
+                                                        new RestaurantSettings();
+                                                created.setName("RestoSphere");
+                                                return settings.save(created);
+                                            });
+                    oldBank = s.getBankAccountNumber();
+                    s.setBankAccountNumber("0123456789");
+                });
     }
 
     @AfterEach
     void restoreBank() {
-        tx.executeWithoutResult(t -> settings.findBySingletonKey(1).ifPresent(s -> s.setBankAccountNumber(oldBank)));
+        tx.executeWithoutResult(
+                t ->
+                        settings.findBySingletonKey(1)
+                                .ifPresent(s -> s.setBankAccountNumber(oldBank)));
     }
 
     private String json(long version, long amount, String key) {
-        return "{\"billVersion\":%d,\"amount\":%d,\"idempotencyKey\":\"%s\"}".formatted(version, amount, key);
+        return "{\"billVersion\":%d,\"amount\":%d,\"idempotencyKey\":\"%s\"}"
+                .formatted(version, amount, key);
     }
 
     private String transferPath(Fixture f) {
@@ -57,12 +66,20 @@ class CashierTransferApiIntegrationTests extends CashierApiTestBase {
     }
 
     private long waiterNotifications() {
-        return count("select count(n) from Notification n where n.kind = 'PAYMENT' and n.audienceRole = :p0",
+        return count(
+                "select count(n) from Notification n where n.kind = 'PAYMENT' and n.audienceRole ="
+                        + " :p0",
                 Role.WAITER);
     }
 
     private String createTransfer(Fixture f, long amount, String key) throws Exception {
-        String body = created(call(HttpMethod.POST, transferPath(f), cashierToken, json(version(f), amount, key)));
+        String body =
+                created(
+                        call(
+                                HttpMethod.POST,
+                                transferPath(f),
+                                cashierToken,
+                                json(version(f), amount, key)));
         return this.<String>json(body, "$.id");
     }
 
@@ -70,11 +87,18 @@ class CashierTransferApiIntegrationTests extends CashierApiTestBase {
     void authIsEnforced() throws Exception {
         Fixture f = billFixture();
         String id = UUID.randomUUID().toString();
-        call(HttpMethod.POST, transferPath(f), null, json(0, 1, "k")).andExpect(status().isUnauthorized());
-        call(HttpMethod.POST, transferPath(f), waiterToken, json(0, 1, "k")).andExpect(status().isForbidden());
-        call(HttpMethod.POST, "/payments/" + id + "/confirm", waiterToken, "{\"bankReference\":\"x\"}")
+        call(HttpMethod.POST, transferPath(f), null, json(0, 1, "k"))
+                .andExpect(status().isUnauthorized());
+        call(HttpMethod.POST, transferPath(f), waiterToken, json(0, 1, "k"))
                 .andExpect(status().isForbidden());
-        call(HttpMethod.POST, "/payments/" + id + "/cancel", null, null).andExpect(status().isUnauthorized());
+        call(
+                        HttpMethod.POST,
+                        "/payments/" + id + "/confirm",
+                        waiterToken,
+                        "{\"bankReference\":\"x\"}")
+                .andExpect(status().isForbidden());
+        call(HttpMethod.POST, "/payments/" + id + "/cancel", null, null)
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
@@ -82,7 +106,13 @@ class CashierTransferApiIntegrationTests extends CashierApiTestBase {
         Fixture f = billFixture();
         openShift(cashierToken, 0);
         long before = revision();
-        String body = created(call(HttpMethod.POST, transferPath(f), cashierToken, json(version(f), 100000, "c4-new")));
+        String body =
+                created(
+                        call(
+                                HttpMethod.POST,
+                                transferPath(f),
+                                cashierToken,
+                                json(version(f), 100000, "c4-new")));
         assertThat(this.<String>json(body, "$.status")).isEqualTo("PENDING");
         assertThat(this.<String>json(body, "$.method")).isEqualTo("TRANSFER");
         assertThat(this.<String>json(body, "$.transferContent")).startsWith("RS");
@@ -93,7 +123,8 @@ class CashierTransferApiIntegrationTests extends CashierApiTestBase {
 
         call(HttpMethod.POST, transferPath(f), cashierToken, json(version(f), 1000, "c4-other"))
                 .andExpect(status().isConflict());
-        String replay = ok(call(HttpMethod.POST, transferPath(f), cashierToken, json(0, 100000, "c4-new")));
+        String replay =
+                ok(call(HttpMethod.POST, transferPath(f), cashierToken, json(0, 100000, "c4-new")));
         assertThat(this.<String>json(replay, "$.id")).isEqualTo(this.<String>json(body, "$.id"));
         call(HttpMethod.POST, transferPath(f), cashierToken, json(0, 90000, "c4-new"))
                 .andExpect(status().isConflict());
@@ -109,10 +140,12 @@ class CashierTransferApiIntegrationTests extends CashierApiTestBase {
                 .andExpect(status().isBadRequest());
         call(HttpMethod.POST, transferPath(f), cashierToken, json(version(f) + 3, 1000, "c4-ver"))
                 .andExpect(status().isConflict());
-        tx.executeWithoutResult(t -> settings.findBySingletonKey(1).orElseThrow().setBankAccountNumber(""));
+        tx.executeWithoutResult(
+                t -> settings.findBySingletonKey(1).orElseThrow().setBankAccountNumber(""));
         call(HttpMethod.POST, transferPath(f), cashierToken, json(version(f), 1000, "c4-nobank"))
                 .andExpect(status().isConflict());
-        assertThat(count("select count(p) from Payment p where p.bill.id = :p0", f.bill().getId())).isZero();
+        assertThat(count("select count(p) from Payment p where p.bill.id = :p0", f.bill().getId()))
+                .isZero();
     }
 
     @Test
@@ -122,10 +155,19 @@ class CashierTransferApiIntegrationTests extends CashierApiTestBase {
         String paymentId = createTransfer(f, 100000, "c4-confirm");
         long before = revision();
 
-        call(HttpMethod.POST, "/payments/" + paymentId + "/confirm", cashierToken, "{\"bankReference\":\"  \"}")
+        call(
+                        HttpMethod.POST,
+                        "/payments/" + paymentId + "/confirm",
+                        cashierToken,
+                        "{\"bankReference\":\"  \"}")
                 .andExpect(status().isBadRequest());
-        String body = ok(call(HttpMethod.POST, "/payments/" + paymentId + "/confirm", cashierToken,
-                "{\"bankReference\":\"BANK-001\"}"));
+        String body =
+                ok(
+                        call(
+                                HttpMethod.POST,
+                                "/payments/" + paymentId + "/confirm",
+                                cashierToken,
+                                "{\"bankReference\":\"BANK-001\"}"));
         assertThat(this.<String>json(body, "$.status")).isEqualTo("SUCCEEDED");
         assertThat(this.<String>json(body, "$.bankReference")).isEqualTo("BANK-001");
         assertThat(this.<String>json(body, "$.verifiedBy")).isEqualTo(cashier.getId().toString());
@@ -134,12 +176,20 @@ class CashierTransferApiIntegrationTests extends CashierApiTestBase {
         assertThat(auditCount("confirm-transfer")).isEqualTo(1);
         assertThat(waiterNotifications()).isEqualTo(1);
 
-        call(HttpMethod.POST, "/payments/" + paymentId + "/confirm", cashierToken, "{\"bankReference\":\"BANK-002\"}")
+        call(
+                        HttpMethod.POST,
+                        "/payments/" + paymentId + "/confirm",
+                        cashierToken,
+                        "{\"bankReference\":\"BANK-002\"}")
                 .andExpect(status().isConflict());
 
         Fixture g = billFixture();
         String second = createTransfer(g, 50000, "c4-confirm2");
-        call(HttpMethod.POST, "/payments/" + second + "/confirm", cashierToken, "{\"bankReference\":\"BANK-001\"}")
+        call(
+                        HttpMethod.POST,
+                        "/payments/" + second + "/confirm",
+                        cashierToken,
+                        "{\"bankReference\":\"BANK-001\"}")
                 .andExpect(status().isConflict());
         assertThat(shiftId).isNotBlank();
     }
@@ -149,8 +199,12 @@ class CashierTransferApiIntegrationTests extends CashierApiTestBase {
         Fixture f = billFixture();
         openShift(cashierToken, 0);
         String paymentId = createTransfer(f, 40000, "c4-part");
-        ok(call(HttpMethod.POST, "/payments/" + paymentId + "/confirm", cashierToken,
-                "{\"bankReference\":\"BANK-PART\"}"));
+        ok(
+                call(
+                        HttpMethod.POST,
+                        "/payments/" + paymentId + "/confirm",
+                        cashierToken,
+                        "{\"bankReference\":\"BANK-PART\"}"));
         assertThat(billStatus(f)).isEqualTo(Bill.Status.OPEN);
         assertThat(waiterNotifications()).isZero();
     }
@@ -162,15 +216,20 @@ class CashierTransferApiIntegrationTests extends CashierApiTestBase {
         String paymentId = createTransfer(f, 100000, "c4-cancel");
         long before = revision();
 
-        String body = ok(call(HttpMethod.POST, "/payments/" + paymentId + "/cancel", cashierToken, null));
+        String body =
+                ok(call(HttpMethod.POST, "/payments/" + paymentId + "/cancel", cashierToken, null));
         assertThat(this.<String>json(body, "$.status")).isEqualTo("CANCELLED");
         assertThat(revision()).isEqualTo(before + 1);
         assertThat(auditCount("cancel-transfer")).isEqualTo(1);
         call(HttpMethod.POST, "/payments/" + paymentId + "/cancel", cashierToken, null)
                 .andExpect(status().isConflict());
-        created(call(HttpMethod.POST, "/bills/" + f.bill().getId() + "/payments/cash", cashierToken,
-                "{\"billVersion\":%d,\"amount\":1000,\"tendered\":1000,\"idempotencyKey\":\"c4-cash\"}"
-                        .formatted(version(f))));
+        created(
+                call(
+                        HttpMethod.POST,
+                        "/bills/" + f.bill().getId() + "/payments/cash",
+                        cashierToken,
+                        "{\"billVersion\":%d,\"amount\":1000,\"tendered\":1000,\"idempotencyKey\":\"c4-cash\"}"
+                                .formatted(version(f))));
         assertThat(shiftId).isNotBlank();
     }
 
@@ -182,7 +241,12 @@ class CashierTransferApiIntegrationTests extends CashierApiTestBase {
         call(HttpMethod.POST, "/shifts/" + shiftId + "/close", cashierToken, "{\"countedCash\":0}")
                 .andExpect(status().isConflict());
         ok(call(HttpMethod.POST, "/payments/" + paymentId + "/cancel", cashierToken, null));
-        ok(call(HttpMethod.POST, "/shifts/" + shiftId + "/close", cashierToken, "{\"countedCash\":0}"));
+        ok(
+                call(
+                        HttpMethod.POST,
+                        "/shifts/" + shiftId + "/close",
+                        cashierToken,
+                        "{\"countedCash\":0}"));
     }
 
     @Test
@@ -192,22 +256,41 @@ class CashierTransferApiIntegrationTests extends CashierApiTestBase {
         String paymentId = createTransfer(f, 100000, "c4-owner");
         User other = saveUser("c4-cashier2@restosphere.test", Role.CASHIER);
         String otherToken = bearer(other.getEmail());
-        call(HttpMethod.POST, "/payments/" + paymentId + "/confirm", otherToken, "{\"bankReference\":\"X-1\"}")
+        call(
+                        HttpMethod.POST,
+                        "/payments/" + paymentId + "/confirm",
+                        otherToken,
+                        "{\"bankReference\":\"X-1\"}")
                 .andExpect(status().isConflict());
         call(HttpMethod.POST, "/payments/" + paymentId + "/cancel", otherToken, null)
                 .andExpect(status().isConflict());
         call(HttpMethod.POST, "/payments/" + UUID.randomUUID() + "/cancel", cashierToken, null)
                 .andExpect(status().isNotFound());
-        call(HttpMethod.POST, "/payments/not-a-uuid/cancel", cashierToken, null).andExpect(status().isBadRequest());
+        call(HttpMethod.POST, "/payments/not-a-uuid/cancel", cashierToken, null)
+                .andExpect(status().isBadRequest());
 
         Fixture g = billFixture();
         ok(call(HttpMethod.POST, "/payments/" + paymentId + "/cancel", cashierToken, null));
-        String cash = created(call(HttpMethod.POST, "/bills/" + g.bill().getId() + "/payments/cash", cashierToken,
-                "{\"billVersion\":%d,\"amount\":1000,\"tendered\":1000,\"idempotencyKey\":\"c4-cashonly\"}"
-                        .formatted(version(g))));
-        call(HttpMethod.POST, "/payments/" + this.<String>json(cash, "$.id") + "/cancel", cashierToken, null)
+        String cash =
+                created(
+                        call(
+                                HttpMethod.POST,
+                                "/bills/" + g.bill().getId() + "/payments/cash",
+                                cashierToken,
+                                "{\"billVersion\":%d,\"amount\":1000,\"tendered\":1000,\"idempotencyKey\":\"c4-cashonly\"}"
+                                        .formatted(version(g))));
+        call(
+                        HttpMethod.POST,
+                        "/payments/" + this.<String>json(cash, "$.id") + "/cancel",
+                        cashierToken,
+                        null)
                 .andExpect(status().isConflict());
-        assertThat(count("select count(p) from Payment p where p.status = :p0 and p.bill.id = :p1",
-                Payment.Status.CANCELLED, f.bill().getId())).isEqualTo(1);
+        assertThat(
+                        count(
+                                "select count(p) from Payment p where p.status = :p0 and p.bill.id"
+                                        + " = :p1",
+                                Payment.Status.CANCELLED,
+                                f.bill().getId()))
+                .isEqualTo(1);
     }
 }

@@ -23,15 +23,16 @@ public class AccessTokenIssuer {
 
     public String issue(User user) {
         Instant now = Instant.now();
-        JwtClaimsSet claims = JwtClaimsSet.builder()
-                .id(UUID.randomUUID().toString())
-                .issuer(properties.issuer())
-                .subject(user.getId().toString())
-                .issuedAt(now)
-                .expiresAt(now.plus(properties.accessTokenTtl()))
-                .claim("email", user.getEmail())
-                .claim(ROLES_CLAIM, List.of(user.getRole().name()))
-                .build();
+        JwtClaimsSet claims =
+                JwtClaimsSet.builder()
+                        .id(UUID.randomUUID().toString())
+                        .issuer(properties.issuer())
+                        .subject(user.getId().toString())
+                        .issuedAt(now)
+                        .expiresAt(now.plus(properties.accessTokenTtl()))
+                        .claim("email", user.getEmail())
+                        .claim(ROLES_CLAIM, List.of(user.getRole().name()))
+                        .build();
         JwsHeader header = JwsHeader.with(MacAlgorithm.HS256).type("JWT").build();
         return jwtEncoder.encode(JwtEncoderParameters.from(header, claims)).getTokenValue();
     }

@@ -31,7 +31,8 @@ public class MenuImageController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public MenuImageResponse upload(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody MenuImageRequest req) {
+    public MenuImageResponse upload(
+            @AuthenticationPrincipal Jwt jwt, @Valid @RequestBody MenuImageRequest req) {
         return service.upload(CurrentUserService.idOf(jwt), req);
     }
 }

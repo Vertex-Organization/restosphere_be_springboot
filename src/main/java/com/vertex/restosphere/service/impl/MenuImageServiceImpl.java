@@ -26,7 +26,8 @@ public class MenuImageServiceImpl implements MenuImageService {
     public MenuImageResponse upload(UUID actorId, MenuImageRequest req) {
         currentUser.require(actorId, Role.ADMIN, Role.MANAGER);
         if (!imageStorage.isEnabled()) {
-            throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "Image upload is not configured");
+            throw new ApiException(
+                    HttpStatus.SERVICE_UNAVAILABLE, "Image upload is not configured");
         }
         byte[] bytes = Base64ImageDecoder.decode(req.contentType(), req.data());
         return new MenuImageResponse(imageStorage.uploadMenuImage(bytes));

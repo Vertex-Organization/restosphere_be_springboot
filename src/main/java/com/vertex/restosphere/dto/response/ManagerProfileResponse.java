@@ -5,11 +5,24 @@ import com.vertex.restosphere.entity.User;
 import java.util.List;
 import java.util.UUID;
 
-public record ManagerProfileResponse(UUID id, String name, String email, Role role, String position,
-        List<String> permissions, long approvalLimit) {
+public record ManagerProfileResponse(
+        UUID id,
+        String name,
+        String email,
+        Role role,
+        String position,
+        List<String> permissions,
+        long approvalLimit) {
 
-    public static ManagerProfileResponse from(User u, List<String> permissions, long approvalLimit) {
-        return new ManagerProfileResponse(u.getId(), u.getFullName(), u.getEmail(), u.getRole(), u.getRole().name(),
-                permissions, approvalLimit);
+    public static ManagerProfileResponse from(
+            User u, List<String> permissions, long approvalLimit) {
+        return new ManagerProfileResponse(
+                u.getId(),
+                u.getFullName(),
+                u.getEmail(),
+                u.getRole(),
+                u.getRole().name(),
+                permissions,
+                approvalLimit);
     }
 }

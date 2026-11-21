@@ -11,8 +11,10 @@ import org.springframework.data.repository.query.Param;
 
 public interface NotificationRepository extends JpaRepository<Notification, UUID> {
 
-    // Thong bao gui cho vai tro cua user hoac gui rieng cho user (so sanh FK, khong join nen khong mat dong recipient null).
-    @Query("select n from Notification n where n.audienceRole = :role or n.recipient = :user "
-            + "order by n.createdAt desc, n.id desc")
+    // Thong bao gui cho vai tro cua user hoac gui rieng cho user (so sanh FK, khong join nen khong
+    // mat dong recipient null).
+    @Query(
+            "select n from Notification n where n.audienceRole = :role or n.recipient = :user "
+                    + "order by n.createdAt desc, n.id desc")
     List<Notification> findVisible(@Param("role") Role role, @Param("user") User user);
 }

@@ -77,26 +77,32 @@ abstract class CashierApiTestBase {
 
     @AfterEach
     void tearDown() {
-        tx.executeWithoutResult(s -> {
-            if (!testUsers.isEmpty()) {
-                em.createQuery("delete from NotificationRead r where r.user in :u").setParameter("u", testUsers)
-                        .executeUpdate();
-                em.createQuery("delete from Payment p where p.cashierShift.cashier in :u")
-                        .setParameter("u", testUsers).executeUpdate();
-                em.createQuery("delete from ApprovalRequest a where a.requestedBy in :u")
-                        .setParameter("u", testUsers).executeUpdate();
-                em.createQuery("delete from CashierShift c where c.cashier in :u").setParameter("u", testUsers)
-                        .executeUpdate();
-            }
-            em.createQuery("delete from Notification where kind = 'PAYMENT'").executeUpdate();
-            for (int i = created.size() - 1; i >= 0; i--) {
-                Object e = em.find(created.get(i).getClass(), idOf(created.get(i)));
-                if (e != null) {
-                    em.remove(e);
-                    em.flush();
-                }
-            }
-        });
+        tx.executeWithoutResult(
+                s -> {
+                    if (!testUsers.isEmpty()) {
+                        em.createQuery("delete from NotificationRead r where r.user in :u")
+                                .setParameter("u", testUsers)
+                                .executeUpdate();
+                        em.createQuery("delete from Payment p where p.cashierShift.cashier in :u")
+                                .setParameter("u", testUsers)
+                                .executeUpdate();
+                        em.createQuery("delete from ApprovalRequest a where a.requestedBy in :u")
+                                .setParameter("u", testUsers)
+                                .executeUpdate();
+                        em.createQuery("delete from CashierShift c where c.cashier in :u")
+                                .setParameter("u", testUsers)
+                                .executeUpdate();
+                    }
+                    em.createQuery("delete from Notification where kind = 'PAYMENT'")
+                            .executeUpdate();
+                    for (int i = created.size() - 1; i >= 0; i--) {
+                        Object e = em.find(created.get(i).getClass(), idOf(created.get(i)));
+                        if (e != null) {
+                            em.remove(e);
+                            em.flush();
+                        }
+                    }
+                });
         created.clear();
         cleanUsers();
     }
@@ -136,26 +142,41 @@ abstract class CashierApiTestBase {
     }
 
     long count(String jpql, Object... params) {
-        return tx.execute(s -> {
-            var q = em.createQuery(jpql, Long.class);
-            for (int i = 0; i < params.length; i++) {
-                q.setParameter("p" + i, params[i]);
-            }
-            return q.getSingleResult();
-        });
+        return tx.execute(
+                s -> {
+                    var q = em.createQuery(jpql, Long.class);
+                    for (int i = 0; i < params.length; i++) {
+                        q.setParameter("p" + i, params[i]);
+                    }
+                    return q.getSingleResult();
+                });
     }
 
     long auditCount(String action) {
-        return count("select count(a) from AuditLog a where a.targetType = 'WORKSPACE' and a.action = :p0", action);
+        return count(
+                "select count(a) from AuditLog a where a.targetType = 'WORKSPACE' and a.action ="
+                        + " :p0",
+                action);
     }
 
     String openShift(String token, long openingFloat) throws Exception {
-        String body = created(call(HttpMethod.POST, "/shifts/open", token,
-                "{\"openingFloat\":%d}".formatted(openingFloat)));
+        String body =
+                created(
+                        call(
+                                HttpMethod.POST,
+                                "/shifts/open",
+                                token,
+                                "{\"openingFloat\":%d}".formatted(openingFloat)));
         return json(body, "$.id");
     }
 
-    record Fixture(Area area, RestaurantTable table, TableSession session, MenuItem menu, Order order, OrderItem item,
+    record Fixture(
+            Area area,
+            RestaurantTable table,
+            TableSession session,
+            MenuItem menu,
+            Order order,
+            OrderItem item,
             Bill bill) {}
 
     Fixture billFixture() {
@@ -220,11 +241,13 @@ abstract class CashierApiTestBase {
     }
 
     <T> T persist(T entity) {
-        T saved = tx.execute(s -> {
-            T merged = em.merge(entity);
-            em.flush();
-            return merged;
-        });
+        T saved =
+                tx.execute(
+                        s -> {
+                            T merged = em.merge(entity);
+                            em.flush();
+                            return merged;
+                        });
 
         for (int i = 0; i < created.size(); i++) {
             Object c = created.get(i);
@@ -257,10 +280,17 @@ abstract class CashierApiTestBase {
     }
 
     String bearer(String email) throws Exception {
-        String body = mockMvc.perform(request(HttpMethod.POST, "/api/v1/auth/login")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"email\":\"%s\",\"password\":\"%s\"}".formatted(email, PASSWORD)))
-                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        String body =
+                mockMvc.perform(
+                                request(HttpMethod.POST, "/api/v1/auth/login")
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content(
+                                                "{\"email\":\"%s\",\"password\":\"%s\"}"
+                                                        .formatted(email, PASSWORD)))
+                        .andExpect(status().isOk())
+                        .andReturn()
+                        .getResponse()
+                        .getContentAsString();
         return "Bearer " + JsonPath.read(body, "$.accessToken");
     }
 }

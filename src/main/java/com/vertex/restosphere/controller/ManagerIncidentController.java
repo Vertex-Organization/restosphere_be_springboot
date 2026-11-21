@@ -32,7 +32,9 @@ public class ManagerIncidentController {
     }
 
     @PatchMapping("/{id}")
-    public ManagerIncidentResponse update(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID id,
+    public ManagerIncidentResponse update(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable UUID id,
             @Valid @RequestBody ManagerIncidentUpdateRequest req) {
         return service.update(CurrentUserService.idOf(jwt), id, req);
     }

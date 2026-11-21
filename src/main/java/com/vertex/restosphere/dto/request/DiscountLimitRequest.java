@@ -6,5 +6,4 @@ import jakarta.validation.constraints.NotNull;
 
 public record DiscountLimitRequest(
         @NotNull @Min(0) @Max(100) Integer cashierDiscountPercent,
-        @NotNull @Min(0) @Max(999999999999L) Long managerApprovalLimit) {
-}
+        @NotNull @Min(0) @Max(999999999999L) Long managerApprovalLimit) {}

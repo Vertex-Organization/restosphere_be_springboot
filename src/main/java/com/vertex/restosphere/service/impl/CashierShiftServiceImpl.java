@@ -1,6 +1,7 @@
 package com.vertex.restosphere.service.impl;
 
 import com.vertex.restosphere.common.enums.Role;
+import com.vertex.restosphere.common.util.Values;
 import com.vertex.restosphere.dto.request.CashierCloseShiftRequest;
 import com.vertex.restosphere.dto.request.CashierOpenShiftRequest;
 import com.vertex.restosphere.dto.response.CashierScheduledShiftResponse;
@@ -15,8 +16,8 @@ import com.vertex.restosphere.repository.PaymentRepository;
 import com.vertex.restosphere.repository.ShiftAssignmentRepository;
 import com.vertex.restosphere.security.CurrentUserService;
 import com.vertex.restosphere.service.CashierShiftService;
-import com.vertex.restosphere.service.CashierWriteSupport;
 import com.vertex.restosphere.service.RestaurantLock;
+import com.vertex.restosphere.service.WorkspaceCommit;
 import com.vertex.restosphere.service.WorkspaceStore;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -32,7 +33,7 @@ public class CashierShiftServiceImpl implements CashierShiftService {
     private final CurrentUserService currentUser;
     private final RestaurantLock restaurantLock;
     private final WorkspaceStore store;
-    private final CashierWriteSupport writes;
+    private final WorkspaceCommit writes;
     private final CashierShiftRepository shifts;
     private final ShiftAssignmentRepository assignments;
     private final PaymentRepository payments;
@@ -41,14 +42,18 @@ public class CashierShiftServiceImpl implements CashierShiftService {
     @Override
     public List<CashierShiftResponse> list(UUID actorId) {
         currentUser.require(actorId, Role.ADMIN, Role.CASHIER);
-        return shifts.findAllByOrderByOpenedAtAsc().stream().map(CashierShiftResponse::from).toList();
+        return shifts.findAllByOrderByOpenedAtAsc().stream()
+                .map(CashierShiftResponse::from)
+                .toList();
     }
 
     @Transactional(readOnly = true)
     @Override
     public List<CashierScheduledShiftResponse> scheduled(UUID actorId) {
         currentUser.require(actorId, Role.ADMIN, Role.CASHIER);
-        return assignments.findCashierAssignments().stream().map(CashierScheduledShiftResponse::from).toList();
+        return assignments.findCashierAssignments().stream()
+                .map(CashierScheduledShiftResponse::from)
+                .toList();
     }
 
     @Transactional
@@ -61,10 +66,11 @@ public class CashierShiftServiceImpl implements CashierShiftService {
         if (!scheduledId.isEmpty()) {
             scheduled = store.get(Shift.class, scheduledId);
             if (!assignments.existsByShiftIdAndUserId(scheduled.getId(), user.getId())) {
-                throw WorkspaceStoreImpl.invalid("Scheduled shift is not assigned to this cashier");
+                throw Values.invalid("Scheduled shift is not assigned to this cashier");
             }
             Instant now = Instant.now();
-            if (now.isBefore(scheduled.getStartsAt().minusSeconds(1800)) || now.isAfter(scheduled.getEndsAt())) {
+            if (now.isBefore(scheduled.getStartsAt().minusSeconds(1800))
+                    || now.isAfter(scheduled.getEndsAt())) {
                 throw ApiException.conflict("Outside scheduled shift window");
             }
         }
@@ -74,7 +80,7 @@ public class CashierShiftServiceImpl implements CashierShiftService {
         CashierShift shift = new CashierShift();
         shift.setCashier(user);
         shift.setOpenedAt(Instant.now());
-        shift.setOpeningCash(CashierWriteSupport.money(req.openingFloat(), "openingFloat"));
+        shift.setOpeningCash(Values.money(req.openingFloat(), "openingFloat"));
         shift.setScheduledShift(scheduled);
         store.save(shift);
         writes.commit(user, "open-shift");
@@ -96,7 +102,7 @@ public class CashierShiftServiceImpl implements CashierShiftService {
         }
         BigDecimal cash = payments.sumCompletedCash(shift.getId());
         shift.setExpectedCash(shift.getOpeningCash().add(cash));
-        shift.setCountedCash(CashierWriteSupport.money(req.countedCash(), "countedCash"));
+        shift.setCountedCash(Values.money(req.countedCash(), "countedCash"));
         shift.setNote(req.note() == null ? "" : req.note().trim());
         shift.setClosedAt(Instant.now());
         writes.commit(user, "close-shift");

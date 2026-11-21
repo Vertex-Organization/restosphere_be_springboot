@@ -26,9 +26,12 @@ public class ManagerReportController {
     private final ManagerReportService service;
 
     @GetMapping
-    public ManagerReportResponse report(@AuthenticationPrincipal Jwt jwt,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+    public ManagerReportResponse report(
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+                    LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+                    LocalDate to,
             @RequestParam(required = false) String shift,
             @RequestParam(required = false) Payment.Method method) {
         return service.report(CurrentUserService.idOf(jwt), from, to, shift, method);

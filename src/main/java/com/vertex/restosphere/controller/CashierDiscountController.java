@@ -35,20 +35,26 @@ public class CashierDiscountController {
     private final CashierDiscountService service;
 
     @PutMapping("/bills/{id}/discount")
-    public CashierBillResponse apply(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID id,
+    public CashierBillResponse apply(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable UUID id,
             @Valid @RequestBody CashierDiscountRequest req) {
         return service.apply(CurrentUserService.idOf(jwt), id, req);
     }
 
     @DeleteMapping("/bills/{id}/discount")
-    public CashierBillResponse remove(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID id,
+    public CashierBillResponse remove(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable UUID id,
             @RequestParam long billVersion) {
         return service.remove(CurrentUserService.idOf(jwt), id, billVersion);
     }
 
     @PostMapping("/bills/{id}/discount-requests")
     @ResponseStatus(HttpStatus.CREATED)
-    public CashierRequestResponse request(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID id,
+    public CashierRequestResponse request(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable UUID id,
             @Valid @RequestBody CashierDiscountRequest req) {
         return service.request(CurrentUserService.idOf(jwt), id, req);
     }

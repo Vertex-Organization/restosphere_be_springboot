@@ -3,7 +3,7 @@ package com.vertex.restosphere.service;
 import com.vertex.restosphere.entity.RestaurantSettings;
 import java.util.List;
 
-/** Truy cap entity chung cho cac workflow. Helper tinh (map, id, invalid) o WorkspaceStoreImpl. */
+/** Truy cập entity chung cho các workflow; {@link #lock()} tuần tự hóa các thao tác ghi. */
 public interface WorkspaceStore {
 
     <T> List<T> all(Class<T> type);

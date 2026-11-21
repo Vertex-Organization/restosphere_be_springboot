@@ -5,4 +5,3 @@ public enum MenuItemStatus {
     SOLD_OUT,
     DISCONTINUED
 }
-

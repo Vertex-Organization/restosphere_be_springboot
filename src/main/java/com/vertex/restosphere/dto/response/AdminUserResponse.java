@@ -6,12 +6,23 @@ import com.vertex.restosphere.entity.User;
 import java.time.Instant;
 import java.util.UUID;
 
-public record AdminUserResponse(UUID id, String fullName, String email, Role role, AccountStatus status,
-        Instant createdAt, String initials) {
+public record AdminUserResponse(
+        UUID id,
+        String fullName,
+        String email,
+        Role role,
+        AccountStatus status,
+        Instant createdAt,
+        String initials) {
 
     public static AdminUserResponse from(User u) {
-        return new AdminUserResponse(u.getId(), u.getFullName(), u.getEmail(), u.getRole(),
-                u.isEnabled() ? AccountStatus.ACTIVE : AccountStatus.LOCKED, u.getCreatedAt(),
+        return new AdminUserResponse(
+                u.getId(),
+                u.getFullName(),
+                u.getEmail(),
+                u.getRole(),
+                u.isEnabled() ? AccountStatus.ACTIVE : AccountStatus.LOCKED,
+                u.getCreatedAt(),
                 u.getFullName().substring(0, 1).toUpperCase());
     }
 }

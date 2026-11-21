@@ -35,7 +35,8 @@ public class KitchenNotificationController {
     }
 
     @PostMapping("/notifications/read")
-    public List<KitchenNotificationResponse> read(@AuthenticationPrincipal Jwt jwt,
+    public List<KitchenNotificationResponse> read(
+            @AuthenticationPrincipal Jwt jwt,
             @Valid @RequestBody(required = false) KitchenReadNotificationsRequest req) {
         return service.markRead(CurrentUserService.idOf(jwt), req == null ? null : req.ids());
     }

@@ -20,10 +20,11 @@ public class CloudinaryConfig {
         Assert.hasText(cloudName, "CLOUDINARY_CLOUD_NAME is required when Cloudinary is enabled");
         Assert.hasText(apiKey, "CLOUDINARY_API_KEY is required when Cloudinary is enabled");
         Assert.hasText(apiSecret, "CLOUDINARY_API_SECRET is required when Cloudinary is enabled");
-        return new Cloudinary(Map.of(
-                "cloud_name", cloudName,
-                "api_key", apiKey,
-                "api_secret", apiSecret,
-                "secure", true));
+        return new Cloudinary(
+                Map.of(
+                        "cloud_name", cloudName,
+                        "api_key", apiKey,
+                        "api_secret", apiSecret,
+                        "secure", true));
     }
 }
