@@ -124,7 +124,7 @@ INSERT INTO restaurant_settings
  online_reservations, buffer_minutes, timezone, currency, email_notifications, revision,
  cashier_discount_percent, manager_approval_limit, opening_hours, created_at, updated_at)
 SELECT md5('restosphere:seed:settings')::uuid, 1, 'RestoSphere Demo', '12 Nguyễn Huệ, TP. Hồ Chí Minh',
-       '02800000000', 15, 30, 8, 5, true, 15, 'Asia/Ho_Chi_Minh', 'VND', false, 0, 10, 10000000,
+       '02800000000', 15, 30, 8, 5, true, 15, 'Asia/Ho_Chi_Minh', 'VND', true, 0, 10, 10000000,
        '10:00–23:00', anchor, anchor FROM demo_cases WHERE n = 1
 ON CONFLICT DO NOTHING;
 

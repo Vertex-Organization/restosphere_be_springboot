@@ -28,7 +28,7 @@ public class RestaurantSettings extends BaseEntity {
     private String tiktok;
     private String logoUrl;
     private String coverUrl;
-    private boolean emailNotifications;
+    private boolean emailNotifications = true;
     private long revision;
 
     @Column(nullable = false, unique = true)
