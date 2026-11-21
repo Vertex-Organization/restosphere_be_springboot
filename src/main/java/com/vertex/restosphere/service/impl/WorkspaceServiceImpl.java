@@ -50,7 +50,8 @@ public class WorkspaceServiceImpl implements WorkspaceService {
                     "assign",
                     "check-in",
                     "handover",
-                    "request-exception");
+                    "request-exception",
+                    "confirm-deposit");
 
     private static final Map<String, String> SUMMARIES =
             Map.ofEntries(
@@ -63,7 +64,8 @@ public class WorkspaceServiceImpl implements WorkspaceService {
                     Map.entry("assign", "Đã cập nhật bàn."),
                     Map.entry("check-in", "Đã ghi nhận khách đến."),
                     Map.entry("handover", "Đã bàn giao cho phục vụ."),
-                    Map.entry("request-exception", "Đã gửi yêu cầu tới quản lý."));
+                    Map.entry("request-exception", "Đã gửi yêu cầu tới quản lý."),
+                    Map.entry("confirm-deposit", "Đã ghi nhận tiền cọc."));
 
     private final WorkspaceStore db;
     private final WorkspaceSnapshots snapshots;

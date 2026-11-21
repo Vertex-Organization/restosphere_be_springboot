@@ -103,6 +103,28 @@ public class ReservationMailer {
         rows.add(new String[] {"Giờ", time});
         rows.add(new String[] {"Số khách", r.getGuestCount() + " khách"});
         if (r.getArea() != null) rows.add(new String[] {"Khu vực", r.getArea().getName()});
+        if (r.getDepositAmount() != null) {
+            rows.add(
+                    new String[] {
+                        "Tiền cọc",
+                        money(r.getDepositAmount())
+                                + (r.getDepositPaidAt() == null ? " (chưa nhận)" : " (đã nhận)")
+                    });
+            if (r.awaitingDeposit()) {
+                rows.add(new String[] {"Nội dung CK", r.depositReference()});
+                rows.add(
+                        new String[] {
+                            "Hạn chuyển", r.getDepositDueAt().atZone(zone).format(TIME) + " hôm nay"
+                        });
+                if (notBlank(s.getBankAccountNumber()))
+                    rows.add(
+                            new String[] {
+                                "Tài khoản",
+                                s.getBankAccountNumber()
+                                        + (notBlank(s.getBankName()) ? " · " + s.getBankName() : "")
+                            });
+            }
+        }
         var contact = new ArrayList<String>();
         if (notBlank(s.getAddress())) contact.add(s.getAddress());
         if (notBlank(s.getPhone())) contact.add("Điện thoại: " + s.getPhone());

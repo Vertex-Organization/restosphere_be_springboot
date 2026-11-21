@@ -7,6 +7,7 @@ import com.vertex.restosphere.entity.AuditLog;
 import com.vertex.restosphere.entity.Reservation;
 import com.vertex.restosphere.entity.ReservationItem;
 import com.vertex.restosphere.entity.ReservationTable;
+import com.vertex.restosphere.entity.RestaurantSettings;
 import java.time.Duration;
 import java.time.ZoneId;
 import java.util.Comparator;
@@ -63,6 +64,8 @@ public class ReservationMapper {
                 r.getArrivedAt(),
                 "handedOverAt",
                 r.getHandedOverAt(),
+                "deposit",
+                deposit(r),
                 "preorder",
                 preorder.stream()
                         .map(
@@ -81,11 +84,38 @@ public class ReservationMapper {
                         .toList());
     }
 
+    /** Tiền cọc của lịch; null khi lịch không cần cọc. */
+    static Map<String, Object> deposit(Reservation r) {
+        if (r.getDepositAmount() == null) return null;
+        return map(
+                "amount",
+                r.getDepositAmount(),
+                "dueAt",
+                r.getDepositDueAt(),
+                "paidAt",
+                r.getDepositPaidAt(),
+                "reference",
+                r.depositReference());
+    }
+
     /** Bản rút gọn cho khách tra cứu bằng mã và số điện thoại. */
     public Map<String, Object> toPublicMap(
-            Reservation r, List<ReservationItem> items, ZoneId zone) {
+            Reservation r, List<ReservationItem> items, ZoneId zone, RestaurantSettings s) {
         var local = r.getStartsAt().atZone(zone);
+        var deposit = deposit(r);
+        if (deposit != null && r.awaitingDeposit() && s.getBankAccountNumber() != null)
+            deposit.put(
+                    "bank",
+                    map(
+                            "bankName",
+                            s.getBankName(),
+                            "accountNumber",
+                            s.getBankAccountNumber(),
+                            "accountName",
+                            s.getBankAccountName()));
         return map(
+                "deposit",
+                deposit,
                 "code",
                 r.getCode(),
                 "status",

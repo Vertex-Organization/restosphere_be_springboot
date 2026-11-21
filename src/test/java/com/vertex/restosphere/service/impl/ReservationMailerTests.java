@@ -114,4 +114,31 @@ class ReservationMailerTests {
         assertFalse(mail.html().contains("Món đặt trước"));
         assertFalse(mail.text().contains("Món đặt trước"));
     }
+
+    @Test
+    void showsDepositAmountReferenceAndDeadlineWhileUnpaid() {
+        var settings = new RestaurantSettings();
+        settings.setName("Sea's Crown");
+        settings.setBankAccountNumber("0123456789");
+        settings.setBankName("VCB");
+        var r = new Reservation();
+        r.setCode("RS-211126-005");
+        r.setCustomerName("An");
+        r.setStartsAt(Instant.parse("2026-11-22T05:00:00Z"));
+        r.setGuestCount(2);
+        r.setDepositAmount(new BigDecimal("300000"));
+        r.setDepositDueAt(Instant.parse("2026-11-21T05:15:00Z"));
+
+        var mail = ReservationMailer.render(r, settings, "Đã nhận", "Cọc", List.of());
+
+        assertTrue(mail.text().contains("Tiền cọc: 300.000đ (chưa nhận)"));
+        assertTrue(mail.text().contains("Nội dung CK: COC RS211126005"));
+        assertTrue(mail.text().contains("Hạn chuyển: 12:15"));
+        assertTrue(mail.text().contains("Tài khoản: 0123456789 · VCB"));
+
+        r.setDepositPaidAt(Instant.now());
+        var paid = ReservationMailer.render(r, settings, "Đã nhận cọc", "Cảm ơn", List.of());
+        assertTrue(paid.text().contains("Tiền cọc: 300.000đ (đã nhận)"));
+        assertFalse(paid.text().contains("Nội dung CK"));
+    }
 }

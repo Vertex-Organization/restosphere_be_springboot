@@ -562,6 +562,91 @@ class ReceptionWorkflowTests {
                                 .isNotEmpty());
     }
 
+    MenuItem dish(String price) {
+        var category = new MenuCategory();
+        category.setName("Deposit " + UUID.randomUUID());
+        db.save(category);
+        var item = new MenuItem();
+        item.setName("Cua");
+        item.setCategory(category);
+        item.setPrice(new java.math.BigDecimal(price));
+        return db.save(item);
+    }
+
+    Map<String, Object> webBooking(Area area, String phone, List<Map<String, Object>> items) {
+        return map(
+                "name",
+                "Cọc",
+                "phone",
+                phone,
+                "startsAt",
+                Instant.now().plusSeconds(86400).toString(),
+                "guests",
+                2,
+                "areaId",
+                id(area),
+                "items",
+                items);
+    }
+
+    @Test
+    void preorderedWebBookingsNeedHalfDepositBeforeConfirmation() {
+        var reception = user(Role.RECEPTIONIST);
+        var area = area("Deposit");
+        table(area, 4);
+        db.lock().setBankAccountNumber("0123456789");
+        var crab = dish("300001");
+        var view =
+                reservations.createPublic(
+                        webBooking(
+                                area,
+                                "0905000001",
+                                List.of(map("dishId", id(crab), "quantity", 2))));
+        @SuppressWarnings("unchecked")
+        var deposit = (Map<String, Object>) view.get("deposit");
+        assertEquals(new java.math.BigDecimal("300001"), deposit.get("amount"), "50% of 600002");
+        assertEquals(
+                "COC " + view.get("code").toString().replace("-", ""), deposit.get("reference"));
+        assertNotNull(deposit.get("bank"), "customer gets transfer details for the QR");
+        var r = byCode(view.get("code").toString());
+        assertTrue(r.awaitingDeposit());
+        assertThrows(ApiException.class, () -> run(reception, "type", "confirm", "id", id(r)));
+        run(reception, "type", "confirm-deposit", "id", id(r));
+        assertNotNull(r.getDepositPaidAt());
+        assertThrows(
+                ApiException.class, () -> run(reception, "type", "confirm-deposit", "id", id(r)));
+        run(reception, "type", "confirm", "id", id(r));
+        assertEquals(Reservation.Status.CONFIRMED, r.getStatus());
+        @SuppressWarnings("unchecked")
+        var paid = (Map<String, Object>) reservations.publicView(r).get("deposit");
+        assertNull(paid.get("bank"), "transfer details hidden once paid");
+
+        var plain = reservations.createPublic(webBooking(area, "0905000002", List.of()));
+        assertNull(plain.get("deposit"), "no preorder, no deposit");
+    }
+
+    @Test
+    void unpaidDepositsAreCancelledAfterTheWindow() {
+        var area = area("Deposit expiry");
+        table(area, 4);
+        var view =
+                reservations.createPublic(
+                        webBooking(
+                                area,
+                                "0905000003",
+                                List.of(map("dishId", id(dish("100000")), "quantity", 1))));
+        var r = byCode(view.get("code").toString());
+        r.setDepositDueAt(Instant.now().minusSeconds(1));
+        reservations.expireNoShows();
+        assertEquals(Reservation.Status.CANCELLED, r.getStatus());
+        assertFalse(
+                db.query(
+                                Notification.class,
+                                "from Notification n where n.kind = ?1",
+                                "DEPOSIT_EXPIRED")
+                        .isEmpty());
+    }
+
     @Test
     void publicEndpointsAreRateLimited() throws Exception {
         int last = 0;

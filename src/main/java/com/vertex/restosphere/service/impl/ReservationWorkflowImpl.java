@@ -9,6 +9,7 @@ import com.vertex.restosphere.mapper.ReservationMapper;
 import com.vertex.restosphere.service.ReservationWorkflow;
 import com.vertex.restosphere.service.ServiceWorkflow;
 import com.vertex.restosphere.service.WorkspaceStore;
+import java.math.BigDecimal;
 import java.time.*;
 import java.util.*;
 import lombok.RequiredArgsConstructor;
@@ -24,26 +25,20 @@ public class ReservationWorkflowImpl implements ReservationWorkflow {
     private final ReservationMailer mailer;
     private final ReservationMapper mapper;
     static final Map<String, String> HISTORY_LABELS =
-            Map.of(
-                    "edit",
-                    "Cập nhật lịch đặt",
-                    "assign",
-                    "Gán / đổi bàn",
-                    "reservation.move",
-                    "Quản lý đổi bàn",
-                    "confirm",
-                    "Xác nhận",
-                    "reject",
-                    "Từ chối",
-                    "cancel",
-                    "Hủy lịch",
-                    "no-show",
-                    "Không đến",
-                    "check-in",
-                    "Khách đã đến",
-                    "handover",
-                    "Bàn giao cho phục vụ");
+            Map.ofEntries(
+                    Map.entry("edit", "Cập nhật lịch đặt"),
+                    Map.entry("assign", "Gán / đổi bàn"),
+                    Map.entry("reservation.move", "Quản lý đổi bàn"),
+                    Map.entry("confirm", "Xác nhận"),
+                    Map.entry("reject", "Từ chối"),
+                    Map.entry("cancel", "Hủy lịch"),
+                    Map.entry("no-show", "Không đến"),
+                    Map.entry("check-in", "Khách đã đến"),
+                    Map.entry("handover", "Bàn giao cho phục vụ"),
+                    Map.entry("confirm-deposit", "Đã nhận tiền cọc"));
     static final int EARLY_CHECK_IN_MINUTES = 60;
+    static final BigDecimal DEPOSIT_RATE = new BigDecimal("0.5");
+    static final int DEPOSIT_WINDOW_MINUTES = 15;
     static final java.util.regex.Pattern HOURS =
             java.util.regex.Pattern.compile(
                     "(\\d{1,2})[:h](\\d{2})\\s*[-–]\\s*(\\d{1,2})[:h](\\d{2})");
@@ -92,6 +87,7 @@ public class ReservationWorkflowImpl implements ReservationWorkflow {
         if (!s.isOnlineReservations())
             throw ApiException.conflict("Nhà hàng tạm ngưng nhận đặt bàn trực tuyến.");
         var r = create(input, null, true, false);
+        requireDepositForPreorder(r);
         s.setRevision(s.getRevision() + 1);
         service.notify(
                 Role.RECEPTIONIST,
@@ -102,7 +98,15 @@ public class ReservationWorkflowImpl implements ReservationWorkflow {
         mailer.send(
                 r,
                 "Đã nhận yêu cầu đặt bàn",
-                "Nhà hàng đã nhận yêu cầu đặt bàn của bạn và sẽ xác nhận sớm.");
+                r.awaitingDeposit()
+                        ? "Vui lòng chuyển khoản tiền cọc "
+                                + ReservationMailer.money(r.getDepositAmount())
+                                + " với nội dung "
+                                + r.depositReference()
+                                + " trong "
+                                + DEPOSIT_WINDOW_MINUTES
+                                + " phút để giữ lịch."
+                        : "Nhà hàng đã nhận yêu cầu đặt bàn của bạn và sẽ xác nhận sớm.");
         db.flush();
         return publicView(r);
     }
@@ -136,6 +140,21 @@ public class ReservationWorkflowImpl implements ReservationWorkflow {
         }
         replaceItems(r, input, web);
         return r;
+    }
+
+    void requireDepositForPreorder(Reservation r) {
+        var subtotal =
+                db
+                        .query(
+                                ReservationItem.class,
+                                "from ReservationItem i where i.reservation=?1",
+                                r)
+                        .stream()
+                        .map(i -> i.getUnitPrice().multiply(i.getQuantity()))
+                        .reduce(BigDecimal.ZERO, BigDecimal::add);
+        if (subtotal.signum() <= 0) return;
+        r.setDepositAmount(whole(subtotal.multiply(DEPOSIT_RATE)));
+        r.setDepositDueAt(Instant.now().plus(Duration.ofMinutes(DEPOSIT_WINDOW_MINUTES)));
     }
 
     // RS-ddMMyy-NNN: booking creation date (restaurant timezone) + sequence; never changes, even if
@@ -391,8 +410,36 @@ public class ReservationWorkflowImpl implements ReservationWorkflow {
                         id(r));
             }
         }
-        if (!late.isEmpty() || released > 0) s.setRevision(s.getRevision() + 1);
-        return late.size() + released;
+        int unpaid = cancelUnpaidDeposits(now);
+        if (!late.isEmpty() || released > 0 || unpaid > 0) s.setRevision(s.getRevision() + 1);
+        return late.size() + released + unpaid;
+    }
+
+    int cancelUnpaidDeposits(Instant now) {
+        var expired =
+                db.query(
+                        Reservation.class,
+                        "from Reservation r where r.status=?1 and r.depositAmount is not null"
+                                + " and r.depositPaidAt is null and r.depositDueAt<=?2",
+                        Reservation.Status.PENDING,
+                        now);
+        for (var r : expired) {
+            command(
+                    "cancel",
+                    map(
+                            "id",
+                            id(r),
+                            "reason",
+                            "Quá hạn chuyển tiền cọc " + DEPOSIT_WINDOW_MINUTES + " phút"),
+                    null);
+            service.notify(
+                    Role.RECEPTIONIST,
+                    "DEPOSIT_EXPIRED",
+                    "Hủy lịch do chưa nhận cọc",
+                    r.getCode() + " · " + r.getCustomerName(),
+                    id(r));
+        }
+        return expired.size();
     }
 
     @Override
@@ -523,8 +570,22 @@ public class ReservationWorkflowImpl implements ReservationWorkflow {
                             id(session));
                 } else assign(r, tableId);
             }
+            case "confirm-deposit" -> {
+                require(r, Reservation.Status.PENDING);
+                if (!r.awaitingDeposit())
+                    throw ApiException.conflict("Lịch này không có tiền cọc chờ xác nhận.");
+                r.setDepositPaidAt(Instant.now());
+                mailer.send(
+                        r,
+                        "Đã nhận tiền cọc",
+                        "Nhà hàng đã nhận tiền cọc "
+                                + ReservationMailer.money(r.getDepositAmount())
+                                + " và sẽ xác nhận lịch của bạn sớm.");
+            }
             case "confirm" -> {
                 require(r, Reservation.Status.PENDING);
+                if (r.awaitingDeposit())
+                    throw ApiException.conflict("Khách chưa chuyển tiền cọc, chưa thể xác nhận.");
                 if (assignment(r) == null) autoAssign(r);
                 r.setStatus(Reservation.Status.CONFIRMED);
                 mailer.send(
@@ -660,7 +721,8 @@ public class ReservationWorkflowImpl implements ReservationWorkflow {
     public Map<String, Object> publicView(Reservation r) {
         var items =
                 db.query(ReservationItem.class, "from ReservationItem i where i.reservation=?1", r);
-        return mapper.toPublicMap(r, items, ZoneId.of(db.lock().getTimezone()));
+        var s = db.lock();
+        return mapper.toPublicMap(r, items, ZoneId.of(s.getTimezone()), s);
     }
 
     /** Bàn đang có phiên phục vụ chưa đóng. */

@@ -1,6 +1,7 @@
 package com.vertex.restosphere.entity;
 
 import jakarta.persistence.*;
+import java.math.BigDecimal;
 import java.time.Instant;
 import lombok.Getter;
 import lombok.Setter;
@@ -78,4 +79,21 @@ public class Reservation extends BaseEntity {
 
     @Column(length = 150)
     private String occasion;
+
+    /** Required deposit in whole VND; null when the booking needs none. */
+    @Column(precision = 14, scale = 0)
+    private BigDecimal depositAmount;
+
+    private Instant depositDueAt;
+
+    private Instant depositPaidAt;
+
+    public boolean awaitingDeposit() {
+        return depositAmount != null && depositPaidAt == null;
+    }
+
+    /** Bank transfer note customers must use so staff can match the deposit. */
+    public String depositReference() {
+        return "COC " + code.replace("-", "");
+    }
 }
