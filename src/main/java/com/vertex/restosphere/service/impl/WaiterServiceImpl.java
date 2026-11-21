@@ -156,7 +156,7 @@ public class WaiterServiceImpl implements WaiterService {
             item.setOrder(order);
             item.setMenuItem(menu);
             item.setItemName(menu.getName());
-            item.setUnit(menu.getPriceUnit());
+            item.setUnit(menu.getPriceUnit().getValue());
             item.setUnitPrice(menu.getPrice());
             item.setQuantity(draft.getQuantity());
             item.setNote(draft.getNote());
@@ -347,7 +347,7 @@ public class WaiterServiceImpl implements WaiterService {
         return Boolean.TRUE.equals(command.get("confirmed"));
     }
 
-    private static boolean same(BaseEntity a, BaseEntity b) {
+    private static boolean same(ImmutableEntity a, ImmutableEntity b) {
         return a != null && b != null && a.getId().equals(b.getId());
     }
 }

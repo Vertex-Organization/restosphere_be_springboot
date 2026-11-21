@@ -1,5 +1,6 @@
 package com.vertex.restosphere.service;
 
+import com.vertex.restosphere.common.enums.DiscountMode;
 import com.vertex.restosphere.entity.ApprovalRequest;
 import com.vertex.restosphere.entity.Bill;
 import com.vertex.restosphere.entity.OrderItem;
@@ -31,7 +32,7 @@ public interface BillingWorkflow {
     /** Chuyển hóa đơn sang PAID khi đã thu đủ, ngược lại mở lại. */
     void settle(Bill b);
 
-    void applyDiscount(Bill b, String mode, BigDecimal value, String reason, User user);
+    void applyDiscount(Bill b, DiscountMode mode, BigDecimal value, String reason, User user);
 
     ApprovalRequest request(
             ApprovalRequest.Type type,

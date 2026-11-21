@@ -8,7 +8,12 @@ import lombok.Setter;
 @Getter
 @Setter
 @Entity
-@Table(name = "incidents")
+@Table(
+        name = "incidents",
+        indexes = {
+            @Index(name = "idx_incidents_status", columnList = "status"),
+            @Index(name = "idx_incidents_created_at", columnList = "created_at")
+        })
 public class Incident extends BaseEntity {
     public enum Status {
         OPEN,

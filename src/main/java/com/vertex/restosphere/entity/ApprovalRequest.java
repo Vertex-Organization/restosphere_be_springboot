@@ -1,5 +1,7 @@
 package com.vertex.restosphere.entity;
 
+import com.vertex.restosphere.common.enums.DiscountMode;
+import com.vertex.restosphere.common.enums.MenuItemStatus;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -10,11 +12,24 @@ import lombok.Setter;
 @Getter
 @Setter
 @Entity
-@Table(name = "approval_requests")
+@Table(
+        name = "approval_requests",
+        indexes = {
+            @Index(name = "idx_approval_requests_type_status", columnList = "type, status"),
+            @Index(name = "idx_approval_requests_target_id", columnList = "target_id"),
+            @Index(name = "idx_approval_requests_requested_by", columnList = "requested_by")
+        })
 public class ApprovalRequest extends BaseEntity {
-    private String discountMode;
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    private DiscountMode discountMode;
+
+    @Column(precision = 14, scale = 2)
     private BigDecimal discountValue;
-    private String menuStatus;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    private MenuItemStatus menuStatus;
 
     public enum Type {
         DISCOUNT,

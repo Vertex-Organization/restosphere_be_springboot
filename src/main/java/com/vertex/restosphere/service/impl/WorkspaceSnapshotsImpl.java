@@ -212,9 +212,6 @@ public class WorkspaceSnapshotsImpl implements WorkspaceSnapshots {
         var preorder =
                 SnapshotContext.group(
                         ctx.all(ReservationItem.class), i -> i.getReservation().getId());
-        var history =
-                SnapshotContext.group(
-                        ctx.all(ReservationHistory.class), h -> h.getReservation().getId());
         return ctx.all(Reservation.class).stream()
                 .map(
                         r ->
@@ -222,7 +219,7 @@ public class WorkspaceSnapshotsImpl implements WorkspaceSnapshots {
                                         r,
                                         assignment.get(r.getId()),
                                         preorder.getOrDefault(r.getId(), List.of()),
-                                        history.getOrDefault(r.getId(), List.of()).stream()
+                                        ctx.audit(r.getId()).stream()
                                                 .sorted(ReservationMapper.HISTORY_ORDER)
                                                 .toList()))
                 .toList();

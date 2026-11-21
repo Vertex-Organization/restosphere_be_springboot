@@ -8,8 +8,14 @@ import lombok.Setter;
 @Getter
 @Setter
 @Entity
-@Table(name = "audit_logs")
-public class AuditLog extends BaseEntity {
+@Table(
+        name = "audit_logs",
+        indexes = {
+            @Index(name = "idx_audit_logs_target_id", columnList = "target_id"),
+            @Index(name = "idx_audit_logs_created_at", columnList = "created_at"),
+            @Index(name = "idx_audit_logs_actor_id", columnList = "actor_id")
+        })
+public class AuditLog extends ImmutableEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "actor_id")
     private User actor;

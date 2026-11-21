@@ -1,6 +1,8 @@
 package com.vertex.restosphere.service.impl;
 
+import com.vertex.restosphere.common.enums.MenuGroup;
 import com.vertex.restosphere.common.enums.MenuItemStatus;
+import com.vertex.restosphere.common.enums.PriceUnit;
 import com.vertex.restosphere.common.enums.Role;
 import com.vertex.restosphere.dto.request.MenuCategoryRequest;
 import com.vertex.restosphere.dto.request.MenuItemRequest;
@@ -73,7 +75,7 @@ public class MenuServiceImpl implements MenuService {
         c.setName(name);
         c.setSortOrder(req.sortOrder());
         c.setVisible(req.visible());
-        c.setMenuGroup(req.group() == null ? "food" : req.group());
+        c.setMenuGroup(req.group() == null ? MenuGroup.FOOD : req.group());
         categories.save(c);
         audit(actor, "CATEGORY_CREATED", c, "Thêm danh mục ");
         return MenuCategoryResponse.from(c);
@@ -88,11 +90,11 @@ public class MenuServiceImpl implements MenuService {
         if (categories.existsByNameIgnoreCaseAndIdNot(name, id)) {
             throw ApiException.conflict("Category name already exists");
         }
-        String group = req.group() == null ? c.getMenuGroup() : req.group();
+        MenuGroup group = req.group() == null ? c.getMenuGroup() : req.group();
         if (name.equals(c.getName())
                 && req.sortOrder() == c.getSortOrder()
                 && req.visible() == c.isVisible()
-                && group.equals(c.getMenuGroup())) {
+                && group == c.getMenuGroup()) {
             return MenuCategoryResponse.from(c);
         }
         c.setName(name);
@@ -157,7 +159,7 @@ public class MenuServiceImpl implements MenuService {
         item.setDescription(blankToNull(req.description()));
         item.setImageUrl(blankToNull(req.imageUrl()));
         item.setStatus(req.status() == null ? MenuItemStatus.AVAILABLE : req.status());
-        item.setPriceUnit(req.unit() == null ? "portion" : req.unit());
+        item.setPriceUnit(req.unit() == null ? PriceUnit.PORTION : req.unit());
         // Flush ngay de response co updatedAt.
         items.saveAndFlush(item);
         auditItem(actor, "MENU_ITEM_CREATED", item.getId(), "Thêm món " + item.getName());
@@ -178,7 +180,7 @@ public class MenuServiceImpl implements MenuService {
         String description = blankToNull(req.description());
         String imageUrl = blankToNull(req.imageUrl());
         MenuItemStatus status = req.status() == null ? item.getStatus() : req.status();
-        String unit = req.unit() == null ? item.getPriceUnit() : req.unit();
+        PriceUnit unit = req.unit() == null ? item.getPriceUnit() : req.unit();
         BigDecimal oldPrice = item.getPrice();
         boolean priceChanged = req.price().compareTo(oldPrice) != 0;
         if (name.equals(item.getName())
@@ -187,7 +189,7 @@ public class MenuServiceImpl implements MenuService {
                 && Objects.equals(description, item.getDescription())
                 && Objects.equals(imageUrl, item.getImageUrl())
                 && status == item.getStatus()
-                && unit.equals(item.getPriceUnit())) {
+                && unit == item.getPriceUnit()) {
             return MenuItemResponse.from(item);
         }
         item.setName(name);

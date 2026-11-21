@@ -1,5 +1,6 @@
 package com.vertex.restosphere.dto.response;
 
+import com.vertex.restosphere.common.enums.MenuItemStatus;
 import com.vertex.restosphere.entity.ApprovalRequest;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -17,7 +18,7 @@ public record ApprovalResponse(
         UUID paymentId,
         UUID itemId,
         BigDecimal amount,
-        String menuStatus,
+        MenuItemStatus menuStatus,
         String reason,
         UUID requestedBy,
         Instant requestedAt,

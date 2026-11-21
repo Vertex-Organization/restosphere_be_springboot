@@ -1,5 +1,6 @@
 package com.vertex.restosphere.service.impl;
 
+import com.vertex.restosphere.common.enums.DiscountMode;
 import com.vertex.restosphere.common.enums.Role;
 import com.vertex.restosphere.common.util.Values;
 import com.vertex.restosphere.dto.request.CashierDiscountRequest;
@@ -17,7 +18,6 @@ import com.vertex.restosphere.service.RestaurantLock;
 import com.vertex.restosphere.service.WorkspaceCommit;
 import com.vertex.restosphere.service.WorkspaceStore;
 import java.math.BigDecimal;
-import java.util.Set;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -26,7 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class CashierDiscountServiceImpl implements CashierDiscountService {
-    private record Parsed(String mode, BigDecimal value, BigDecimal amount, String reason) {}
+    private record Parsed(DiscountMode mode, BigDecimal value, BigDecimal amount, String reason) {}
 
     private final CurrentUserService currentUser;
     private final RestaurantLock restaurantLock;
@@ -105,21 +105,20 @@ public class CashierDiscountServiceImpl implements CashierDiscountService {
     }
 
     private Parsed parse(Bill bill, CashierDiscountRequest.Discount d) {
-        String mode = d.mode() == null ? "" : d.mode().trim();
-        if (mode.isEmpty() || mode.length() > 20) {
-            throw Values.invalid("mode is required (max 20)");
+        DiscountMode mode = d.mode();
+        if (mode == null) {
+            throw Values.invalid("mode is required");
         }
         if (d.value() == null) {
             throw Values.invalid("Invalid value");
         }
         BigDecimal value = Values.money(d.value(), "value");
-        if (!Set.of("PERCENT", "AMOUNT").contains(mode)
-                || value.signum() == 0
-                || (mode.equals("PERCENT") && value.compareTo(BigDecimal.valueOf(100)) > 0)) {
+        if (value.signum() == 0
+                || (mode == DiscountMode.PERCENT && value.compareTo(BigDecimal.valueOf(100)) > 0)) {
             throw Values.invalid("Invalid discount");
         }
         BigDecimal amount =
-                mode.equals("PERCENT")
+                mode == DiscountMode.PERCENT
                         ? Values.whole(bill.getSubtotal().multiply(value).movePointLeft(2))
                         : value;
         if (amount.compareTo(bill.getSubtotal()) > 0) {

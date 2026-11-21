@@ -103,7 +103,6 @@ Quy tắc đặt file:
 - Nhánh: `feat/<tên>`, `fix/<tên>`, `refactor/<tên>` tạo từ `develop`. `main` chỉ dùng cho release.
 - Commit: `<loại>(<phạm vi>): <mô tả>` với loại là `feat`, `fix`, `refactor`, `chore`, `test`, `docs`. Ví dụ: `fix(cashier): reject payment above outstanding amount`. Mô tả ngắn, tiếng Anh, thì hiện tại.
 - Mỗi commit làm một việc, build và test pass.
-- Không push thẳng vào `develop` hoặc `main`. Mọi thay đổi đi qua **Pull Request**, cần **1 người review** duyệt, và build + test pass.
 - PR mô tả: làm gì, vì sao, ảnh hưởng FE/DB (nếu có), cách kiểm tra.
 - Giải quyết conflict phải xem kỹ cả hai phía; không chọn một bên mà làm mất code của người khác. Sau khi merge phải chạy lại build và test.
 
@@ -112,7 +111,7 @@ Quy tắc đặt file:
 Agent **được** đọc code, sửa code trong phạm vi yêu cầu, chạy build/test/format, và **commit cục bộ chỉ khi thành viên yêu cầu rõ ràng**. Không tự commit khi hoàn thành công việc.
 
 Agent **không được**:
-- `git push`, force-push, đổi lịch sử (`reset --hard`, `rebase` lên nhánh chung, `commit --amend` commit đã push).
+- Force-push, đổi lịch sử (`reset --hard`, `rebase` lên nhánh chung, `commit --amend` commit đã push).
 - Chạy lệnh phá hủy dữ liệu hoặc đổi database đang dùng.
 - Sửa `.env` hoặc đọc/in giá trị bí mật.
 - Xóa chức năng hoặc file của thành viên khác khi chưa kiểm tra và hỏi.

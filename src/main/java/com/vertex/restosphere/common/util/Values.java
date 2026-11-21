@@ -1,6 +1,7 @@
 package com.vertex.restosphere.common.util;
 
-import com.vertex.restosphere.entity.BaseEntity;
+import com.vertex.restosphere.common.enums.PriceUnit;
+import com.vertex.restosphere.entity.ImmutableEntity;
 import com.vertex.restosphere.exception.ApiException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -48,12 +49,12 @@ public final class Values {
         return result;
     }
 
-    public static String id(BaseEntity entity) {
+    public static String id(ImmutableEntity entity) {
         return entity == null ? "" : entity.getId().toString();
     }
 
     /** Mã ngắn dễ đọc, ví dụ {@code B-1A2B3C4D}. */
-    public static String code(String prefix, BaseEntity entity) {
+    public static String code(String prefix, ImmutableEntity entity) {
         return entity == null
                 ? ""
                 : prefix + "-" + entity.getId().toString().substring(0, 8).toUpperCase();
@@ -154,7 +155,7 @@ public final class Values {
 
     public static void validateQuantity(
             com.vertex.restosphere.entity.MenuItem item, BigDecimal quantity) {
-        boolean byWeight = "kg".equals(item.getPriceUnit());
+        boolean byWeight = item.getPriceUnit() == PriceUnit.KG;
         if (quantity.signum() <= 0
                 || quantity.compareTo(new BigDecimal("999")) > 0
                 || quantity.stripTrailingZeros().scale() > 3

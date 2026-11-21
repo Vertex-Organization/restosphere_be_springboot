@@ -14,7 +14,6 @@ import com.vertex.restosphere.entity.TableSession;
 import com.vertex.restosphere.entity.User;
 import com.vertex.restosphere.exception.ApiException;
 import com.vertex.restosphere.repository.AuditLogRepository;
-import com.vertex.restosphere.repository.ReservationHistoryRepository;
 import com.vertex.restosphere.repository.ReservationItemRepository;
 import com.vertex.restosphere.repository.ReservationRepository;
 import com.vertex.restosphere.repository.ReservationTableRepository;
@@ -58,7 +57,6 @@ public class ManagerReservationServiceImpl implements ManagerReservationService 
     private final ReservationRepository reservations;
     private final ReservationTableRepository reservationTables;
     private final ReservationItemRepository reservationItems;
-    private final ReservationHistoryRepository histories;
     private final RestaurantTableRepository tables;
     private final TableSessionRepository sessions;
     private final RestaurantSettingsRepository settings;
@@ -128,7 +126,6 @@ public class ManagerReservationServiceImpl implements ManagerReservationService 
             throw ApiException.conflict("Table is not available now");
         }
         reservationWorkflow.assign(r, table.getId().toString());
-        reservationWorkflow.history(r, actor, "reservation.move", reason);
 
         AuditLog log = new AuditLog();
         log.setActor(actor);
@@ -164,7 +161,7 @@ public class ManagerReservationServiceImpl implements ManagerReservationService 
                 reservationItems.findWithMenuItemByReservationIdIn(ids).stream()
                         .collect(Collectors.groupingBy(i -> i.getReservation().getId()));
         Map<UUID, UUID> employeeByReservation = new HashMap<>();
-        histories
+        auditLogs
                 .findActorsByReservationIdIn(ids)
                 .forEach(row -> employeeByReservation.putIfAbsent((UUID) row[0], (UUID) row[1]));
 

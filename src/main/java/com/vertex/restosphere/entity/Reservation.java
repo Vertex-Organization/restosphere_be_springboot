@@ -9,7 +9,13 @@ import org.hibernate.annotations.Check;
 @Getter
 @Setter
 @Entity
-@Table(name = "reservations")
+@Table(
+        name = "reservations",
+        indexes = {
+            @Index(name = "idx_reservations_starts_at", columnList = "starts_at"),
+            @Index(name = "idx_reservations_status", columnList = "status"),
+            @Index(name = "idx_reservations_area_status", columnList = "area_id, status")
+        })
 @Check(constraints = "guest_count > 0 and ends_at > starts_at")
 public class Reservation extends BaseEntity {
     public enum Status {

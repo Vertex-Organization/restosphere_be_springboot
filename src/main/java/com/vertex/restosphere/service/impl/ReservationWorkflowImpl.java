@@ -626,11 +626,11 @@ public class ReservationWorkflowImpl implements ReservationWorkflow {
 
     @Override
     public void history(Reservation r, User actor, String action, String description) {
-        var h = new ReservationHistory();
-        h.setReservation(r);
+        var h = new AuditLog();
+        h.setTargetType("RESERVATION");
+        h.setTargetId(r.getId());
         h.setActor(actor);
         h.setAction(action);
-        h.setNewStatus(r.getStatus());
         h.setDescription(description);
         db.save(h);
     }

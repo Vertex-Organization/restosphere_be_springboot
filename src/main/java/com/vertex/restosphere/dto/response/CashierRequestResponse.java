@@ -1,6 +1,7 @@
 package com.vertex.restosphere.dto.response;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.vertex.restosphere.common.enums.DiscountMode;
 import com.vertex.restosphere.entity.ApprovalRequest;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -25,7 +26,7 @@ public record CashierRequestResponse(
         UUID decidedBy,
         Instant decidedAt,
         String decisionNote) {
-    public record Discount(String mode, BigDecimal value, BigDecimal amount) {}
+    public record Discount(DiscountMode mode, BigDecimal value, BigDecimal amount) {}
 
     public static CashierRequestResponse from(
             ApprovalRequest r, UUID billId, UUID paymentId, UUID itemId) {

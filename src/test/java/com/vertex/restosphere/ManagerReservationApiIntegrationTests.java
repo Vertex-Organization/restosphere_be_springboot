@@ -1,6 +1,7 @@
 package com.vertex.restosphere;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.hasItem;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -12,10 +13,10 @@ import com.jayway.jsonpath.JsonPath;
 import com.vertex.restosphere.common.enums.Role;
 import com.vertex.restosphere.common.enums.TableStatus;
 import com.vertex.restosphere.entity.Area;
+import com.vertex.restosphere.entity.AuditLog;
 import com.vertex.restosphere.entity.MenuCategory;
 import com.vertex.restosphere.entity.MenuItem;
 import com.vertex.restosphere.entity.Reservation;
-import com.vertex.restosphere.entity.ReservationHistory;
 import com.vertex.restosphere.entity.ReservationItem;
 import com.vertex.restosphere.entity.ReservationTable;
 import com.vertex.restosphere.entity.RestaurantSettings;
@@ -99,13 +100,12 @@ class ManagerReservationApiIntegrationTests {
     @AfterEach
     void tearDown() {
         for (UUID id : reservationIds) {
-            jdbc.update("delete from reservation_histories where reservation_id = ?", id);
             jdbc.update("delete from reservation_tables where reservation_id = ?", id);
             jdbc.update("delete from reservation_items where reservation_id = ?", id);
         }
         sessionIds.forEach(id -> jdbc.update("delete from table_sessions where id = ?", id));
         reservationIds.forEach(id -> jdbc.update("delete from reservations where id = ?", id));
-        tableIds.forEach(id -> jdbc.update("delete from tables where id = ?", id));
+        tableIds.forEach(id -> jdbc.update("delete from restaurant_tables where id = ?", id));
         areaIds.forEach(id -> jdbc.update("delete from areas where id = ?", id));
         menuItemIds.forEach(id -> jdbc.update("delete from menu_items where id = ?", id));
         categoryIds.forEach(id -> jdbc.update("delete from menu_categories where id = ?", id));
@@ -271,7 +271,7 @@ class ManagerReservationApiIntegrationTests {
     }
 
     @Test
-    void changeConfirmedTableWritesHistoryAndAudit() throws Exception {
+    void changeConfirmedTableWritesAudit() throws Exception {
         RestaurantTable from = table("M4-C1", areaA, 4, TableStatus.AVAILABLE);
         RestaurantTable to = table("M4-C2", areaA, 6, TableStatus.AVAILABLE);
         Reservation r = reservation(areaA, future(3, 19), 4, Reservation.Status.CONFIRMED);
@@ -283,19 +283,6 @@ class ManagerReservationApiIntegrationTests {
                 .andExpect(jsonPath("$.tableCode").value("M4-C2"))
                 .andExpect(jsonPath("$.status").value("CONFIRMED"));
 
-        List<Map<String, Object>> rows =
-                jdbc.queryForList(
-                        "select action, description, actor_id from reservation_histories where"
-                                + " reservation_id = ?",
-                        r.getId());
-        assertThat(rows)
-                .singleElement()
-                .satisfies(
-                        h -> {
-                            assertThat(h.get("action")).isEqualTo("reservation.move");
-                            assertThat(h.get("description")).isEqualTo(REASON);
-                            assertThat(h.get("actor_id")).isEqualTo(manager.getId());
-                        });
         assertThat(
                         jdbc.queryForList(
                                 "select table_id from reservation_tables where reservation_id = ?",
@@ -469,7 +456,7 @@ class ManagerReservationApiIntegrationTests {
                 .andExpect(status().isOk())
                 .andExpect(
                         jsonPath("$.reservations[?(@.id == '%s')].history[*].text".formatted(id))
-                                .value(hasItem(REASON)));
+                                .value(hasItem(containsString(REASON))));
     }
 
     // ---- du lieu ----
@@ -566,15 +553,16 @@ class ManagerReservationApiIntegrationTests {
     }
 
     private void history(Reservation r, User actor, String at) {
-        ReservationHistory h = new ReservationHistory();
-        h.setReservation(r);
+        AuditLog h = new AuditLog();
+        h.setTargetType("RESERVATION");
+        h.setTargetId(r.getId());
         h.setActor(actor);
         h.setAction("test");
         h.setDescription("test");
         persist(h);
         // Dat created_at co dinh de thu tu "moi nhat" khong phu thuoc toc do may.
         jdbc.update(
-                "update reservation_histories set created_at = ? where id = ?",
+                "update audit_logs set created_at = ? where id = ?",
                 Timestamp.from(Instant.parse(at)),
                 h.getId());
     }

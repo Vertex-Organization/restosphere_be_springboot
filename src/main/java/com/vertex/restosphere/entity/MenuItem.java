@@ -1,11 +1,13 @@
 package com.vertex.restosphere.entity;
 
 import com.vertex.restosphere.common.enums.MenuItemStatus;
+import com.vertex.restosphere.common.enums.PriceUnit;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
+import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
@@ -18,7 +20,9 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 @Entity
-@Table(name = "menu_items")
+@Table(
+        name = "menu_items",
+        indexes = @Index(name = "idx_menu_items_category_id", columnList = "category_id"))
 public class MenuItem extends BaseEntity {
 
     @Column(nullable = false, length = 150)
@@ -38,12 +42,13 @@ public class MenuItem extends BaseEntity {
     @Column(name = "image_url", length = 500)
     private String imageUrl;
 
+    @Enumerated(EnumType.STRING)
     @Column(
             name = "price_unit",
             nullable = false,
             length = 20,
             columnDefinition = "varchar(20) default 'portion'")
-    private String priceUnit = "portion";
+    private PriceUnit priceUnit = PriceUnit.PORTION;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)

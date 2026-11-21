@@ -1,6 +1,7 @@
 package com.vertex.restosphere.dto.response;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.vertex.restosphere.common.enums.DiscountMode;
 import com.vertex.restosphere.entity.Bill;
 import com.vertex.restosphere.entity.TableSession;
 import java.math.BigDecimal;
@@ -30,7 +31,11 @@ public record CashierBillResponse(
         List<CashierItemResponse> items,
         List<CashierPaymentResponse> payments) {
     public record Discount(
-            String mode, BigDecimal value, String reason, String appliedBy, Instant appliedAt) {}
+            DiscountMode mode,
+            BigDecimal value,
+            String reason,
+            String appliedBy,
+            Instant appliedAt) {}
 
     public record Totals(
             BigDecimal subtotal,

@@ -9,8 +9,9 @@ import lombok.Setter;
 @Entity
 @Table(
         name = "reservation_tables",
-        uniqueConstraints = @UniqueConstraint(columnNames = {"reservation_id", "table_id"}))
-public class ReservationTable extends BaseEntity {
+        uniqueConstraints = @UniqueConstraint(columnNames = {"reservation_id", "table_id"}),
+        indexes = @Index(name = "idx_reservation_tables_table_id", columnList = "table_id"))
+public class ReservationTable extends ImmutableEntity {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "reservation_id", nullable = false)
     private Reservation reservation;
