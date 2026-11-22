@@ -339,12 +339,14 @@ public class ReservationWorkflowImpl implements ReservationWorkflow {
     Reservation find(Map<String, Object> input) {
         db.lock();
         String code = required(input, "code", 30), phone = phone(input);
+        var phones =
+                phone.startsWith("0") ? List.of(phone, "+84" + phone.substring(1)) : List.of(phone);
         return db
                 .query(
                         Reservation.class,
-                        "from Reservation r where upper(r.code)=?1 and r.phone=?2",
+                        "from Reservation r where upper(r.code)=?1 and r.phone in ?2",
                         code.toUpperCase(),
-                        phone)
+                        phones)
                 .stream()
                 .findFirst()
                 .orElseThrow(

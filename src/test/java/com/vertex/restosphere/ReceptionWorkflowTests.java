@@ -76,6 +76,120 @@ class ReceptionWorkflowTests {
     }
 
     @Test
+    void reservationPhoneNormalizesOnCreationAndEdit() {
+        var area = area("Phone normalization");
+        table(area, 4);
+        var input =
+                map(
+                        "name",
+                        "Guest",
+                        "phone",
+                        "+84706710269",
+                        "startsAt",
+                        Instant.now().plusSeconds(7200).toString(),
+                        "guests",
+                        2,
+                        "areaId",
+                        id(area));
+        var booking = reservations.createPublic(input);
+        String code = booking.get("code").toString();
+        var r = byCode(code);
+        assertEquals("0706710269", r.getPhone());
+        for (String phone : List.of("0706710269", "+84706710269")) {
+            assertEquals(code, reservations.lookup(map("code", code, "phone", phone)).get("code"));
+        }
+        input.put("customer", map("name", "Guest", "phone", "+84901234567"));
+        run(user(Role.RECEPTIONIST), "type", "edit", "id", id(r), "input", input);
+        assertEquals("0901234567", r.getPhone());
+        assertEquals(
+                code, reservations.lookup(map("code", code, "phone", "+84901234567")).get("code"));
+    }
+
+    @Test
+    void legacyVietnamesePhoneLookupAndCancelAcceptBothFormsOnly() {
+        var area = area("Legacy phone");
+        table(area, 4);
+        for (String cancelPhone : List.of("0706710269", "+84706710269")) {
+            var booking =
+                    reservations.createPublic(
+                            map(
+                                    "name",
+                                    "Guest",
+                                    "phone",
+                                    "0706710269",
+                                    "startsAt",
+                                    Instant.now().plusSeconds(7200).toString(),
+                                    "guests",
+                                    2,
+                                    "areaId",
+                                    id(area)));
+            String code = booking.get("code").toString();
+            var r = byCode(code);
+            r.setPhone("+84706710269");
+            db.flush();
+            for (String phone : List.of("0706710269", "+84706710269")) {
+                assertEquals(
+                        code, reservations.lookup(map("code", code, "phone", phone)).get("code"));
+                assertEquals("+84706710269", r.getPhone());
+            }
+            for (String phone : List.of("0706710268", "+84706710268", "+1706710269")) {
+                assertEquals(
+                        org.springframework.http.HttpStatus.NOT_FOUND,
+                        assertThrows(
+                                        ApiException.class,
+                                        () ->
+                                                reservations.lookup(
+                                                        map("code", code, "phone", phone)))
+                                .getStatus());
+                assertEquals(
+                        org.springframework.http.HttpStatus.NOT_FOUND,
+                        assertThrows(
+                                        ApiException.class,
+                                        () ->
+                                                reservations.cancelPublic(
+                                                        map(
+                                                                "code", code, "phone", phone,
+                                                                "reason", "Busy")))
+                                .getStatus());
+            }
+            assertEquals(Reservation.Status.PENDING, r.getStatus());
+            assertEquals(
+                    Reservation.Status.CANCELLED,
+                    reservations
+                            .cancelPublic(map("code", code, "phone", cancelPhone, "reason", "Busy"))
+                            .get("status"));
+            assertEquals("+84706710269", r.getPhone());
+        }
+    }
+
+    @Test
+    void internationalReservationPhoneRemainsSupported() {
+        var area = area("International phone");
+        table(area, 4);
+        var booking =
+                reservations.createPublic(
+                        map(
+                                "name",
+                                "Guest",
+                                "phone",
+                                "+14155552671",
+                                "startsAt",
+                                Instant.now().plusSeconds(7200).toString(),
+                                "guests",
+                                2,
+                                "areaId",
+                                id(area)));
+        String code = booking.get("code").toString();
+        assertEquals("+14155552671", byCode(code).getPhone());
+        assertEquals(
+                code,
+                reservations.lookup(map("code", code, "phone", "+1 (415) 555-2671")).get("code"));
+        assertThrows(
+                ApiException.class,
+                () -> reservations.lookup(map("code", code, "phone", "04155552671")));
+    }
+
+    @Test
     void codeLookupCancelAndConfirmAutoAssign() {
         var staff = user(Role.RECEPTIONIST);
         var area = area("Bookings");

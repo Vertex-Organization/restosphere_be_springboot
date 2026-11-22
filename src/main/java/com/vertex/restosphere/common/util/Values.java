@@ -79,7 +79,8 @@ public final class Values {
 
     /** Số điện thoại đã bỏ khoảng trắng, dấu chấm, gạch và ngoặc. */
     public static String phone(Map<String, Object> input) {
-        return required(input, "phone", 30).replaceAll("[\\s().-]", "");
+        String phone = required(input, "phone", 30).replaceAll("[\\s().-]", "");
+        return phone.startsWith("+84") ? "0" + phone.substring(3) : phone;
     }
 
     public static String required(Map<String, Object> input, String key, int max) {
