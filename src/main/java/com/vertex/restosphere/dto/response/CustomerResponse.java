@@ -7,7 +7,10 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
-/** {@code recentReservations} chỉ có ở API chi tiết; danh sách trả về mảng rỗng. */
+/**
+ * {@code recentReservations} chỉ có ở API chi tiết; danh sách trả về mảng rỗng. {@code
+ * welcomeEmailSent} chỉ có khi đăng ký/thêm mới (true = đã xếp hàng gửi thư), các API khác là null.
+ */
 public record CustomerResponse(
         UUID id,
         String fullName,
@@ -20,7 +23,8 @@ public record CustomerResponse(
         Instant createdAt,
         long reservationCount,
         Instant lastVisitAt,
-        List<RecentReservation> recentReservations) {
+        List<RecentReservation> recentReservations,
+        Boolean welcomeEmailSent) {
 
     public record RecentReservation(
             UUID id,

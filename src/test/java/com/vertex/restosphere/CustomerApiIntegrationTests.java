@@ -90,6 +90,40 @@ class CustomerApiIntegrationTests {
     }
 
     @Test
+    void responseReportsWhenTheWelcomeEmailWasQueued() throws Exception {
+        org.mockito.Mockito.doReturn(true)
+                .when(mailer)
+                .sendWelcome(org.mockito.ArgumentMatchers.any());
+        mvc.perform(
+                        post(REGISTER)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(body("Phạm Lan", "0909000001")))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.welcomeEmailSent").value(true));
+        org.mockito.Mockito.doReturn(false)
+                .when(mailer)
+                .sendWelcome(org.mockito.ArgumentMatchers.any());
+        mvc.perform(
+                        post(REGISTER)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(body("Phạm Hà", "0909000002")))
+                .andExpect(jsonPath("$.welcomeEmailSent").value(false));
+        mvc.perform(get(MANAGE).with(as(Role.MANAGER)).param("q", "0909000001"))
+                .andExpect(jsonPath("$.items[0].welcomeEmailSent").doesNotExist());
+    }
+
+    @Test
+    void welcomeEmailIsSkippedWithoutAddressOrWhenNotificationsAreOff() {
+        var c = new com.vertex.restosphere.entity.Customer();
+        c.setFullName("Lan");
+        c.setPhone("0909000003");
+        org.junit.jupiter.api.Assertions.assertFalse(mailer.sendWelcome(c), "no email address");
+        c.setEmail("lan@example.com");
+        db.lock().setEmailNotifications(false);
+        org.junit.jupiter.api.Assertions.assertFalse(mailer.sendWelcome(c), "notifications off");
+    }
+
+    @Test
     void duplicatePhoneIsRejectedInEitherFormat() throws Exception {
         register("An", "0901234568");
         mvc.perform(

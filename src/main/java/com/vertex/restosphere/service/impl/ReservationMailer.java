@@ -63,11 +63,13 @@ public class ReservationMailer {
         deliver(mail, r.getEmail(), r.getCode(), render(r, s, subject, body, items));
     }
 
-    public void sendWelcome(Customer c) {
+    /** Returns whether the email was queued; SMTP delivery itself happens in the background. */
+    public boolean sendWelcome(Customer c) {
         var mail = sender.getIfAvailable();
         var s = db.lock();
-        if (mail == null || !s.isEmailNotifications() || !notBlank(c.getEmail())) return;
+        if (mail == null || !s.isEmailNotifications() || !notBlank(c.getEmail())) return false;
         deliver(mail, c.getEmail(), "member " + c.getId(), renderWelcome(c, s));
+        return true;
     }
 
     static Content renderWelcome(Customer c, RestaurantSettings s) {

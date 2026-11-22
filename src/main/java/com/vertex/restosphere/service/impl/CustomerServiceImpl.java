@@ -49,8 +49,7 @@ public class CustomerServiceImpl implements CustomerService {
         var c = new Customer();
         apply(c, req, false);
         customers.saveAndFlush(c);
-        mailer.sendWelcome(c);
-        return toResponse(c, List.of());
+        return created(c, mailer.sendWelcome(c));
     }
 
     @Transactional(readOnly = true)
@@ -96,7 +95,7 @@ public class CustomerServiceImpl implements CustomerService {
                                                 r.getStatus()))
                         .toList();
         var stats = statsByPhone(List.of(c)).getOrDefault(c.getPhone(), Stats.NONE);
-        return toResponse(c, stats, recent);
+        return toResponse(c, stats, recent, null);
     }
 
     @Transactional
@@ -106,9 +105,9 @@ public class CustomerServiceImpl implements CustomerService {
         var c = new Customer();
         apply(c, req, true);
         customers.saveAndFlush(c);
-        mailer.sendWelcome(c);
+        boolean sent = mailer.sendWelcome(c);
         audit(actor, "CUSTOMER_CREATED", c, "Thêm thành viên " + c.getFullName());
-        return toResponse(c, List.of());
+        return created(c, sent);
     }
 
     @Transactional
@@ -222,17 +221,19 @@ public class CustomerServiceImpl implements CustomerService {
         auditLogs.save(log);
     }
 
-    private static CustomerResponse toResponse(
-            Customer c, List<CustomerResponse.RecentReservation> recent) {
-        return toResponse(c, Stats.NONE, recent);
+    private static CustomerResponse created(Customer c, boolean welcomeEmailSent) {
+        return toResponse(c, Stats.NONE, List.of(), welcomeEmailSent);
     }
 
     private static CustomerResponse toResponse(Customer c, Stats stats) {
-        return toResponse(c, stats, List.of());
+        return toResponse(c, stats, List.of(), null);
     }
 
     private static CustomerResponse toResponse(
-            Customer c, Stats stats, List<CustomerResponse.RecentReservation> recent) {
+            Customer c,
+            Stats stats,
+            List<CustomerResponse.RecentReservation> recent,
+            Boolean welcomeEmailSent) {
         return new CustomerResponse(
                 c.getId(),
                 c.getFullName(),
@@ -245,6 +246,7 @@ public class CustomerServiceImpl implements CustomerService {
                 c.getCreatedAt(),
                 stats.count(),
                 stats.lastVisitAt(),
-                recent);
+                recent,
+                welcomeEmailSent);
     }
 }
