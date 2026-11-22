@@ -54,7 +54,8 @@ public class SecurityConfig {
                                                 HttpMethod.POST,
                                                 "/api/v1/reservations",
                                                 "/api/v1/reservations/lookup",
-                                                "/api/v1/reservations/cancel")
+                                                "/api/v1/reservations/cancel",
+                                                "/api/v1/customers/register")
                                         .permitAll()
                                         .requestMatchers("/error")
                                         .permitAll()

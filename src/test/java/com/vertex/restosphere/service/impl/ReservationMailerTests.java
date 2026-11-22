@@ -16,6 +16,26 @@ import org.junit.jupiter.api.Test;
 class ReservationMailerTests {
 
     @Test
+    void rendersWelcomeEmailForNewMembers() {
+        var settings = new RestaurantSettings();
+        settings.setName("Sea's Crown");
+        var c = new com.vertex.restosphere.entity.Customer();
+        c.setFullName("<i>Mai</i>");
+        c.setPhone("0901234567");
+        c.setCreatedAt(Instant.parse("2026-11-21T18:00:00Z"));
+
+        var mail = ReservationMailer.renderWelcome(c, settings);
+
+        assertEquals("[Sea's Crown] Chào mừng thành viên mới", mail.subject());
+        assertTrue(mail.text().contains("Chúc mừng quý khách đã trở thành thành viên"));
+        assertTrue(mail.text().contains("Số điện thoại: 0901234567"));
+        assertTrue(mail.text().contains("Ngày tham gia: 22/11/2026"), "restaurant timezone");
+        assertTrue(mail.html().contains("Thư chào mừng"));
+        assertTrue(mail.html().contains("&lt;i&gt;Mai&lt;/i&gt;"), "member name is escaped");
+        assertFalse(mail.html().contains("mã đặt bàn"), "no reservation wording");
+    }
+
+    @Test
     void rendersDetailsInRestaurantTimezoneAndEscapesHtml() {
         var settings = new RestaurantSettings();
         settings.setName("Sea's Crown");

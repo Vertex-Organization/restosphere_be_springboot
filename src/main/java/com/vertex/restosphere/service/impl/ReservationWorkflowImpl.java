@@ -327,8 +327,7 @@ public class ReservationWorkflowImpl implements ReservationWorkflow {
     Reservation find(Map<String, Object> input) {
         db.lock();
         String code = required(input, "code", 30), phone = phone(input);
-        var phones =
-                phone.startsWith("0") ? List.of(phone, "+84" + phone.substring(1)) : List.of(phone);
+        var phones = phoneVariants(phone);
         return db
                 .query(
                         Reservation.class,

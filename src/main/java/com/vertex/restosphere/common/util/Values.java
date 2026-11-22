@@ -79,8 +79,19 @@ public final class Values {
 
     /** Số điện thoại đã bỏ khoảng trắng, dấu chấm, gạch và ngoặc. */
     public static String phone(Map<String, Object> input) {
-        String phone = required(input, "phone", 30).replaceAll("[\\s().-]", "");
+        return normalizePhone(required(input, "phone", 30));
+    }
+
+    public static String normalizePhone(String raw) {
+        String phone = raw.replaceAll("[\\s().-]", "");
         return phone.startsWith("+84") ? "0" + phone.substring(3) : phone;
+    }
+
+    /** Forms a normalized phone may be stored in; older records kept the +84 prefix. */
+    public static List<String> phoneVariants(String normalized) {
+        return normalized.startsWith("0")
+                ? List.of(normalized, "+84" + normalized.substring(1))
+                : List.of(normalized);
     }
 
     public static String required(Map<String, Object> input, String key, int max) {

@@ -2,12 +2,14 @@ package com.vertex.restosphere.service.impl;
 
 import com.vertex.restosphere.common.enums.PriceUnit;
 import com.vertex.restosphere.common.util.Values;
+import com.vertex.restosphere.entity.Customer;
 import com.vertex.restosphere.entity.Reservation;
 import com.vertex.restosphere.entity.ReservationItem;
 import com.vertex.restosphere.entity.RestaurantSettings;
 import com.vertex.restosphere.service.WorkspaceStore;
 import jakarta.mail.MessagingException;
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -58,9 +60,62 @@ public class ReservationMailer {
                         ReservationItem.class,
                         "from ReservationItem i join fetch i.menuItem where i.reservation=?1",
                         r);
-        var content = render(r, s, subject, body, items);
-        String to = r.getEmail();
-        String code = r.getCode();
+        deliver(mail, r.getEmail(), r.getCode(), render(r, s, subject, body, items));
+    }
+
+    public void sendWelcome(Customer c) {
+        var mail = sender.getIfAvailable();
+        var s = db.lock();
+        if (mail == null || !s.isEmailNotifications() || !notBlank(c.getEmail())) return;
+        deliver(mail, c.getEmail(), "member " + c.getId(), renderWelcome(c, s));
+    }
+
+    static Content renderWelcome(Customer c, RestaurantSettings s) {
+        var zone = ZoneId.of(s.getTimezone());
+        var rows = new ArrayList<String[]>();
+        rows.add(new String[] {"Số điện thoại", c.getPhone()});
+        var joined = c.getCreatedAt() == null ? Instant.now() : c.getCreatedAt();
+        rows.add(new String[] {"Ngày tham gia", joined.atZone(zone).format(DATE)});
+        var contact = contact(s);
+        boolean customLogo = notBlank(s.getLogoUrl());
+        String logo = customLogo ? s.getLogoUrl() : "cid:" + LOGO_CID;
+        String title = "Chào mừng thành viên mới";
+        String body =
+                "Chúc mừng quý khách đã trở thành thành viên của "
+                        + s.getName()
+                        + ". Cảm ơn quý khách đã đồng hành cùng nhà hàng, chúng tôi rất mong được"
+                        + " đón tiếp quý khách trong những lần ghé thăm sắp tới.";
+        return new Content(
+                "[" + s.getName() + "] " + title,
+                text(s.getName(), c.getFullName(), body, rows, contact),
+                html(
+                        logo,
+                        s.getName(),
+                        "Thư chào mừng",
+                        title,
+                        c.getFullName(),
+                        body,
+                        rows,
+                        MEMBER_NOTE,
+                        contact),
+                !customLogo && DEFAULT_LOGO.exists());
+    }
+
+    private static final String RESERVATION_NOTE =
+            "Vui lòng giữ mã đặt bàn để tra cứu hoặc hủy lịch trên trang web của nhà hàng. Rất hân"
+                    + " hạnh được đón tiếp quý khách.";
+    private static final String MEMBER_NOTE =
+            "Khi đặt bàn, quý khách chỉ cần dùng số điện thoại này để nhà hàng nhận ra và phục vụ"
+                    + " chu đáo hơn.";
+
+    private static List<String> contact(RestaurantSettings s) {
+        var contact = new ArrayList<String>();
+        if (notBlank(s.getAddress())) contact.add(s.getAddress());
+        if (notBlank(s.getPhone())) contact.add("Điện thoại: " + s.getPhone());
+        return contact;
+    }
+
+    private void deliver(JavaMailSender mail, String to, String tag, Content content) {
         Runnable task =
                 () -> {
                     try {
@@ -74,7 +129,7 @@ public class ReservationMailer {
                             helper.addInline(LOGO_CID, DEFAULT_LOGO, "image/png");
                         mail.send(message);
                     } catch (MessagingException | MailException e) {
-                        log.warn("Reservation email to {} failed: {}", code, e.getMessage());
+                        log.warn("Email for {} failed: {}", tag, e.getMessage());
                     }
                 };
         // SMTP can take tens of seconds; never make the HTTP request wait for it.
@@ -108,16 +163,23 @@ public class ReservationMailer {
         if (r.getArea() != null) rows.add(new String[] {"Khu vực", r.getArea().getName()});
         if (r.getDepositAmount() != null && !r.awaitingDeposit())
             rows.add(new String[] {"Đã cọc", money(r.getDepositAmount())});
-        var contact = new ArrayList<String>();
-        if (notBlank(s.getAddress())) contact.add(s.getAddress());
-        if (notBlank(s.getPhone())) contact.add("Điện thoại: " + s.getPhone());
+        var contact = contact(s);
         boolean customLogo = notBlank(s.getLogoUrl());
         String logo = customLogo ? s.getLogoUrl() : "cid:" + LOGO_CID;
         String fullSubject = "[" + s.getName() + "] " + subject + " - " + r.getCode();
         return new Content(
                 fullSubject,
                 text(s.getName(), r.getCustomerName(), body, rows, contact) + textMenu(items),
-                html(logo, s.getName(), subject, r.getCustomerName(), body, rows, contact)
+                html(
+                                logo,
+                                s.getName(),
+                                "Thư xác nhận",
+                                subject,
+                                r.getCustomerName(),
+                                body,
+                                rows,
+                                RESERVATION_NOTE,
+                                contact)
                         .replace(MENU_SLOT, htmlMenu(items)),
                 !customLogo && DEFAULT_LOGO.exists());
     }
@@ -218,10 +280,12 @@ public class ReservationMailer {
     private static String html(
             String logo,
             String restaurant,
+            String kicker,
             String title,
             String customer,
             String body,
             List<String[]> rows,
+            String note,
             List<String> contact) {
         var details = new StringBuilder();
         for (var row : rows)
@@ -257,7 +321,7 @@ public class ReservationMailer {
                 </td></tr>
                 <tr><td align="center" style="padding:36px 40px 8px">
                 <div style="font-family:%s;font-size:12px;letter-spacing:3px;\
-                text-transform:uppercase;color:#9a7b4f">Thư xác nhận</div>
+                text-transform:uppercase;color:#9a7b4f">%s</div>
                 <h1 style="margin:10px 0 0;font-family:%s;font-weight:700;font-size:28px;\
                 line-height:1.3;color:#870000">%s</h1>
                 <div style="width:64px;height:2px;background:#c9a24a;margin:18px auto 0;\
@@ -275,8 +339,7 @@ public class ReservationMailer {
                 </td></tr>
                 <!--preorder-->
                 <tr><td style="padding:20px 40px 36px;font-family:%s;font-size:13px;\
-                line-height:1.6;color:#7a6650">Vui lòng giữ mã đặt bàn để tra cứu hoặc hủy lịch \
-                trên trang web của nhà hàng. Rất hân hạnh được đón tiếp quý khách.</td></tr>
+                line-height:1.6;color:#7a6650">%s</td></tr>
                 <tr><td align="center" style="background:#5c0000;padding:22px 24px;\
                 border-top:3px solid #c9a24a">
                 <div style="font-family:%s;font-size:18px;font-style:italic;color:#e8c872">%s</div>
@@ -293,6 +356,7 @@ public class ReservationMailer {
                         SERIF,
                         esc(restaurant),
                         SANS,
+                        esc(kicker),
                         SERIF,
                         esc(title),
                         SERIF,
@@ -300,6 +364,7 @@ public class ReservationMailer {
                         esc(body),
                         details,
                         SANS,
+                        esc(note),
                         SERIF,
                         esc(restaurant),
                         SANS,
