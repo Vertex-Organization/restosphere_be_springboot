@@ -7,6 +7,7 @@ import com.vertex.restosphere.common.enums.*;
 import com.vertex.restosphere.entity.*;
 import com.vertex.restosphere.exception.ApiException;
 import com.vertex.restosphere.service.*;
+import com.vertex.restosphere.service.impl.ReservationMailer;
 import com.vertex.restosphere.service.impl.ReservationWorkflowImpl;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -18,6 +19,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,6 +34,7 @@ class ReceptionWorkflowTests {
     @Autowired WorkspaceService workspace;
     @Autowired ReservationWorkflow reservations;
     @Autowired MockMvc mvc;
+    @MockitoSpyBean ReservationMailer mailer;
 
     User user(Role role) {
         var u = new User();
@@ -727,16 +730,122 @@ class ReceptionWorkflowTests {
         assertThrows(ApiException.class, () -> run(reception, "type", "confirm", "id", id(r)));
         run(reception, "type", "confirm-deposit", "id", id(r));
         assertNotNull(r.getDepositPaidAt());
+        org.mockito.Mockito.verify(mailer, org.mockito.Mockito.never())
+                .send(
+                        org.mockito.ArgumentMatchers.any(),
+                        org.mockito.ArgumentMatchers.any(),
+                        org.mockito.ArgumentMatchers.any());
         assertThrows(
                 ApiException.class, () -> run(reception, "type", "confirm-deposit", "id", id(r)));
         run(reception, "type", "confirm", "id", id(r));
         assertEquals(Reservation.Status.CONFIRMED, r.getStatus());
+        org.mockito.Mockito.verify(mailer)
+                .send(
+                        org.mockito.ArgumentMatchers.eq(r),
+                        org.mockito.ArgumentMatchers.eq("Đã tiếp nhận yêu cầu đặt bàn"),
+                        org.mockito.ArgumentMatchers.any());
         @SuppressWarnings("unchecked")
         var paid = (Map<String, Object>) reservations.publicView(r).get("deposit");
         assertNull(paid.get("bank"), "transfer details hidden once paid");
 
         var plain = reservations.createPublic(webBooking(area, "0905000002", List.of()));
         assertNull(plain.get("deposit"), "no preorder, no deposit");
+    }
+
+    @Test
+    void paidDepositIsRefundedOnlyWhenTheRestaurantCancels() throws Exception {
+        var reception = user(Role.RECEPTIONIST);
+        var area = area("Deposit refund");
+        table(area, 4);
+        table(area, 4);
+        table(area, 4);
+        var crab = dish("200000");
+        var items = List.of(map("dishId", id(crab), "quantity", 1));
+        var byGuest =
+                byCode(
+                        reservations
+                                .createPublic(webBooking(area, "0905000004", items))
+                                .get("code")
+                                .toString());
+        var byStaff =
+                byCode(
+                        reservations
+                                .createPublic(webBooking(area, "0905000005", items))
+                                .get("code")
+                                .toString());
+        var byPhone =
+                byCode(
+                        reservations
+                                .createPublic(webBooking(area, "0905000006", items))
+                                .get("code")
+                                .toString());
+        run(reception, "type", "confirm-deposit", "id", id(byGuest));
+        run(reception, "type", "confirm-deposit", "id", id(byStaff));
+        run(reception, "type", "confirm-deposit", "id", id(byPhone));
+        run(
+                reception,
+                "type",
+                "cancel",
+                "id",
+                id(byPhone),
+                "reason",
+                "Khách gọi hủy",
+                "refundDeposit",
+                false);
+        org.mockito.Mockito.verify(mailer)
+                .send(
+                        org.mockito.ArgumentMatchers.eq(byPhone),
+                        org.mockito.ArgumentMatchers.any(),
+                        org.mockito.ArgumentMatchers.contains("100.000đ sẽ không được hoàn lại"));
+
+        reservations.cancelPublic(
+                map("code", byGuest.getCode(), "phone", "0905000004", "reason", "Bận"));
+        assertFieldError(
+                reception,
+                map("type", "cancel", "id", id(byStaff), "reason", "Bếp sự cố"),
+                "refundDeposit");
+        run(
+                reception,
+                "type",
+                "cancel",
+                "id",
+                id(byStaff),
+                "reason",
+                "Bếp sự cố",
+                "refundDeposit",
+                true);
+
+        org.mockito.Mockito.verify(mailer)
+                .send(
+                        org.mockito.ArgumentMatchers.eq(byGuest),
+                        org.mockito.ArgumentMatchers.any(),
+                        org.mockito.ArgumentMatchers.contains("100.000đ sẽ không được hoàn lại"));
+        org.mockito.Mockito.verify(mailer)
+                .send(
+                        org.mockito.ArgumentMatchers.eq(byStaff),
+                        org.mockito.ArgumentMatchers.any(),
+                        org.mockito.ArgumentMatchers.contains(
+                                "100.000đ sẽ được hoàn về tài khoản của quý khách"));
+    }
+
+    @Test
+    void webBookingEmailsOnlyOnceReceptionConfirms() {
+        var reception = user(Role.RECEPTIONIST);
+        var area = area("Confirm email");
+        table(area, 4);
+        var view = reservations.createPublic(webBooking(area, "0905000003", List.of()));
+        var r = byCode(view.get("code").toString());
+        org.mockito.Mockito.verify(mailer, org.mockito.Mockito.never())
+                .send(
+                        org.mockito.ArgumentMatchers.any(),
+                        org.mockito.ArgumentMatchers.any(),
+                        org.mockito.ArgumentMatchers.any());
+        run(reception, "type", "confirm", "id", id(r));
+        org.mockito.Mockito.verify(mailer)
+                .send(
+                        org.mockito.ArgumentMatchers.eq(r),
+                        org.mockito.ArgumentMatchers.eq("Đã tiếp nhận yêu cầu đặt bàn"),
+                        org.mockito.ArgumentMatchers.any());
     }
 
     @Test

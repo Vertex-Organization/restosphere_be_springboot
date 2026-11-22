@@ -116,7 +116,7 @@ class ReservationMailerTests {
     }
 
     @Test
-    void showsDepositAmountReferenceAndDeadlineWhileUnpaid() {
+    void showsPaidDepositOnlyOnceReceived() {
         var settings = new RestaurantSettings();
         settings.setName("Sea's Crown");
         settings.setBankAccountNumber("0123456789");
@@ -129,16 +129,12 @@ class ReservationMailerTests {
         r.setDepositAmount(new BigDecimal("300000"));
         r.setDepositDueAt(Instant.parse("2026-11-21T05:15:00Z"));
 
-        var mail = ReservationMailer.render(r, settings, "Đã nhận", "Cọc", List.of());
-
-        assertTrue(mail.text().contains("Tiền cọc: 300.000đ (chưa nhận)"));
-        assertTrue(mail.text().contains("Nội dung CK: COC RS211126005"));
-        assertTrue(mail.text().contains("Hạn chuyển: 12:15"));
-        assertTrue(mail.text().contains("Tài khoản: 0123456789 · VCB"));
+        var unpaid = ReservationMailer.render(r, settings, "Đã hủy", "Quá hạn", List.of());
+        assertFalse(unpaid.text().contains("cọc"), "no transfer instructions in emails");
+        assertFalse(unpaid.text().contains("0123456789"));
 
         r.setDepositPaidAt(Instant.now());
-        var paid = ReservationMailer.render(r, settings, "Đã nhận cọc", "Cảm ơn", List.of());
-        assertTrue(paid.text().contains("Tiền cọc: 300.000đ (đã nhận)"));
-        assertFalse(paid.text().contains("Nội dung CK"));
+        var paid = ReservationMailer.render(r, settings, "Đã tiếp nhận", "Hẹn gặp", List.of());
+        assertTrue(paid.text().contains("Đã cọc: 300.000đ"));
     }
 }

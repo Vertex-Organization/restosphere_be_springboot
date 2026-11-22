@@ -95,18 +95,6 @@ public class ReservationWorkflowImpl implements ReservationWorkflow {
                 "Đặt bàn mới từ web",
                 r.getCode() + " · " + r.getCustomerName(),
                 id(r));
-        mailer.send(
-                r,
-                "Đã nhận yêu cầu đặt bàn",
-                r.awaitingDeposit()
-                        ? "Vui lòng chuyển khoản tiền cọc "
-                                + ReservationMailer.money(r.getDepositAmount())
-                                + " với nội dung "
-                                + r.depositReference()
-                                + " trong "
-                                + DEPOSIT_WINDOW_MINUTES
-                                + " phút để giữ lịch."
-                        : "Nhà hàng đã nhận yêu cầu đặt bàn của bạn và sẽ xác nhận sớm.");
         db.flush();
         return publicView(r);
     }
@@ -417,6 +405,27 @@ public class ReservationWorkflowImpl implements ReservationWorkflow {
         return late.size() + released + unpaid;
     }
 
+    // Restaurant-side cancellations refund the deposit; customer cancellations forfeit it.
+    static String depositNote(Reservation r, boolean refund) {
+        if (!paidDeposit(r)) return "";
+        String amount = ReservationMailer.money(r.getDepositAmount());
+        return refund
+                ? " Tiền cọc " + amount + " sẽ được hoàn về tài khoản của quý khách."
+                : " Theo chính sách đặt cọc, tiền cọc " + amount + " sẽ không được hoàn lại.";
+    }
+
+    static boolean paidDeposit(Reservation r) {
+        return r.getDepositAmount() != null && !r.awaitingDeposit();
+    }
+
+    // Staff must state who caused the cancellation; it decides whether the deposit is returned.
+    static boolean refundDeposit(Reservation r, Map<String, Object> c) {
+        if (!paidDeposit(r)) return false;
+        if (!(c.get("refundDeposit") instanceof Boolean refund))
+            throw invalid("refundDeposit", "Vui lòng chọn có hoàn cọc cho khách hay không.");
+        return refund;
+    }
+
     int cancelUnpaidDeposits(Instant now) {
         var expired =
                 db.query(
@@ -577,12 +586,6 @@ public class ReservationWorkflowImpl implements ReservationWorkflow {
                 if (!r.awaitingDeposit())
                     throw ApiException.conflict("Lịch này không có tiền cọc chờ xác nhận.");
                 r.setDepositPaidAt(Instant.now());
-                mailer.send(
-                        r,
-                        "Đã nhận tiền cọc",
-                        "Nhà hàng đã nhận tiền cọc "
-                                + ReservationMailer.money(r.getDepositAmount())
-                                + " và sẽ xác nhận lịch của bạn sớm.");
             }
             case "confirm" -> {
                 require(r, Reservation.Status.PENDING);
@@ -592,8 +595,8 @@ public class ReservationWorkflowImpl implements ReservationWorkflow {
                 r.setStatus(Reservation.Status.CONFIRMED);
                 mailer.send(
                         r,
-                        "Đặt bàn đã được xác nhận",
-                        "Lịch đặt bàn của bạn đã được xác nhận. Hẹn gặp bạn!");
+                        "Đã tiếp nhận yêu cầu đặt bàn",
+                        "Nhà hàng đã tiếp nhận yêu cầu đặt bàn của bạn. Hẹn gặp bạn!");
             }
             case "reject" -> {
                 require(r, Reservation.Status.PENDING);
@@ -603,11 +606,13 @@ public class ReservationWorkflowImpl implements ReservationWorkflow {
                         r,
                         "Đặt bàn không thành công",
                         "Rất tiếc, nhà hàng không thể nhận lịch đặt bàn này. Lý do: "
-                                + text(c, "reason"));
+                                + text(c, "reason")
+                                + depositNote(r, true));
             }
             case "cancel" -> {
                 require(r, Reservation.Status.PENDING, Reservation.Status.CONFIRMED);
                 required(c, "reason", 1000);
+                boolean refund = actor != null && refundDeposit(r, c);
                 r.setStatus(Reservation.Status.CANCELLED);
                 if (actor == null)
                     service.notify(
@@ -619,7 +624,11 @@ public class ReservationWorkflowImpl implements ReservationWorkflow {
                 mailer.send(
                         r,
                         "Đặt bàn đã bị hủy",
-                        "Lịch đặt bàn của bạn đã được hủy. Lý do: " + text(c, "reason"));
+                        "Lịch đặt bàn của bạn đã được hủy. Lý do: "
+                                + text(c, "reason")
+                                + depositNote(r, refund));
+                if (paidDeposit(r))
+                    history(r, actor, "deposit", refund ? "Hoàn cọc" : "Không hoàn cọc");
             }
             case "no-show" -> {
                 require(r, Reservation.Status.CONFIRMED);
