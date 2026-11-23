@@ -21,7 +21,9 @@ class DatabaseConstraintsInitializer implements ApplicationRunner {
                     "create unique index if not exists uq_cashier_shifts_open_per_cashier"
                             + " on cashier_shifts (cashier_id) where closed_at is null",
                     "create unique index if not exists uq_table_sessions_open_per_table"
-                            + " on table_sessions (table_id) where status <> 'CLOSED'");
+                            + " on table_sessions (table_id) where status <> 'CLOSED'",
+                    "create unique index if not exists uq_orders_draft_per_session_waiter"
+                            + " on orders (session_id, waiter_id) where status = 'DRAFT'");
 
     private final JdbcTemplate jdbc;
 

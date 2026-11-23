@@ -100,7 +100,6 @@ class RestosphereBeSpringbootApplicationTests {
                     "table_sessions",
                     "orders",
                     "order_items",
-                    "order_drafts",
                     "bills",
                     "payments",
                     "shifts",
@@ -139,9 +138,9 @@ class RestosphereBeSpringbootApplicationTests {
                                 "table_sessions",
                                 26,
                                 "orders",
-                                52,
+                                53,
                                 "order_items",
-                                104,
+                                105,
                                 "bills",
                                 26,
                                 "payments",
@@ -158,7 +157,9 @@ class RestosphereBeSpringbootApplicationTests {
                     scalar(connection, "select count(*) from " + entry.getKey()),
                     entry.getKey());
         }
-        assertEquals("7", scalar(connection, "select count(distinct status) from order_items"));
+        // order_drafts merged into orders: the seeded cart is now one DRAFT order with one DRAFT
+        // item.
+        assertEquals("8", scalar(connection, "select count(distinct status) from order_items"));
         assertEquals("8", scalar(connection, "select count(distinct status) from reservations"));
         assertEquals(
                 "7",

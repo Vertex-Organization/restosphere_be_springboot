@@ -141,7 +141,17 @@ public class WorkspaceSnapshotsImpl implements WorkspaceSnapshots {
         put.accept("revision", settings::getRevision);
         put.accept("seedDay", () -> LocalDate.now(ctx.zone));
         put.accept("nextId", () -> settings.getRevision() + 1);
-        put.accept("nextTicket", () -> ctx.all(Order.class).size() + 1);
+        put.accept(
+                "nextTicket",
+                () ->
+                        (int)
+                                        ctx.all(Order.class).stream()
+                                                .filter(
+                                                        o ->
+                                                                o.getStatus()
+                                                                        == Order.Status.SUBMITTED)
+                                                .count()
+                                + 1);
         put.accept("settings", reservations::settings);
 
         put.accept("staff", () -> staff(ctx, workspace));
@@ -241,6 +251,7 @@ public class WorkspaceSnapshotsImpl implements WorkspaceSnapshots {
 
     private List<Map<String, Object>> orderList(SnapshotContext ctx) {
         return ctx.all(Order.class).stream()
+                .filter(o -> o.getStatus() == Order.Status.SUBMITTED)
                 .map(
                         o ->
                                 orders.toMap(
@@ -253,14 +264,16 @@ public class WorkspaceSnapshotsImpl implements WorkspaceSnapshots {
 
     private List<Map<String, Object>> items(SnapshotContext ctx) {
         return ctx.all(OrderItem.class).stream()
+                .filter(i -> i.getStatus() != OrderItem.Status.DRAFT)
                 .map(i -> orders.toMap(i, ctx.audit(i.getId())))
                 .toList();
     }
 
     private List<Map<String, Object>> drafts(SnapshotContext ctx) {
-        return ctx.all(OrderDraft.class).stream()
-                .filter(d -> ctx.mine(d.getWaiter()))
-                .map(orders::toMap)
+        return ctx.all(OrderItem.class).stream()
+                .filter(d -> d.getStatus() == OrderItem.Status.DRAFT)
+                .filter(d -> ctx.mine(d.getOrder().getWaiter()))
+                .map(orders::toDraftMap)
                 .toList();
     }
 

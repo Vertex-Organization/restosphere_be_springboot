@@ -16,7 +16,6 @@ import com.vertex.restosphere.exception.ApiException;
 import com.vertex.restosphere.repository.AuditLogRepository;
 import com.vertex.restosphere.repository.MenuCategoryRepository;
 import com.vertex.restosphere.repository.MenuItemRepository;
-import com.vertex.restosphere.repository.OrderDraftRepository;
 import com.vertex.restosphere.repository.OrderItemRepository;
 import com.vertex.restosphere.repository.ReservationItemRepository;
 import com.vertex.restosphere.security.CurrentUserService;
@@ -44,7 +43,6 @@ public class MenuServiceImpl implements MenuService {
     private final CurrentUserService currentUser;
     private final AuditLogRepository auditLogs;
     private final OrderItemRepository orderItems;
-    private final OrderDraftRepository orderDrafts;
     private final ReservationItemRepository reservationItems;
 
     /** includeHidden=false: ban cong khai, chi danh muc dang hien. */
@@ -224,9 +222,7 @@ public class MenuServiceImpl implements MenuService {
         Employee actor = currentUser.require(actorId, Role.ADMIN, Role.MANAGER);
         MenuItem item = findItem(id);
         // Mon da vao don / nhap don / dat truoc thi giu lai de lich su va hoa don con tham chieu.
-        if (orderItems.existsByMenuItemId(id)
-                || orderDrafts.existsByMenuItemId(id)
-                || reservationItems.existsByMenuItemId(id)) {
+        if (orderItems.existsByMenuItemId(id) || reservationItems.existsByMenuItemId(id)) {
             throw ApiException.conflict("Menu item is in use, set it to DISCONTINUED instead");
         }
         items.delete(item);

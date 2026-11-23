@@ -3,6 +3,8 @@ package com.vertex.restosphere.entity;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.EnumSet;
+import java.util.Set;
 import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.Check;
@@ -20,6 +22,7 @@ import org.hibernate.annotations.Check;
 @Check(constraints = "quantity > 0 and unit_price >= 0")
 public class OrderItem extends BaseEntity {
     public enum Status {
+        DRAFT,
         SUBMITTED,
         PREPARING,
         READY,
@@ -28,6 +31,10 @@ public class OrderItem extends BaseEntity {
         CANCELLED,
         VOIDED
     }
+
+    /** Dong khong tinh tien: chua gui bep hoac da bi bo. */
+    public static final Set<Status> NOT_BILLABLE =
+            EnumSet.of(Status.DRAFT, Status.CANCELLED, Status.REJECTED, Status.VOIDED);
 
     @Version private long version;
 

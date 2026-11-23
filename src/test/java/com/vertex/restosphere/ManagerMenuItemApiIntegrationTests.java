@@ -15,7 +15,6 @@ import com.vertex.restosphere.entity.Employee;
 import com.vertex.restosphere.entity.MenuCategory;
 import com.vertex.restosphere.entity.MenuItem;
 import com.vertex.restosphere.entity.Order;
-import com.vertex.restosphere.entity.OrderDraft;
 import com.vertex.restosphere.entity.OrderItem;
 import com.vertex.restosphere.entity.RestaurantTable;
 import com.vertex.restosphere.entity.TableSession;
@@ -356,6 +355,8 @@ class ManagerMenuItemApiIntegrationTests {
                     order.setSession(session);
                     order.setWaiter(em.merge(waiter));
                     order.setRoundNumber(1);
+                    order.setStatus(Order.Status.SUBMITTED);
+                    order.setSubmittedAt(java.time.Instant.now());
                     em.persist(order);
                     OrderItem oi = new OrderItem();
                     oi.setOrder(order);
@@ -365,12 +366,20 @@ class ManagerMenuItemApiIntegrationTests {
                     oi.setQuantity(BigDecimal.ONE);
                     oi.setUnitPrice(new BigDecimal("1000"));
                     em.persist(oi);
-                    OrderDraft d = new OrderDraft();
-                    d.setSession(session);
-                    d.setWaiter(order.getWaiter());
+                    Order cart = new Order();
+                    cart.setSession(session);
+                    cart.setWaiter(order.getWaiter());
+                    em.persist(cart);
+                    OrderItem d = new OrderItem();
+                    d.setOrder(cart);
                     d.setMenuItem(em.find(MenuItem.class, drafted));
+                    d.setItemName("M2 Nhap");
+                    d.setUnit("portion");
+                    d.setQuantity(BigDecimal.ONE);
+                    d.setUnitPrice(new BigDecimal("1000"));
+                    d.setStatus(OrderItem.Status.DRAFT);
                     em.persist(d);
-                    usage.addAll(List.of(session, order, oi, d));
+                    usage.addAll(List.of(session, order, oi, cart, d));
                 });
     }
 

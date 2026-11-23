@@ -8,7 +8,6 @@ import static com.vertex.restosphere.common.util.Values.str;
 import com.vertex.restosphere.entity.AuditLog;
 import com.vertex.restosphere.entity.Bill;
 import com.vertex.restosphere.entity.Order;
-import com.vertex.restosphere.entity.OrderDraft;
 import com.vertex.restosphere.entity.OrderItem;
 import java.util.List;
 import java.util.Map;
@@ -46,9 +45,9 @@ public class OrderMapper {
                 "round",
                 o.getRoundNumber(),
                 "submittedAt",
-                o.getCreatedAt(),
+                o.getSubmittedAt(),
                 "at",
-                o.getCreatedAt(),
+                o.getSubmittedAt(),
                 "paid",
                 bill.getStatus() == Bill.Status.PAID,
                 "priority",
@@ -88,7 +87,7 @@ public class OrderMapper {
                 "version",
                 i.getVersion(),
                 "submittedAt",
-                i.getCreatedAt(),
+                i.getOrder().getSubmittedAt(),
                 "startedAt",
                 i.getStartedAt(),
                 "startedBy",
@@ -121,14 +120,14 @@ public class OrderMapper {
                         .toList());
     }
 
-    public Map<String, Object> toMap(OrderDraft d) {
+    public Map<String, Object> toDraftMap(OrderItem d) {
         return map(
                 "id",
                 id(d),
                 "sessionId",
-                id(d.getSession()),
+                id(d.getOrder().getSession()),
                 "waiterId",
-                id(d.getWaiter()),
+                id(d.getOrder().getWaiter()),
                 "menuItemId",
                 id(d.getMenuItem()),
                 "quantity",

@@ -43,8 +43,7 @@ public class CashierRequestServiceImpl implements CashierRequestService {
                     ApprovalRequest.Type.DISCOUNT,
                     ApprovalRequest.Type.BILL_ADJUSTMENT,
                     ApprovalRequest.Type.PAYMENT_VOID);
-    private static final Set<OrderItem.Status> REMOVED =
-            Set.of(OrderItem.Status.CANCELLED, OrderItem.Status.REJECTED, OrderItem.Status.VOIDED);
+    private static final Set<OrderItem.Status> REMOVED = OrderItem.NOT_BILLABLE;
 
     private record Ref(UUID billId, UUID paymentId, UUID itemId) {}
 

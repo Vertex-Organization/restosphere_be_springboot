@@ -42,8 +42,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class ManagerReportServiceImpl implements ManagerReportService {
 
-    private static final Set<OrderItem.Status> EXCLUDED_ITEMS =
-            Set.of(OrderItem.Status.CANCELLED, OrderItem.Status.VOIDED, OrderItem.Status.REJECTED);
+    private static final Set<OrderItem.Status> EXCLUDED_ITEMS = OrderItem.NOT_BILLABLE;
     private static final Set<Reservation.Status> ARRIVED =
             Set.of(
                     Reservation.Status.ARRIVED,

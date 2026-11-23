@@ -225,6 +225,8 @@ abstract class CashierApiTestBase {
         o.setSession(session);
         o.setWaiter(waiter);
         o.setRoundNumber(round);
+        o.setStatus(Order.Status.SUBMITTED);
+        o.setSubmittedAt(java.time.Instant.now());
         return persist(o);
     }
 

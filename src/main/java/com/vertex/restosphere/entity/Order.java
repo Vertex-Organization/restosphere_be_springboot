@@ -12,8 +12,16 @@ import org.hibernate.annotations.Check;
 @Table(
         name = "orders",
         uniqueConstraints = @UniqueConstraint(columnNames = {"session_id", "round_number"}))
-@Check(constraints = "round_number > 0")
+@Check(
+        constraints =
+                "(status = 'DRAFT' and round_number is null)"
+                        + " or (status = 'SUBMITTED' and round_number > 0)")
 public class Order extends BaseEntity {
+    public enum Status {
+        DRAFT,
+        SUBMITTED
+    }
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "session_id", nullable = false)
     private TableSession session;
@@ -22,8 +30,15 @@ public class Order extends BaseEntity {
     @JoinColumn(name = "waiter_id", nullable = false)
     private Employee waiter;
 
-    @Column(nullable = false)
-    private int roundNumber;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private Status status = Status.DRAFT;
+
+    private Integer roundNumber;
+
+    // TODO(confirm): column outside the agreed design; kitchen needs the real send time, not cart
+    // creation.
+    private Instant submittedAt;
 
     private Instant priorityAt;
 

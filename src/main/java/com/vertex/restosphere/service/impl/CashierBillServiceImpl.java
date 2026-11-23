@@ -121,13 +121,7 @@ public class CashierBillServiceImpl implements CashierBillService {
                 orderItems
                         .findByOrderSessionIdOrderByCreatedAtAsc(bill.getSession().getId())
                         .stream()
-                        .filter(
-                                i ->
-                                        !Set.of(
-                                                        OrderItem.Status.CANCELLED,
-                                                        OrderItem.Status.REJECTED,
-                                                        OrderItem.Status.VOIDED)
-                                                .contains(i.getStatus()))
+                        .filter(i -> !OrderItem.NOT_BILLABLE.contains(i.getStatus()))
                         .map(
                                 i ->
                                         new CashierReceiptResponse.Line(

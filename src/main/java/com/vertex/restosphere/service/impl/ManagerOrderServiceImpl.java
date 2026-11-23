@@ -48,6 +48,7 @@ public class ManagerOrderServiceImpl implements ManagerOrderService {
         LocalDate day = date == null ? LocalDate.now(zone) : date;
         List<Order> list =
                 orders.findForManager(
+                        Order.Status.SUBMITTED,
                         TableSession.Status.CLOSED,
                         day.atStartOfDay(zone).toInstant(),
                         day.plusDays(1).atStartOfDay(zone).toInstant());

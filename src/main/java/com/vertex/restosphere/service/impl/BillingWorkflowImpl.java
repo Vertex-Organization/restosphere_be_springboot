@@ -37,13 +37,7 @@ public class BillingWorkflowImpl implements BillingWorkflow {
         if (b.getStatus() != Bill.Status.OPEN) return;
         var subtotal =
                 items(b).stream()
-                        .filter(
-                                i ->
-                                        !Set.of(
-                                                        OrderItem.Status.CANCELLED,
-                                                        OrderItem.Status.REJECTED,
-                                                        OrderItem.Status.VOIDED)
-                                                .contains(i.getStatus()))
+                        .filter(i -> !OrderItem.NOT_BILLABLE.contains(i.getStatus()))
                         .map(i -> whole(i.getUnitPrice().multiply(i.getQuantity())))
                         .reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal discount =

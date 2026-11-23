@@ -227,8 +227,9 @@ ON CONFLICT DO NOTHING RETURNING table_id, status
 UPDATE restaurant_tables t SET status = 'OCCUPIED'
 FROM inserted i WHERE t.id = i.table_id AND i.status <> 'CLOSED' AND t.status = 'AVAILABLE';
 
-INSERT INTO orders (id, session_id, waiter_id, round_number, priority_at, priority_by_id, priority_reason, created_at, updated_at)
-SELECT md5('restosphere:seed:order:' || n || ':' || round)::uuid, s.id, s.waiter_id, round,
+INSERT INTO orders (id, session_id, waiter_id, status, round_number, submitted_at, priority_at, priority_by_id, priority_reason, created_at, updated_at)
+SELECT md5('restosphere:seed:order:' || n || ':' || round)::uuid, s.id, s.waiter_id, 'SUBMITTED', round,
+       c.starts_at + round * interval '5 minutes',
        CASE WHEN n = 20 AND round = 1 THEN starts_at + interval '20 minutes' END,
        CASE WHEN n = 20 AND round = 1 THEN md5('restosphere:demo:waiter2')::uuid END,
        CASE WHEN n = 20 AND round = 1 THEN 'Khách có trẻ nhỏ, ưu tiên món cơm' END,
@@ -266,10 +267,16 @@ CROSS JOIN LATERAL (SELECT CASE
  ELSE 'SERVED' END AS state) states
 ON CONFLICT DO NOTHING;
 
-INSERT INTO order_drafts (id, session_id, waiter_id, menu_item_id, quantity, note, created_at, updated_at)
-SELECT md5('restosphere:seed:draft')::uuid, s.id, s.waiter_id, md5('restosphere:menu:lemonade')::uuid,
-       2, 'Không đường, chưa gửi bếp', anchor - interval '5 minutes', anchor - interval '5 minutes'
+INSERT INTO orders (id, session_id, waiter_id, status, round_number, created_at, updated_at)
+SELECT md5('restosphere:seed:cart')::uuid, s.id, s.waiter_id, 'DRAFT', NULL,
+       anchor - interval '5 minutes', anchor - interval '5 minutes'
 FROM demo_cases c JOIN table_sessions s ON s.id = md5('restosphere:seed:session:19')::uuid WHERE n = 19
+ON CONFLICT DO NOTHING;
+
+INSERT INTO order_items (id, version, order_id, menu_item_id, item_name, unit, quantity, unit_price, status, note, created_at, updated_at)
+SELECT md5('restosphere:seed:draft')::uuid, 0, md5('restosphere:seed:cart')::uuid, m.id, m.name, m.price_unit, 2, m.price, 'DRAFT',
+       'Không đường, chưa gửi bếp', anchor - interval '5 minutes', anchor - interval '5 minutes'
+FROM demo_cases c JOIN menu_items m ON m.id = md5('restosphere:menu:lemonade')::uuid WHERE n = 19
 ON CONFLICT DO NOTHING;
 
 INSERT INTO bills

@@ -21,6 +21,7 @@ import com.vertex.restosphere.service.WorkspaceStore;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.EnumSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -34,14 +35,16 @@ public class WaiterServiceImpl implements WaiterService {
 
     private static final Set<OrderItem.Status> NOT_SERVED_YET =
             EnumSet.of(
-                    OrderItem.Status.SUBMITTED, OrderItem.Status.PREPARING, OrderItem.Status.READY);
+                    OrderItem.Status.DRAFT,
+                    OrderItem.Status.SUBMITTED,
+                    OrderItem.Status.PREPARING,
+                    OrderItem.Status.READY);
     private static final Set<OrderItem.Status> CANCELLABLE =
             EnumSet.of(
                     OrderItem.Status.SUBMITTED, OrderItem.Status.PREPARING, OrderItem.Status.READY);
     private static final int MAX_NOTE = 1000;
 
     private final WorkspaceStore db;
-    private final OrderDraftRepository drafts;
     private final OrderRepository orders;
     private final OrderItemRepository orderItems;
     private final ReservationItemRepository reservationItems;
@@ -100,13 +103,12 @@ public class WaiterServiceImpl implements WaiterService {
         if (session.getReservation() != null) {
             for (ReservationItem preorder :
                     reservationItems.findByReservation(session.getReservation())) {
-                drafts.save(
-                        newDraft(
-                                session,
-                                waiter,
-                                preorder.getMenuItem(),
-                                preorder.getQuantity(),
-                                preorder.getNote()));
+                addToCart(
+                        session,
+                        waiter,
+                        preorder.getMenuItem(),
+                        preorder.getQuantity(),
+                        preorder.getNote());
             }
         }
     }
@@ -116,14 +118,14 @@ public class WaiterServiceImpl implements WaiterService {
         TableSession session = orderingSession(sessionId, waiter);
         MenuItem menu = db.get(MenuItem.class, menuItemId.toString());
         requireAvailable(menu);
-        drafts.save(newDraft(session, waiter, menu, BigDecimal.ONE, ""));
+        addToCart(session, waiter, menu, BigDecimal.ONE, "");
     }
 
     @Override
     public void editDraft(
             UUID sessionId, UUID draftId, BigDecimal quantity, String note, Employee waiter) {
         TableSession session = orderingSession(sessionId, waiter);
-        OrderDraft draft = ownDraft(session, waiter, draftId);
+        OrderItem draft = ownDraft(session, waiter, draftId);
         String cleanNote = note == null ? "" : note.trim();
         validateQuantity(draft.getMenuItem(), quantity);
         if (cleanNote.length() > MAX_NOTE) throw invalid("Note too long");
@@ -134,36 +136,29 @@ public class WaiterServiceImpl implements WaiterService {
     @Override
     public void removeDraft(UUID sessionId, UUID draftId, Employee waiter) {
         TableSession session = orderingSession(sessionId, waiter);
-        drafts.delete(ownDraft(session, waiter, draftId));
+        orderItems.delete(ownDraft(session, waiter, draftId));
     }
 
     @Override
     public void submit(UUID sessionId, Employee waiter) {
         TableSession session = orderingSession(sessionId, waiter);
-        var cart = drafts.findBySessionAndWaiterOrderByCreatedAt(session, waiter);
+        Order order =
+                orders.findBySessionAndWaiterAndStatus(session, waiter, Order.Status.DRAFT)
+                        .orElseThrow(() -> invalid("No draft items"));
+        var cart = orderItems.findByOrderIdIn(List.of(order.getId()));
         if (cart.isEmpty()) throw invalid("No draft items");
 
-        Order order = new Order();
-        order.setSession(session);
-        order.setWaiter(waiter);
-        order.setRoundNumber(orders.findLastRoundNumber(session) + 1);
-        orders.save(order);
-
-        for (OrderDraft draft : cart) {
-            MenuItem menu = draft.getMenuItem();
+        for (OrderItem item : cart) {
+            MenuItem menu = item.getMenuItem();
             requireAvailable(menu);
-            OrderItem item = new OrderItem();
-            item.setOrder(order);
-            item.setMenuItem(menu);
             item.setItemName(menu.getName());
             item.setUnit(menu.getPriceUnit().getValue());
             item.setUnitPrice(menu.getPrice());
-            item.setQuantity(draft.getQuantity());
-            item.setNote(draft.getNote());
-            orderItems.save(item);
+            item.setStatus(OrderItem.Status.SUBMITTED);
         }
-        drafts.deleteAll(cart);
-
+        order.setRoundNumber(orders.findLastRoundNumber(session) + 1);
+        order.setSubmittedAt(Instant.now());
+        order.setStatus(Order.Status.SUBMITTED);
         billing.recalculate(billing.bill(session));
         events.notify(
                 Role.KITCHEN, "NEW_ORDER", "New order", session.getTable().getCode(), id(order));
@@ -215,8 +210,7 @@ public class WaiterServiceImpl implements WaiterService {
         TableSession session = ownSession(sessionId, waiter);
         if (session.getStatus() != TableSession.Status.OPEN)
             throw ApiException.conflict("Payment already requested");
-        if (drafts.existsBySession(session)
-                || orderItems.existsByOrderSessionAndStatusIn(session, NOT_SERVED_YET)) {
+        if (orderItems.existsByOrderSessionAndStatusIn(session, NOT_SERVED_YET)) {
             throw ApiException.conflict("Submit drafts and serve or resolve all items first");
         }
         Bill bill = billing.bill(session);
@@ -309,9 +303,12 @@ public class WaiterServiceImpl implements WaiterService {
         }
     }
 
-    private OrderDraft ownDraft(TableSession session, Employee waiter, UUID draftId) {
-        OrderDraft draft = db.get(OrderDraft.class, draftId.toString());
-        if (!same(draft.getSession(), session) || !same(draft.getWaiter(), waiter)) {
+    private OrderItem ownDraft(TableSession session, Employee waiter, UUID draftId) {
+        OrderItem draft = db.get(OrderItem.class, draftId.toString());
+        Order cart = draft.getOrder();
+        if (draft.getStatus() != OrderItem.Status.DRAFT
+                || !same(cart.getSession(), session)
+                || !same(cart.getWaiter(), waiter)) {
             throw invalid("Draft does not belong to this session");
         }
         return draft;
@@ -324,19 +321,32 @@ public class WaiterServiceImpl implements WaiterService {
         return item;
     }
 
-    private static OrderDraft newDraft(
+    private void addToCart(
             TableSession session,
             Employee waiter,
             MenuItem menu,
             BigDecimal quantity,
             String note) {
-        OrderDraft draft = new OrderDraft();
-        draft.setSession(session);
-        draft.setWaiter(waiter);
-        draft.setMenuItem(menu);
-        draft.setQuantity(quantity);
-        draft.setNote(note);
-        return draft;
+        Order cart =
+                orders.findBySessionAndWaiterAndStatus(session, waiter, Order.Status.DRAFT)
+                        .orElseGet(() -> newCart(session, waiter));
+        OrderItem item = new OrderItem();
+        item.setOrder(cart);
+        item.setMenuItem(menu);
+        item.setItemName(menu.getName());
+        item.setUnit(menu.getPriceUnit().getValue());
+        item.setUnitPrice(menu.getPrice());
+        item.setQuantity(quantity);
+        item.setNote(note);
+        item.setStatus(OrderItem.Status.DRAFT);
+        orderItems.save(item);
+    }
+
+    private Order newCart(TableSession session, Employee waiter) {
+        Order cart = new Order();
+        cart.setSession(session);
+        cart.setWaiter(waiter);
+        return orders.save(cart);
     }
 
     private static UUID uuid(Map<String, Object> command, String key) {
