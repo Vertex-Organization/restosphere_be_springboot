@@ -5,8 +5,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.vertex.restosphere.common.enums.Role;
 import com.vertex.restosphere.entity.Bill;
+import com.vertex.restosphere.entity.Employee;
 import com.vertex.restosphere.entity.OrderItem;
-import com.vertex.restosphere.entity.User;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpMethod;
@@ -178,7 +178,7 @@ class CashierCashPaymentApiIntegrationTests extends CashierApiTestBase {
                         payPath(f),
                         cashierToken,
                         cashJson(version(f), 30000, 30000, "c3-owner")));
-        User other = saveUser("c3-cashier2@restosphere.test", Role.CASHIER);
+        Employee other = saveUser("c3-cashier2@restosphere.test", Role.CASHIER);
         String otherToken = bearer(other.getEmail());
         call(
                         HttpMethod.POST,

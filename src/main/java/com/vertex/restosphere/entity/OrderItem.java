@@ -57,7 +57,7 @@ public class OrderItem extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "chef_id")
-    private User chef;
+    private Employee chef;
 
     private Instant startedAt;
     private Instant readyAt;

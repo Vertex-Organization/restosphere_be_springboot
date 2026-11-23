@@ -1,12 +1,12 @@
 package com.vertex.restosphere.controller;
 
 import com.vertex.restosphere.config.OpenApiConfig;
-import com.vertex.restosphere.dto.request.CreateUserRequest;
-import com.vertex.restosphere.dto.request.UpdateUserRoleRequest;
-import com.vertex.restosphere.dto.request.UpdateUserStatusRequest;
-import com.vertex.restosphere.dto.response.AdminUserResponse;
+import com.vertex.restosphere.dto.request.CreateEmployeeRequest;
+import com.vertex.restosphere.dto.request.UpdateEmployeeRoleRequest;
+import com.vertex.restosphere.dto.request.UpdateEmployeeStatusRequest;
+import com.vertex.restosphere.dto.response.AdminEmployeeResponse;
 import com.vertex.restosphere.security.CurrentUserService;
-import com.vertex.restosphere.service.AdminUserService;
+import com.vertex.restosphere.service.AdminEmployeeService;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -21,39 +21,39 @@ import org.springframework.web.bind.annotation.*;
 
 @Tag(name = "Admin - Users")
 @RestController
-@RequestMapping("/api/v1/admin/users")
+@RequestMapping("/api/v1/admin/employees")
 @SecurityRequirement(name = OpenApiConfig.BEARER_AUTH)
 @PreAuthorize("hasRole('ADMIN')")
 @RequiredArgsConstructor
-public class AdminUserController {
+public class AdminEmployeeController {
 
-    private final AdminUserService service;
+    private final AdminEmployeeService service;
 
     @GetMapping
-    public List<AdminUserResponse> list(@AuthenticationPrincipal Jwt jwt) {
+    public List<AdminEmployeeResponse> list(@AuthenticationPrincipal Jwt jwt) {
         return service.list(CurrentUserService.idOf(jwt));
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public AdminUserResponse create(
-            @AuthenticationPrincipal Jwt jwt, @Valid @RequestBody CreateUserRequest req) {
+    public AdminEmployeeResponse create(
+            @AuthenticationPrincipal Jwt jwt, @Valid @RequestBody CreateEmployeeRequest req) {
         return service.create(CurrentUserService.idOf(jwt), req);
     }
 
     @PatchMapping("/{id}/status")
-    public AdminUserResponse updateStatus(
+    public AdminEmployeeResponse updateStatus(
             @AuthenticationPrincipal Jwt jwt,
             @PathVariable UUID id,
-            @Valid @RequestBody UpdateUserStatusRequest req) {
+            @Valid @RequestBody UpdateEmployeeStatusRequest req) {
         return service.updateStatus(CurrentUserService.idOf(jwt), id, req.status());
     }
 
     @PatchMapping("/{id}/role")
-    public AdminUserResponse updateRole(
+    public AdminEmployeeResponse updateRole(
             @AuthenticationPrincipal Jwt jwt,
             @PathVariable UUID id,
-            @Valid @RequestBody UpdateUserRoleRequest req) {
+            @Valid @RequestBody UpdateEmployeeRoleRequest req) {
         return service.updateRole(CurrentUserService.idOf(jwt), id, req.role());
     }
 }

@@ -4,16 +4,16 @@ import com.vertex.restosphere.common.enums.Role;
 import com.vertex.restosphere.dto.request.ShiftRequest;
 import com.vertex.restosphere.dto.response.ShiftResponse;
 import com.vertex.restosphere.entity.AuditLog;
+import com.vertex.restosphere.entity.Employee;
 import com.vertex.restosphere.entity.RestaurantSettings;
 import com.vertex.restosphere.entity.Shift;
 import com.vertex.restosphere.entity.ShiftAssignment;
-import com.vertex.restosphere.entity.User;
 import com.vertex.restosphere.exception.ApiException;
 import com.vertex.restosphere.repository.AuditLogRepository;
+import com.vertex.restosphere.repository.EmployeeRepository;
 import com.vertex.restosphere.repository.RestaurantSettingsRepository;
 import com.vertex.restosphere.repository.ShiftAssignmentRepository;
 import com.vertex.restosphere.repository.ShiftRepository;
-import com.vertex.restosphere.repository.UserRepository;
 import com.vertex.restosphere.security.CurrentUserService;
 import com.vertex.restosphere.service.ManagerShiftService;
 import com.vertex.restosphere.service.RestaurantLock;
@@ -53,7 +53,7 @@ public class ManagerShiftServiceImpl implements ManagerShiftService {
     private final RestaurantLock restaurantLock;
     private final ShiftRepository shifts;
     private final ShiftAssignmentRepository assignments;
-    private final UserRepository users;
+    private final EmployeeRepository users;
     private final RestaurantSettingsRepository settings;
     private final AuditLogRepository auditLogs;
 
@@ -93,7 +93,8 @@ public class ManagerShiftServiceImpl implements ManagerShiftService {
                                 Collectors.groupingBy(
                                         a -> a.getShift().getId(),
                                         Collectors.mapping(
-                                                a -> a.getUser().getId(), Collectors.toList())));
+                                                a -> a.getEmployee().getId(),
+                                                Collectors.toList())));
         return list.stream()
                 .map(s -> toResponse(s, staff.getOrDefault(s.getId(), List.of()), zone))
                 .toList();
@@ -113,7 +114,7 @@ public class ManagerShiftServiceImpl implements ManagerShiftService {
 
     private ShiftResponse save(UUID actorId, UUID id, ShiftRequest req) {
         restaurantLock.acquire();
-        User actor = currentUser.require(actorId, Role.ADMIN, Role.MANAGER);
+        Employee actor = currentUser.require(actorId, Role.ADMIN, Role.MANAGER);
         ZoneId zone = zone();
         String name = req.name().strip();
         LocalDate date;
@@ -140,7 +141,7 @@ public class ManagerShiftServiceImpl implements ManagerShiftService {
                         ? new Shift()
                         : shifts.findById(id).orElseThrow(() -> ApiException.notFound("Shift"));
 
-        List<User> staff = employees(req.employeeIds());
+        List<Employee> staff = employees(req.employeeIds());
         Instant dayStart = date.atStartOfDay(zone).toInstant();
         Instant dayEnd = date.plusDays(1).atStartOfDay(zone).toInstant();
         Map<UUID, Duration> worked = new HashMap<>();
@@ -155,7 +156,7 @@ public class ManagerShiftServiceImpl implements ManagerShiftService {
             }
             Instant from = other.getStartsAt().isAfter(dayStart) ? other.getStartsAt() : dayStart;
             Instant to = other.getEndsAt().isBefore(dayEnd) ? other.getEndsAt() : dayEnd;
-            worked.merge(a.getUser().getId(), Duration.between(from, to), Duration::plus);
+            worked.merge(a.getEmployee().getId(), Duration.between(from, to), Duration::plus);
         }
         if (worked.values().stream().anyMatch(d -> d.plus(length).compareTo(MAX_PER_DAY) > 0)) {
             throw ApiException.conflict("Employee exceeds 12 hours per day");
@@ -178,10 +179,10 @@ public class ManagerShiftServiceImpl implements ManagerShiftService {
         if (id != null) {
             assignments.deleteByShiftId(id);
         }
-        for (User u : staff) {
+        for (Employee u : staff) {
             ShiftAssignment a = new ShiftAssignment();
             a.setShift(shift);
-            a.setUser(u);
+            a.setEmployee(u);
             assignments.save(a);
         }
 
@@ -208,13 +209,12 @@ public class ManagerShiftServiceImpl implements ManagerShiftService {
         return toResponse(shift, req.employeeIds(), zone);
     }
 
-    private List<User> employees(List<UUID> ids) {
+    private List<Employee> employees(List<UUID> ids) {
         if (new LinkedHashSet<>(ids).size() != ids.size()) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Duplicate employee");
         }
-        List<User> found = users.findAllById(ids);
-        if (found.size() != ids.size()
-                || found.stream().anyMatch(u -> u.getRole() == Role.CUSTOMER)) {
+        List<Employee> found = users.findAllById(ids);
+        if (found.size() != ids.size()) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Invalid employee");
         }
         if (found.stream().anyMatch(u -> !u.isEnabled())) {
@@ -225,7 +225,7 @@ public class ManagerShiftServiceImpl implements ManagerShiftService {
 
     private Set<UUID> currentStaff(UUID shiftId) {
         return assignments.findWithUserByShiftIdIn(List.of(shiftId)).stream()
-                .map(a -> a.getUser().getId())
+                .map(a -> a.getEmployee().getId())
                 .collect(Collectors.toSet());
     }
 

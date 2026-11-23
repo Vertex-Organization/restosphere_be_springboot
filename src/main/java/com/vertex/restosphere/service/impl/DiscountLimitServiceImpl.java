@@ -5,8 +5,8 @@ import com.vertex.restosphere.common.enums.Role;
 import com.vertex.restosphere.dto.request.DiscountLimitRequest;
 import com.vertex.restosphere.dto.response.DiscountLimitResponse;
 import com.vertex.restosphere.entity.AuditLog;
+import com.vertex.restosphere.entity.Employee;
 import com.vertex.restosphere.entity.RestaurantSettings;
-import com.vertex.restosphere.entity.User;
 import com.vertex.restosphere.repository.AuditLogRepository;
 import com.vertex.restosphere.security.CurrentUserService;
 import com.vertex.restosphere.service.DiscountLimitService;
@@ -36,7 +36,7 @@ public class DiscountLimitServiceImpl implements DiscountLimitService {
     @Override
     public DiscountLimitResponse update(UUID actorId, DiscountLimitRequest req) {
         RestaurantSettings s = store.lock();
-        User actor = currentUser.require(actorId, Role.ADMIN);
+        Employee actor = currentUser.require(actorId, Role.ADMIN);
 
         List<String> changed = new ArrayList<>();
         if (s.getCashierDiscountPercent() != req.cashierDiscountPercent()) {

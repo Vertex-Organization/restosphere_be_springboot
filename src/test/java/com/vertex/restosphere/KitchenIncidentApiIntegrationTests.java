@@ -4,10 +4,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.vertex.restosphere.common.enums.Role;
+import com.vertex.restosphere.entity.Employee;
 import com.vertex.restosphere.entity.Incident;
 import com.vertex.restosphere.entity.Order;
 import com.vertex.restosphere.entity.OrderItem;
-import com.vertex.restosphere.entity.User;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -45,7 +45,7 @@ class KitchenIncidentApiIntegrationTests extends KitchenApiTestBase {
 
     @Test
     void reportCreatesOpenIncidentNotifiesManagerBumpsRevisionAndAudits() throws Exception {
-        User manager = saveUser("k4-manager@restosphere.test", Role.MANAGER);
+        Employee manager = saveUser("k4-manager@restosphere.test", Role.MANAGER);
         long rev = revision();
 
         String res =
@@ -190,8 +190,8 @@ class KitchenIncidentApiIntegrationTests extends KitchenApiTestBase {
 
     @Test
     void listShowsAllIncidentsIncludingResolution() throws Exception {
-        User other = saveUser("k4-kitchen2@restosphere.test", Role.KITCHEN);
-        User manager = saveUser("k4-manager@restosphere.test", Role.MANAGER);
+        Employee other = saveUser("k4-kitchen2@restosphere.test", Role.KITCHEN);
+        Employee manager = saveUser("k4-manager@restosphere.test", Role.MANAGER);
         Incident mine = new Incident();
         mine.setType("OTHER");
         mine.setTitle("OTHER");

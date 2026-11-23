@@ -2,8 +2,8 @@ package com.vertex.restosphere.config;
 
 import com.vertex.restosphere.common.enums.Role;
 import com.vertex.restosphere.common.util.EmailUtils;
-import com.vertex.restosphere.entity.User;
-import com.vertex.restosphere.repository.UserRepository;
+import com.vertex.restosphere.entity.Employee;
+import com.vertex.restosphere.repository.EmployeeRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationRunner;
@@ -22,7 +22,7 @@ public class AdminBootstrapConfig {
 
     @Bean
     ApplicationRunner bootstrapAdmin(
-            UserRepository userRepository,
+            EmployeeRepository userRepository,
             PasswordEncoder passwordEncoder,
             @Value("${app.security.bootstrap-admin.email:}") String email,
             @Value("${app.security.bootstrap-admin.password:}") String password) {
@@ -34,7 +34,7 @@ public class AdminBootstrapConfig {
             if (userRepository.existsByEmail(normalizedEmail)) {
                 return;
             }
-            User admin = new User();
+            Employee admin = new Employee();
             admin.setEmail(normalizedEmail);
             admin.setPasswordHash(passwordEncoder.encode(password));
             admin.setFullName("Administrator");

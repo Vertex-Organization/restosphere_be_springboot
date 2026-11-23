@@ -3,7 +3,7 @@ package com.vertex.restosphere.controller;
 import com.vertex.restosphere.common.enums.AccountStatus;
 import com.vertex.restosphere.config.OpenApiConfig;
 import com.vertex.restosphere.dto.request.CustomerRequest;
-import com.vertex.restosphere.dto.request.UpdateUserStatusRequest;
+import com.vertex.restosphere.dto.request.UpdateEmployeeStatusRequest;
 import com.vertex.restosphere.dto.response.CustomerPageResponse;
 import com.vertex.restosphere.dto.response.CustomerResponse;
 import com.vertex.restosphere.security.CurrentUserService;
@@ -63,7 +63,7 @@ public class ManagerCustomerController {
     public CustomerResponse updateStatus(
             @AuthenticationPrincipal Jwt jwt,
             @PathVariable UUID id,
-            @Valid @RequestBody UpdateUserStatusRequest req) {
+            @Valid @RequestBody UpdateEmployeeStatusRequest req) {
         return service.updateStatus(CurrentUserService.idOf(jwt), id, req.status());
     }
 }

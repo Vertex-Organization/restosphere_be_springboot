@@ -11,14 +11,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.jayway.jsonpath.JsonPath;
 import com.vertex.restosphere.common.enums.Role;
+import com.vertex.restosphere.entity.Employee;
 import com.vertex.restosphere.entity.MenuCategory;
 import com.vertex.restosphere.entity.MenuItem;
-import com.vertex.restosphere.entity.User;
 import com.vertex.restosphere.repository.AuditLogRepository;
+import com.vertex.restosphere.repository.EmployeeRepository;
 import com.vertex.restosphere.repository.MenuCategoryRepository;
 import com.vertex.restosphere.repository.MenuItemRepository;
 import com.vertex.restosphere.repository.RefreshTokenRepository;
-import com.vertex.restosphere.repository.UserRepository;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
@@ -49,14 +49,14 @@ class ManagerMenuCategoryApiIntegrationTests {
     private static final String SEED_NAME = "Cua & tôm";
 
     @Autowired MockMvc mockMvc;
-    @Autowired UserRepository users;
+    @Autowired EmployeeRepository users;
     @Autowired RefreshTokenRepository refreshTokens;
     @Autowired AuditLogRepository auditLogs;
     @Autowired MenuCategoryRepository categories;
     @Autowired MenuItemRepository items;
     @Autowired PasswordEncoder passwordEncoder;
 
-    User manager;
+    Employee manager;
     String token;
     final List<UUID> created = new ArrayList<>();
     MenuCategory fallbackSeed;
@@ -333,8 +333,8 @@ class ManagerMenuCategoryApiIntegrationTests {
                         .content(body));
     }
 
-    private User saveUser(String email, Role role) {
-        User u = new User();
+    private Employee saveUser(String email, Role role) {
+        Employee u = new Employee();
         u.setEmail(email);
         u.setPasswordHash(passwordEncoder.encode(PASSWORD));
         u.setFullName(role.name());

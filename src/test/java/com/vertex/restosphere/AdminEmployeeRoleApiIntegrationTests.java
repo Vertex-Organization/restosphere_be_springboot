@@ -11,16 +11,16 @@ import com.jayway.jsonpath.JsonPath;
 import com.vertex.restosphere.common.enums.Role;
 import com.vertex.restosphere.entity.Area;
 import com.vertex.restosphere.entity.CashierShift;
+import com.vertex.restosphere.entity.Employee;
 import com.vertex.restosphere.entity.RestaurantTable;
 import com.vertex.restosphere.entity.TableSession;
-import com.vertex.restosphere.entity.User;
 import com.vertex.restosphere.repository.AreaRepository;
 import com.vertex.restosphere.repository.AuditLogRepository;
 import com.vertex.restosphere.repository.CashierShiftRepository;
+import com.vertex.restosphere.repository.EmployeeRepository;
 import com.vertex.restosphere.repository.RefreshTokenRepository;
 import com.vertex.restosphere.repository.RestaurantTableRepository;
 import com.vertex.restosphere.repository.TableSessionRepository;
-import com.vertex.restosphere.repository.UserRepository;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
@@ -40,15 +40,15 @@ import org.springframework.test.web.servlet.ResultActions;
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest
 @AutoConfigureMockMvc
-class AdminUserRoleApiIntegrationTests {
+class AdminEmployeeRoleApiIntegrationTests {
 
     private static final String ADMIN_EMAIL = "a2-admin@restosphere.test";
     private static final String WAITER_EMAIL = "a2-waiter@restosphere.test";
     private static final String PASSWORD = "correct-horse-battery";
-    private static final String USERS = "/api/v1/admin/users";
+    private static final String USERS = "/api/v1/admin/employees";
 
     @Autowired MockMvc mockMvc;
-    @Autowired UserRepository users;
+    @Autowired EmployeeRepository users;
     @Autowired RefreshTokenRepository refreshTokens;
     @Autowired AuditLogRepository auditLogs;
     @Autowired TableSessionRepository tableSessions;
@@ -57,8 +57,8 @@ class AdminUserRoleApiIntegrationTests {
     @Autowired AreaRepository areas;
     @Autowired PasswordEncoder passwordEncoder;
 
-    User admin;
-    User waiter;
+    Employee admin;
+    Employee waiter;
     Area createdArea;
     RestaurantTable createdTable;
 
@@ -130,7 +130,7 @@ class AdminUserRoleApiIntegrationTests {
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.detail").value("Cannot change your own access"));
 
-        User otherAdmin = saveUser("a2-admin2@restosphere.test", Role.ADMIN);
+        Employee otherAdmin = saveUser("a2-admin2@restosphere.test", Role.ADMIN);
         setRole(adminToken, otherAdmin.getId(), "MANAGER")
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.role").value("MANAGER"));
@@ -139,9 +139,7 @@ class AdminUserRoleApiIntegrationTests {
     @Test
     void invalidRoleBodies() throws Exception {
         String adminToken = bearer(ADMIN_EMAIL);
-        setRole(adminToken, waiter.getId(), "CUSTOMER")
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.detail").value("Role CUSTOMER cannot be assigned"));
+        setRole(adminToken, waiter.getId(), "CUSTOMER").andExpect(status().isBadRequest());
         setRole(adminToken, waiter.getId(), "ABC").andExpect(status().isBadRequest());
         mockMvc.perform(
                         patch(USERS + "/" + waiter.getId() + "/role")
@@ -168,7 +166,7 @@ class AdminUserRoleApiIntegrationTests {
 
     @Test
     void cashierWithOpenShiftIsBlocked() throws Exception {
-        User cashier = saveUser("a2-cashier@restosphere.test", Role.CASHIER);
+        Employee cashier = saveUser("a2-cashier@restosphere.test", Role.CASHIER);
         CashierShift shift = new CashierShift();
         shift.setCashier(cashier);
         shift.setOpenedAt(Instant.now());
@@ -216,8 +214,8 @@ class AdminUserRoleApiIntegrationTests {
                         .content("{\"role\":\"%s\"}".formatted(role)));
     }
 
-    private User saveUser(String email, Role role) {
-        User u = new User();
+    private Employee saveUser(String email, Role role) {
+        Employee u = new Employee();
         u.setEmail(email);
         u.setPasswordHash(passwordEncoder.encode(PASSWORD));
         u.setFullName(role.name());

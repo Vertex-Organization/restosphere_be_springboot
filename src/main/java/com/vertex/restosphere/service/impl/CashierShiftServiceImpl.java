@@ -7,9 +7,9 @@ import com.vertex.restosphere.dto.request.CashierOpenShiftRequest;
 import com.vertex.restosphere.dto.response.CashierScheduledShiftResponse;
 import com.vertex.restosphere.dto.response.CashierShiftResponse;
 import com.vertex.restosphere.entity.CashierShift;
+import com.vertex.restosphere.entity.Employee;
 import com.vertex.restosphere.entity.Payment;
 import com.vertex.restosphere.entity.Shift;
-import com.vertex.restosphere.entity.User;
 import com.vertex.restosphere.exception.ApiException;
 import com.vertex.restosphere.repository.CashierShiftRepository;
 import com.vertex.restosphere.repository.PaymentRepository;
@@ -59,13 +59,13 @@ public class CashierShiftServiceImpl implements CashierShiftService {
     @Transactional
     @Override
     public CashierShiftResponse open(UUID actorId, CashierOpenShiftRequest req) {
-        User user = currentUser.require(actorId, Role.ADMIN, Role.CASHIER);
+        Employee user = currentUser.require(actorId, Role.ADMIN, Role.CASHIER);
         restaurantLock.acquire();
         String scheduledId = req.scheduledShiftId() == null ? "" : req.scheduledShiftId().trim();
         Shift scheduled = null;
         if (!scheduledId.isEmpty()) {
             scheduled = store.get(Shift.class, scheduledId);
-            if (!assignments.existsByShiftIdAndUserId(scheduled.getId(), user.getId())) {
+            if (!assignments.existsByShiftIdAndEmployeeId(scheduled.getId(), user.getId())) {
                 throw Values.invalid("Scheduled shift is not assigned to this cashier");
             }
             Instant now = Instant.now();
@@ -91,7 +91,7 @@ public class CashierShiftServiceImpl implements CashierShiftService {
     @Transactional
     @Override
     public CashierShiftResponse close(UUID actorId, UUID shiftId, CashierCloseShiftRequest req) {
-        User user = currentUser.require(actorId, Role.ADMIN, Role.CASHIER);
+        Employee user = currentUser.require(actorId, Role.ADMIN, Role.CASHIER);
         restaurantLock.acquire();
         CashierShift shift = store.get(CashierShift.class, shiftId.toString());
         if (!shift.getCashier().getId().equals(user.getId()) || shift.getClosedAt() != null) {

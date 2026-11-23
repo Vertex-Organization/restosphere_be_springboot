@@ -3,9 +3,9 @@ package com.vertex.restosphere.service.impl;
 import com.vertex.restosphere.common.enums.Role;
 import com.vertex.restosphere.dto.response.KitchenMeResponse;
 import com.vertex.restosphere.dto.response.KitchenNotificationResponse;
+import com.vertex.restosphere.entity.Employee;
 import com.vertex.restosphere.entity.Notification;
 import com.vertex.restosphere.entity.NotificationRead;
-import com.vertex.restosphere.entity.User;
 import com.vertex.restosphere.repository.NotificationReadRepository;
 import com.vertex.restosphere.repository.NotificationRepository;
 import com.vertex.restosphere.repository.ShiftAssignmentRepository;
@@ -44,14 +44,14 @@ public class KitchenNotificationServiceImpl implements KitchenNotificationServic
     @Transactional(readOnly = true)
     @Override
     public List<KitchenNotificationResponse> list(UUID actorId) {
-        User user = authorize(actorId);
+        Employee user = authorize(actorId);
         return toResponses(notifications.findVisible(user.getRole(), user));
     }
 
     @Transactional
     @Override
     public List<KitchenNotificationResponse> markRead(UUID actorId, List<String> ids) {
-        User user = authorize(actorId);
+        Employee user = authorize(actorId);
         restaurantLock.acquire();
         List<Notification> visible = notifications.findVisible(user.getRole(), user);
         boolean all = ids == null || ids.isEmpty();
@@ -69,7 +69,7 @@ public class KitchenNotificationServiceImpl implements KitchenNotificationServic
             if ((all || wanted.contains(n.getId())) && !alreadyRead.contains(n.getId())) {
                 NotificationRead read = new NotificationRead();
                 read.setNotification(n);
-                read.setUser(user);
+                read.setEmployee(user);
                 read.setReadAt(Instant.now());
                 reads.save(read);
             }
@@ -82,7 +82,7 @@ public class KitchenNotificationServiceImpl implements KitchenNotificationServic
     @Transactional(readOnly = true)
     @Override
     public KitchenMeResponse me(UUID actorId) {
-        User u = authorize(actorId);
+        Employee u = authorize(actorId);
         List<String> current = shifts.findCurrentShiftNames(u.getId(), Instant.now());
         return new KitchenMeResponse(
                 u.getId(),
@@ -94,7 +94,7 @@ public class KitchenNotificationServiceImpl implements KitchenNotificationServic
                 PERMISSIONS);
     }
 
-    private User authorize(UUID actorId) {
+    private Employee authorize(UUID actorId) {
         return currentUser.require(actorId, Role.ADMIN, Role.KITCHEN);
     }
 

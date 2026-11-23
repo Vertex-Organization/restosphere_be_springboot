@@ -69,7 +69,7 @@ class DatabaseConstraintsTests {
     void cashierCannotHaveTwoOpenShifts() {
         UUID cashier = UUID.randomUUID();
         jdbc.update(
-                "insert into users (id,email,password_hash,full_name,role,enabled,created_at,"
+                "insert into employees (id,email,password_hash,full_name,role,enabled,created_at,"
                         + "updated_at) values (?, 'dbc-cashier@restosphere.test', 'x', 'C',"
                         + " 'CASHIER', true, now(), now())",
                 cashier);

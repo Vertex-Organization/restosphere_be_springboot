@@ -12,6 +12,6 @@ public record CashierScheduledShiftResponse(
                 a.getShift().getName(),
                 a.getShift().getStartsAt(),
                 a.getShift().getEndsAt(),
-                a.getUser().getId());
+                a.getEmployee().getId());
     }
 }

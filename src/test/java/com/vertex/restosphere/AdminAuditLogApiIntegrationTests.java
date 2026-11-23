@@ -10,12 +10,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.jayway.jsonpath.JsonPath;
 import com.vertex.restosphere.common.enums.Role;
 import com.vertex.restosphere.entity.AuditLog;
+import com.vertex.restosphere.entity.Employee;
 import com.vertex.restosphere.entity.RestaurantSettings;
-import com.vertex.restosphere.entity.User;
 import com.vertex.restosphere.repository.AuditLogRepository;
+import com.vertex.restosphere.repository.EmployeeRepository;
 import com.vertex.restosphere.repository.RefreshTokenRepository;
 import com.vertex.restosphere.repository.RestaurantSettingsRepository;
-import com.vertex.restosphere.repository.UserRepository;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.List;
@@ -46,14 +46,14 @@ class AdminAuditLogApiIntegrationTests {
     private static final JsonMapper JSON = JsonMapper.builder().build();
 
     @Autowired MockMvc mockMvc;
-    @Autowired UserRepository users;
+    @Autowired EmployeeRepository users;
     @Autowired RefreshTokenRepository refreshTokens;
     @Autowired AuditLogRepository auditLogs;
     @Autowired RestaurantSettingsRepository settingsRepo;
     @Autowired JdbcTemplate jdbc;
     @Autowired PasswordEncoder passwordEncoder;
 
-    User admin;
+    Employee admin;
     String token;
     RestaurantSettings original;
 
@@ -123,7 +123,7 @@ class AdminAuditLogApiIntegrationTests {
 
     @Test
     void filtersByActionAndActorName() throws Exception {
-        User other = saveUser("a5-other@restosphere.test", "Nguyễn Văn A", Role.MANAGER);
+        Employee other = saveUser("a5-other@restosphere.test", "Nguyễn Văn A", Role.MANAGER);
         log(admin, "ROLE_CHANGED", "r1", "2026-11-10T01:00:00Z");
         log(other, "ROLE_CHANGED", "r2", "2026-11-10T02:00:00Z");
         log(admin, "ACCOUNT_LOCKED", "l1", "2026-11-10T03:00:00Z");
@@ -235,7 +235,7 @@ class AdminAuditLogApiIntegrationTests {
     }
 
     /** createdAt khong cap nhat duoc qua JPA (updatable = false) nen sua thang bang SQL. */
-    private void log(User actor, String action, String description, String at) {
+    private void log(Employee actor, String action, String description, String at) {
         AuditLog a = new AuditLog();
         a.setActor(actor);
         a.setAction(action);
@@ -258,8 +258,8 @@ class AdminAuditLogApiIntegrationTests {
                 .content(JSON.writeValueAsString(body));
     }
 
-    private User saveUser(String email, String fullName, Role role) {
-        User u = new User();
+    private Employee saveUser(String email, String fullName, Role role) {
+        Employee u = new Employee();
         u.setEmail(email);
         u.setPasswordHash(passwordEncoder.encode(PASSWORD));
         u.setFullName(fullName);

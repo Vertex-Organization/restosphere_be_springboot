@@ -9,9 +9,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.jayway.jsonpath.JsonPath;
 import com.vertex.restosphere.common.enums.Role;
-import com.vertex.restosphere.entity.User;
+import com.vertex.restosphere.entity.Employee;
+import com.vertex.restosphere.repository.EmployeeRepository;
 import com.vertex.restosphere.repository.RefreshTokenRepository;
-import com.vertex.restosphere.repository.UserRepository;
 import java.time.Instant;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -42,13 +42,13 @@ class AuthApiIntegrationTests {
     private static final String ISSUER = "restosphere";
 
     @Autowired private MockMvc mockMvc;
-    @Autowired private UserRepository userRepository;
+    @Autowired private EmployeeRepository userRepository;
     @Autowired private RefreshTokenRepository refreshTokenRepository;
     @Autowired private PasswordEncoder passwordEncoder;
     @Autowired private JwtEncoder jwtEncoder;
     @Autowired private JwtDecoder jwtDecoder;
 
-    private User user;
+    private Employee user;
 
     @BeforeEach
     void setUp() {
@@ -205,11 +205,11 @@ class AuthApiIntegrationTests {
                                 assertThat(token.getTokenHash()).isNotEqualTo(refresh).hasSize(64));
     }
 
-    private User saveUser(String email, boolean enabled) {
-        User newUser = new User();
+    private Employee saveUser(String email, boolean enabled) {
+        Employee newUser = new Employee();
         newUser.setEmail(email);
         newUser.setPasswordHash(passwordEncoder.encode(PASSWORD));
-        newUser.setFullName("Test User");
+        newUser.setFullName("Test Employee");
         newUser.setRole(Role.WAITER);
         newUser.setEnabled(enabled);
         return userRepository.save(newUser);

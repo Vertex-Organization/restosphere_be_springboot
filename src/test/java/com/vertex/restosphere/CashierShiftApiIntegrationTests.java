@@ -4,9 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.vertex.restosphere.common.enums.Role;
+import com.vertex.restosphere.entity.Employee;
 import com.vertex.restosphere.entity.Shift;
 import com.vertex.restosphere.entity.ShiftAssignment;
-import com.vertex.restosphere.entity.User;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
@@ -28,10 +28,10 @@ class CashierShiftApiIntegrationTests extends CashierApiTestBase {
         return persist(s);
     }
 
-    private ShiftAssignment assign(Shift s, User u) {
+    private ShiftAssignment assign(Shift s, Employee u) {
         ShiftAssignment a = new ShiftAssignment();
         a.setShift(s);
-        a.setUser(u);
+        a.setEmployee(u);
         return persist(a);
     }
 
@@ -141,7 +141,7 @@ class CashierShiftApiIntegrationTests extends CashierApiTestBase {
 
     @Test
     void scheduledShiftsListAssignmentsOfEveryCashier() throws Exception {
-        User other = saveUser("c1-cashier2@restosphere.test", Role.CASHIER);
+        Employee other = saveUser("c1-cashier2@restosphere.test", Role.CASHIER);
         Instant now = Instant.now();
         Shift s = shift(now.minus(1, ChronoUnit.HOURS), now.plus(2, ChronoUnit.HOURS));
         assign(s, cashier);
@@ -190,7 +190,7 @@ class CashierShiftApiIntegrationTests extends CashierApiTestBase {
 
     @Test
     void closeShiftOfAnotherCashierIsConflict() throws Exception {
-        User other = saveUser("c1-cashier3@restosphere.test", Role.CASHIER);
+        Employee other = saveUser("c1-cashier3@restosphere.test", Role.CASHIER);
         String otherToken = bearer(other.getEmail());
         String shiftId = openShift(otherToken, 0);
         call(HttpMethod.POST, "/shifts/" + shiftId + "/close", cashierToken, "{\"countedCash\":0}")

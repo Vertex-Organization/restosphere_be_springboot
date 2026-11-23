@@ -11,15 +11,15 @@ import com.jayway.jsonpath.JsonPath;
 import com.vertex.restosphere.common.enums.Role;
 import com.vertex.restosphere.common.enums.TableStatus;
 import com.vertex.restosphere.entity.Area;
+import com.vertex.restosphere.entity.Employee;
 import com.vertex.restosphere.entity.Reservation;
 import com.vertex.restosphere.entity.ReservationTable;
 import com.vertex.restosphere.entity.RestaurantTable;
 import com.vertex.restosphere.entity.TableSession;
-import com.vertex.restosphere.entity.User;
 import com.vertex.restosphere.repository.AuditLogRepository;
+import com.vertex.restosphere.repository.EmployeeRepository;
 import com.vertex.restosphere.repository.RefreshTokenRepository;
 import com.vertex.restosphere.repository.RestaurantTableRepository;
-import com.vertex.restosphere.repository.UserRepository;
 import jakarta.persistence.EntityManager;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -53,7 +53,7 @@ class ManagerTableApiIntegrationTests {
             "Table has an active session or reservation; use workspace commands";
 
     @Autowired MockMvc mockMvc;
-    @Autowired UserRepository users;
+    @Autowired EmployeeRepository users;
     @Autowired RefreshTokenRepository refreshTokens;
     @Autowired AuditLogRepository auditLogs;
     @Autowired RestaurantTableRepository tables;
@@ -61,7 +61,7 @@ class ManagerTableApiIntegrationTests {
     @Autowired TransactionTemplate tx;
     @Autowired PasswordEncoder passwordEncoder;
 
-    User manager;
+    Employee manager;
     String token;
     Area areaA;
     Area areaB;
@@ -330,8 +330,8 @@ class ManagerTableApiIntegrationTests {
                         .content(body));
     }
 
-    private User saveUser(String email, Role role) {
-        User u = new User();
+    private Employee saveUser(String email, Role role) {
+        Employee u = new Employee();
         u.setEmail(email);
         u.setPasswordHash(passwordEncoder.encode(PASSWORD));
         u.setFullName(role.name());

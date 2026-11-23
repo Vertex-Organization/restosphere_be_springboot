@@ -1,13 +1,13 @@
 package com.vertex.restosphere.security;
 
-import com.vertex.restosphere.entity.User;
+import com.vertex.restosphere.entity.Employee;
 import java.util.Collection;
 import java.util.List;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
-public record AppUserPrincipal(User user) implements UserDetails {
+public record AppUserPrincipal(Employee user) implements UserDetails {
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {

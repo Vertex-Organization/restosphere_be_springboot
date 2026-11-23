@@ -1,7 +1,7 @@
 package com.vertex.restosphere.dto.response;
 
+import com.vertex.restosphere.entity.Employee;
 import com.vertex.restosphere.entity.OrderItem;
-import com.vertex.restosphere.entity.User;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
@@ -23,7 +23,7 @@ public record ManagerOrderItemResponse(
         String rejectionReason) {
 
     public static ManagerOrderItemResponse from(OrderItem i) {
-        User chef = i.getChef();
+        Employee chef = i.getChef();
         return new ManagerOrderItemResponse(
                 i.getId(),
                 i.getMenuItem().getId(),

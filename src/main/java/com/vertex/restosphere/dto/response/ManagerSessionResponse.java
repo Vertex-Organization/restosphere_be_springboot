@@ -1,7 +1,7 @@
 package com.vertex.restosphere.dto.response;
 
+import com.vertex.restosphere.entity.Employee;
 import com.vertex.restosphere.entity.TableSession;
-import com.vertex.restosphere.entity.User;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -16,7 +16,7 @@ public record ManagerSessionResponse(
         boolean paymentRequested) {
 
     public static ManagerSessionResponse from(TableSession s) {
-        User w = s.getWaiter();
+        Employee w = s.getWaiter();
         return new ManagerSessionResponse(
                 s.getId(),
                 s.getTable().getId(),

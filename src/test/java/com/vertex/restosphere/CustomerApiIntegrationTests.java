@@ -11,9 +11,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.jayway.jsonpath.JsonPath;
 import com.vertex.restosphere.common.enums.Role;
 import com.vertex.restosphere.entity.Area;
+import com.vertex.restosphere.entity.Employee;
 import com.vertex.restosphere.entity.Reservation;
-import com.vertex.restosphere.entity.User;
-import com.vertex.restosphere.repository.UserRepository;
+import com.vertex.restosphere.repository.EmployeeRepository;
 import com.vertex.restosphere.service.WorkspaceStore;
 import com.vertex.restosphere.service.impl.ReservationMailer;
 import java.time.Instant;
@@ -39,12 +39,12 @@ class CustomerApiIntegrationTests {
     static final String MANAGE = "/api/v1/manager/customers";
 
     @Autowired MockMvc mvc;
-    @Autowired UserRepository users;
+    @Autowired EmployeeRepository users;
     @Autowired WorkspaceStore db;
     @MockitoSpyBean ReservationMailer mailer;
 
     RequestPostProcessor as(Role role) {
-        var u = new User();
+        var u = new Employee();
         u.setEmail(UUID.randomUUID() + "@test.example");
         u.setFullName(role.name());
         u.setPasswordHash("unused");

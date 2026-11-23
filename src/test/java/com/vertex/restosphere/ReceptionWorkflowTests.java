@@ -36,8 +36,8 @@ class ReceptionWorkflowTests {
     @Autowired MockMvc mvc;
     @MockitoSpyBean ReservationMailer mailer;
 
-    User user(Role role) {
-        var u = new User();
+    Employee user(Role role) {
+        var u = new Employee();
         u.setEmail(UUID.randomUUID() + "@test.example");
         u.setFullName(role.name());
         u.setPasswordHash("unused");
@@ -69,11 +69,11 @@ class ReceptionWorkflowTests {
         return (List<Map<String, Object>>) state.get(key);
     }
 
-    Map<String, Object> run(User user, Object... args) {
+    Map<String, Object> run(Employee user, Object... args) {
         return workspace.command(id(user), map(args));
     }
 
-    boolean hasKind(User user, String workspaceName, String key, String kind) {
+    boolean hasKind(Employee user, String workspaceName, String key, String kind) {
         return list(workspace.load(workspaceName, id(user)), key).stream()
                 .anyMatch(n -> kind.equals(n.get("kind")));
     }
@@ -579,7 +579,12 @@ class ReceptionWorkflowTests {
     }
 
     Reservation staffBooking(
-            User actor, Area area, RestaurantTable t, int inSeconds, int duration, String phone) {
+            Employee actor,
+            Area area,
+            RestaurantTable t,
+            int inSeconds,
+            int duration,
+            String phone) {
         return reservations.create(
                 map(
                         "customer",
@@ -650,7 +655,7 @@ class ReceptionWorkflowTests {
         assertEquals(Reservation.Status.CONFIRMED, booking.getStatus());
     }
 
-    void assertFieldError(User staff, Map<String, Object> body, String field) throws Exception {
+    void assertFieldError(Employee staff, Map<String, Object> body, String field) throws Exception {
         var request =
                 MockMvcRequestBuilders.post(
                                 staff == null

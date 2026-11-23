@@ -1,8 +1,8 @@
 package com.vertex.restosphere.service;
 
+import com.vertex.restosphere.entity.Employee;
 import com.vertex.restosphere.entity.Reservation;
 import com.vertex.restosphere.entity.ReservationTable;
-import com.vertex.restosphere.entity.User;
 import java.util.Map;
 
 /** Đặt bàn: tạo, tra cứu, gán bàn, đổi trạng thái và lịch sử. */
@@ -12,7 +12,7 @@ public interface ReservationWorkflow {
 
     Map<String, Object> createPublic(Map<String, Object> input);
 
-    Reservation create(Map<String, Object> input, User actor, boolean web, boolean walkIn);
+    Reservation create(Map<String, Object> input, Employee actor, boolean web, boolean walkIn);
 
     Map<String, Object> lookup(Map<String, Object> input);
 
@@ -24,11 +24,11 @@ public interface ReservationWorkflow {
 
     boolean active(Reservation r);
 
-    void command(String type, Map<String, Object> c, User actor);
+    void command(String type, Map<String, Object> c, Employee actor);
 
     ReservationTable assignment(Reservation r);
 
-    void history(Reservation r, User actor, String action, String description);
+    void history(Reservation r, Employee actor, String action, String description);
 
     Map<String, Object> publicView(Reservation r);
 }

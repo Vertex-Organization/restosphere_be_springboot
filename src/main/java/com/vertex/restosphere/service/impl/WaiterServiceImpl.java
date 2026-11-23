@@ -50,7 +50,7 @@ public class WaiterServiceImpl implements WaiterService {
     private final ServiceWorkflow events;
 
     @Override
-    public void handle(String type, Map<String, Object> command, User waiter) {
+    public void handle(String type, Map<String, Object> command, Employee waiter) {
         UUID session = uuid(command, "sessionId");
         switch (type) {
             case "accept" -> accept(session, waiter);
@@ -86,7 +86,7 @@ public class WaiterServiceImpl implements WaiterService {
     }
 
     @Override
-    public void accept(UUID sessionId, User waiter) {
+    public void accept(UUID sessionId, Employee waiter) {
         TableSession session = db.get(TableSession.class, sessionId.toString());
         if (session.getStatus() != TableSession.Status.OPEN || session.getWaiter() != null) {
             throw ApiException.conflict("Session cannot be accepted");
@@ -112,7 +112,7 @@ public class WaiterServiceImpl implements WaiterService {
     }
 
     @Override
-    public void addDraft(UUID sessionId, UUID menuItemId, User waiter) {
+    public void addDraft(UUID sessionId, UUID menuItemId, Employee waiter) {
         TableSession session = orderingSession(sessionId, waiter);
         MenuItem menu = db.get(MenuItem.class, menuItemId.toString());
         requireAvailable(menu);
@@ -121,7 +121,7 @@ public class WaiterServiceImpl implements WaiterService {
 
     @Override
     public void editDraft(
-            UUID sessionId, UUID draftId, BigDecimal quantity, String note, User waiter) {
+            UUID sessionId, UUID draftId, BigDecimal quantity, String note, Employee waiter) {
         TableSession session = orderingSession(sessionId, waiter);
         OrderDraft draft = ownDraft(session, waiter, draftId);
         String cleanNote = note == null ? "" : note.trim();
@@ -132,13 +132,13 @@ public class WaiterServiceImpl implements WaiterService {
     }
 
     @Override
-    public void removeDraft(UUID sessionId, UUID draftId, User waiter) {
+    public void removeDraft(UUID sessionId, UUID draftId, Employee waiter) {
         TableSession session = orderingSession(sessionId, waiter);
         drafts.delete(ownDraft(session, waiter, draftId));
     }
 
     @Override
-    public void submit(UUID sessionId, User waiter) {
+    public void submit(UUID sessionId, Employee waiter) {
         TableSession session = orderingSession(sessionId, waiter);
         var cart = drafts.findBySessionAndWaiterOrderByCreatedAt(session, waiter);
         if (cart.isEmpty()) throw invalid("No draft items");
@@ -170,7 +170,7 @@ public class WaiterServiceImpl implements WaiterService {
     }
 
     @Override
-    public void serve(UUID sessionId, UUID itemId, User waiter) {
+    public void serve(UUID sessionId, UUID itemId, Employee waiter) {
         TableSession session = ownSession(sessionId, waiter);
         OrderItem item = sessionItem(session, itemId);
         if (item.getStatus() != OrderItem.Status.READY)
@@ -180,7 +180,7 @@ public class WaiterServiceImpl implements WaiterService {
     }
 
     @Override
-    public void requestCancel(UUID sessionId, UUID itemId, String reason, User waiter) {
+    public void requestCancel(UUID sessionId, UUID itemId, String reason, Employee waiter) {
         TableSession session = orderingSession(sessionId, waiter);
         OrderItem item = sessionItem(session, itemId);
         if (!CANCELLABLE.contains(item.getStatus()))
@@ -200,7 +200,7 @@ public class WaiterServiceImpl implements WaiterService {
     }
 
     @Override
-    public void requestPriority(UUID sessionId, UUID orderId, String reason, User waiter) {
+    public void requestPriority(UUID sessionId, UUID orderId, String reason, Employee waiter) {
         TableSession session = ownSession(sessionId, waiter);
         Order order = db.get(Order.class, orderId.toString());
         if (!same(order.getSession(), session)) throw invalid("Order belongs to another session");
@@ -211,7 +211,7 @@ public class WaiterServiceImpl implements WaiterService {
     }
 
     @Override
-    public void requestPayment(UUID sessionId, User waiter) {
+    public void requestPayment(UUID sessionId, Employee waiter) {
         TableSession session = ownSession(sessionId, waiter);
         if (session.getStatus() != TableSession.Status.OPEN)
             throw ApiException.conflict("Payment already requested");
@@ -234,7 +234,7 @@ public class WaiterServiceImpl implements WaiterService {
     }
 
     @Override
-    public void withdrawPaymentRequest(UUID sessionId, User waiter) {
+    public void withdrawPaymentRequest(UUID sessionId, Employee waiter) {
         TableSession session = ownSession(sessionId, waiter);
         if (session.getStatus() != TableSession.Status.PAYMENT_REQUESTED)
             throw ApiException.conflict("Payment not requested");
@@ -252,7 +252,7 @@ public class WaiterServiceImpl implements WaiterService {
     }
 
     @Override
-    public void guestLeft(UUID sessionId, boolean confirmed, User waiter) {
+    public void guestLeft(UUID sessionId, boolean confirmed, Employee waiter) {
         TableSession session = ownSession(sessionId, waiter);
         if (!confirmed
                 || session.getGuestLeftAt() != null
@@ -264,7 +264,7 @@ public class WaiterServiceImpl implements WaiterService {
     }
 
     @Override
-    public void clean(UUID sessionId, boolean confirmed, User waiter) {
+    public void clean(UUID sessionId, boolean confirmed, Employee waiter) {
         TableSession session = ownSession(sessionId, waiter);
         if (!confirmed
                 || session.getGuestLeftAt() == null
@@ -284,7 +284,7 @@ public class WaiterServiceImpl implements WaiterService {
                 id(session.getTable()));
     }
 
-    private TableSession ownSession(UUID sessionId, User waiter) {
+    private TableSession ownSession(UUID sessionId, Employee waiter) {
         TableSession session = db.get(TableSession.class, sessionId.toString());
         if (!same(session.getWaiter(), waiter)) {
             throw new ApiException(HttpStatus.FORBIDDEN, "Session belongs to another waiter");
@@ -294,7 +294,7 @@ public class WaiterServiceImpl implements WaiterService {
         return session;
     }
 
-    private TableSession orderingSession(UUID sessionId, User waiter) {
+    private TableSession orderingSession(UUID sessionId, Employee waiter) {
         TableSession session = ownSession(sessionId, waiter);
         if (session.getStatus() != TableSession.Status.OPEN || session.getGuestLeftAt() != null) {
             throw ApiException.conflict("Ordering is closed");
@@ -309,7 +309,7 @@ public class WaiterServiceImpl implements WaiterService {
         }
     }
 
-    private OrderDraft ownDraft(TableSession session, User waiter, UUID draftId) {
+    private OrderDraft ownDraft(TableSession session, Employee waiter, UUID draftId) {
         OrderDraft draft = db.get(OrderDraft.class, draftId.toString());
         if (!same(draft.getSession(), session) || !same(draft.getWaiter(), waiter)) {
             throw invalid("Draft does not belong to this session");
@@ -325,7 +325,11 @@ public class WaiterServiceImpl implements WaiterService {
     }
 
     private static OrderDraft newDraft(
-            TableSession session, User waiter, MenuItem menu, BigDecimal quantity, String note) {
+            TableSession session,
+            Employee waiter,
+            MenuItem menu,
+            BigDecimal quantity,
+            String note) {
         OrderDraft draft = new OrderDraft();
         draft.setSession(session);
         draft.setWaiter(waiter);

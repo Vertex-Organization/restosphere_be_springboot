@@ -50,7 +50,7 @@ public class CashierMapper {
                 "end",
                 a.getShift().getEndsAt(),
                 "cashierId",
-                id(a.getUser()));
+                id(a.getEmployee()));
     }
 
     public Map<String, Object> toConfigMap(RestaurantSettings s) {

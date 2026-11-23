@@ -4,11 +4,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.vertex.restosphere.common.enums.Role;
+import com.vertex.restosphere.entity.Employee;
 import com.vertex.restosphere.entity.Notification;
 import com.vertex.restosphere.entity.NotificationRead;
 import com.vertex.restosphere.entity.Shift;
 import com.vertex.restosphere.entity.ShiftAssignment;
-import com.vertex.restosphere.entity.User;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
@@ -23,7 +23,7 @@ class KitchenNotificationApiIntegrationTests extends KitchenApiTestBase {
         return "k5";
     }
 
-    private Notification notification(String kind, Role audience, User recipient, String path) {
+    private Notification notification(String kind, Role audience, Employee recipient, String path) {
         Notification n = new Notification();
         n.setKind(kind);
         n.setTitle("t-" + kind);
@@ -34,8 +34,9 @@ class KitchenNotificationApiIntegrationTests extends KitchenApiTestBase {
         return persist(n);
     }
 
-    private long readsBy(User u) {
-        return count("select count(r) from NotificationRead r where r.user.id = :p0", u.getId());
+    private long readsBy(Employee u) {
+        return count(
+                "select count(r) from NotificationRead r where r.employee.id = :p0", u.getId());
     }
 
     private boolean readByMe(List<Map<String, Object>> list, Notification n) {
@@ -61,7 +62,7 @@ class KitchenNotificationApiIntegrationTests extends KitchenApiTestBase {
 
     @Test
     void listShowsOnlyKitchenAudienceAndOwnRecipientWithOrderIdAndReadBy() throws Exception {
-        User other = saveUser("k5-kitchen2@restosphere.test", Role.KITCHEN);
+        Employee other = saveUser("k5-kitchen2@restosphere.test", Role.KITCHEN);
         String orderId = UUID.randomUUID().toString();
         Notification newOrder = notification("NEW_ORDER", Role.KITCHEN, null, orderId);
         Notification menu = notification("MENU_REQUEST", Role.KITCHEN, null, "x");
@@ -70,7 +71,7 @@ class KitchenNotificationApiIntegrationTests extends KitchenApiTestBase {
         notification("INCIDENT_REPLY", null, other, "w");
         NotificationRead r = new NotificationRead();
         r.setNotification(newOrder);
-        r.setUser(other);
+        r.setEmployee(other);
         r.setReadAt(Instant.now());
         persist(r);
 
@@ -154,7 +155,8 @@ class KitchenNotificationApiIntegrationTests extends KitchenApiTestBase {
         for (String payload : new String[] {null, "{}", "{\"ids\":[]}"}) {
             tx.executeWithoutResult(
                     s ->
-                            em.createQuery("delete from NotificationRead r where r.user.id = :u")
+                            em.createQuery(
+                                            "delete from NotificationRead r where r.employee.id = :u")
                                     .setParameter("u", kitchen.getId())
                                     .executeUpdate());
             String res = ok(call(HttpMethod.POST, "/notifications/read", kitchenToken, payload));
@@ -198,7 +200,7 @@ class KitchenNotificationApiIntegrationTests extends KitchenApiTestBase {
         s = persist(s);
         ShiftAssignment a = new ShiftAssignment();
         a.setShift(s);
-        a.setUser(kitchen);
+        a.setEmployee(kitchen);
         persist(a);
     }
 }

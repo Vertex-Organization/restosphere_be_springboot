@@ -5,10 +5,10 @@ import com.vertex.restosphere.dto.request.KitchenItemRef;
 import com.vertex.restosphere.dto.response.KitchenOrderItemResponse;
 import com.vertex.restosphere.dto.response.KitchenOrderResponse;
 import com.vertex.restosphere.entity.AuditLog;
+import com.vertex.restosphere.entity.Employee;
 import com.vertex.restosphere.entity.Order;
 import com.vertex.restosphere.entity.OrderItem;
 import com.vertex.restosphere.entity.RestaurantSettings;
-import com.vertex.restosphere.entity.User;
 import com.vertex.restosphere.exception.ApiException;
 import com.vertex.restosphere.repository.AuditLogRepository;
 import com.vertex.restosphere.repository.OrderItemRepository;
@@ -101,7 +101,7 @@ public class KitchenServiceImpl implements KitchenService {
 
     private List<KitchenOrderItemResponse> transition(
             UUID actorId, String type, List<KitchenItemRef> refs, String reason) {
-        User user = currentUser.require(actorId, Role.ADMIN, Role.KITCHEN);
+        Employee user = currentUser.require(actorId, Role.ADMIN, Role.KITCHEN);
         if (refs == null || refs.isEmpty()) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Select at least one item");
         }

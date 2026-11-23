@@ -18,9 +18,9 @@ import lombok.Setter;
 @NoArgsConstructor
 @Entity
 @Table(
-        name = "users",
-        indexes = @Index(name = "idx_users_role_enabled", columnList = "role, enabled"))
-public class User extends BaseEntity {
+        name = "employees",
+        indexes = @Index(name = "idx_employees_role_enabled", columnList = "role, enabled"))
+public class Employee extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     private Area assignedArea;
 

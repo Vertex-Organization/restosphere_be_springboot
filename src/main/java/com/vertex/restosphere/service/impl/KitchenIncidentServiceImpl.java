@@ -3,12 +3,12 @@ package com.vertex.restosphere.service.impl;
 import com.vertex.restosphere.common.enums.Role;
 import com.vertex.restosphere.dto.request.KitchenIncidentRequest;
 import com.vertex.restosphere.dto.response.KitchenIncidentResponse;
+import com.vertex.restosphere.entity.Employee;
 import com.vertex.restosphere.entity.Incident;
 import com.vertex.restosphere.entity.OrderItem;
-import com.vertex.restosphere.entity.User;
 import com.vertex.restosphere.exception.ApiException;
+import com.vertex.restosphere.repository.EmployeeRepository;
 import com.vertex.restosphere.repository.IncidentRepository;
-import com.vertex.restosphere.repository.UserRepository;
 import com.vertex.restosphere.security.CurrentUserService;
 import com.vertex.restosphere.service.KitchenIncidentService;
 import com.vertex.restosphere.service.RestaurantLock;
@@ -35,7 +35,7 @@ public class KitchenIncidentServiceImpl implements KitchenIncidentService {
     private final ServiceWorkflow workflow;
     private final WorkspaceCommit writes;
     private final IncidentRepository incidents;
-    private final UserRepository users;
+    private final EmployeeRepository users;
 
     @Transactional(readOnly = true)
     @Override
@@ -50,7 +50,7 @@ public class KitchenIncidentServiceImpl implements KitchenIncidentService {
     @Transactional
     @Override
     public KitchenIncidentResponse report(UUID actorId, KitchenIncidentRequest req) {
-        User user = currentUser.require(actorId, Role.ADMIN, Role.KITCHEN);
+        Employee user = currentUser.require(actorId, Role.ADMIN, Role.KITCHEN);
         restaurantLock.acquire();
         String kind = req.type().trim();
         if (!TYPES.contains(kind)) {
@@ -96,7 +96,7 @@ public class KitchenIncidentServiceImpl implements KitchenIncidentService {
     private List<UUID> managerIds() {
         return users.findAll().stream()
                 .filter(u -> u.getRole() == Role.MANAGER)
-                .map(User::getId)
+                .map(Employee::getId)
                 .toList();
     }
 

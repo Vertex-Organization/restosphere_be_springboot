@@ -1,6 +1,6 @@
 package com.vertex.restosphere.service;
 
-import com.vertex.restosphere.entity.User;
+import com.vertex.restosphere.entity.Employee;
 
 /**
  * Ghi nhận một thao tác ghi: tăng revision của nhà hàng để các workspace biết dữ liệu đã đổi và ghi
@@ -8,5 +8,5 @@ import com.vertex.restosphere.entity.User;
  */
 public interface WorkspaceCommit {
 
-    void commit(User user, String commandType);
+    void commit(Employee user, String commandType);
 }

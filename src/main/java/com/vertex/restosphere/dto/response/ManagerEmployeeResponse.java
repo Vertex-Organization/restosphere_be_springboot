@@ -2,7 +2,7 @@ package com.vertex.restosphere.dto.response;
 
 import com.vertex.restosphere.common.enums.Role;
 import com.vertex.restosphere.entity.Area;
-import com.vertex.restosphere.entity.User;
+import com.vertex.restosphere.entity.Employee;
 import java.util.UUID;
 
 public record ManagerEmployeeResponse(
@@ -16,7 +16,7 @@ public record ManagerEmployeeResponse(
         String areaId,
         String areaName) {
 
-    public static ManagerEmployeeResponse from(User u) {
+    public static ManagerEmployeeResponse from(Employee u) {
         Area area = u.getAssignedArea();
         String department =
                 switch (u.getRole()) {

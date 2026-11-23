@@ -1,10 +1,10 @@
 package com.vertex.restosphere.service;
 
-import com.vertex.restosphere.entity.User;
+import com.vertex.restosphere.entity.Employee;
 
 public interface AccountMailService {
 
     boolean isEnabled();
 
-    void sendTemporaryPassword(User user, String temporaryPassword);
+    void sendTemporaryPassword(Employee user, String temporaryPassword);
 }

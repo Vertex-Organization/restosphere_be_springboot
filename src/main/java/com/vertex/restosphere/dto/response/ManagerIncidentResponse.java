@@ -1,9 +1,9 @@
 package com.vertex.restosphere.dto.response;
 
+import com.vertex.restosphere.entity.Employee;
 import com.vertex.restosphere.entity.Incident;
 import com.vertex.restosphere.entity.Order;
 import com.vertex.restosphere.entity.OrderItem;
-import com.vertex.restosphere.entity.User;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -35,7 +35,7 @@ public record ManagerIncidentResponse(
     public static ManagerIncidentResponse from(Incident i) {
         OrderItem item = i.getOrderItem();
         Order order = item == null ? null : item.getOrder();
-        User assignee = i.getAssignee();
+        Employee assignee = i.getAssignee();
         UUID assigneeId = assignee == null ? null : assignee.getId();
         return new ManagerIncidentResponse(
                 i.getId(),

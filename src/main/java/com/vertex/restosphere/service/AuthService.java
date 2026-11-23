@@ -1,8 +1,8 @@
 package com.vertex.restosphere.service;
 
 import com.vertex.restosphere.dto.request.LoginRequest;
+import com.vertex.restosphere.dto.response.EmployeeResponse;
 import com.vertex.restosphere.dto.response.TokenResponse;
-import com.vertex.restosphere.dto.response.UserResponse;
 import java.util.UUID;
 
 public interface AuthService {
@@ -13,5 +13,5 @@ public interface AuthService {
 
     void logout(String refreshToken);
 
-    UserResponse currentUser(UUID userId);
+    EmployeeResponse currentUser(UUID userId);
 }

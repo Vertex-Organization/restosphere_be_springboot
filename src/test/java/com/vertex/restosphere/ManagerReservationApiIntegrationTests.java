@@ -14,6 +14,7 @@ import com.vertex.restosphere.common.enums.Role;
 import com.vertex.restosphere.common.enums.TableStatus;
 import com.vertex.restosphere.entity.Area;
 import com.vertex.restosphere.entity.AuditLog;
+import com.vertex.restosphere.entity.Employee;
 import com.vertex.restosphere.entity.MenuCategory;
 import com.vertex.restosphere.entity.MenuItem;
 import com.vertex.restosphere.entity.Reservation;
@@ -22,12 +23,11 @@ import com.vertex.restosphere.entity.ReservationTable;
 import com.vertex.restosphere.entity.RestaurantSettings;
 import com.vertex.restosphere.entity.RestaurantTable;
 import com.vertex.restosphere.entity.TableSession;
-import com.vertex.restosphere.entity.User;
 import com.vertex.restosphere.repository.AuditLogRepository;
+import com.vertex.restosphere.repository.EmployeeRepository;
 import com.vertex.restosphere.repository.RefreshTokenRepository;
 import com.vertex.restosphere.repository.ReservationRepository;
 import com.vertex.restosphere.repository.RestaurantSettingsRepository;
-import com.vertex.restosphere.repository.UserRepository;
 import jakarta.persistence.EntityManager;
 import java.math.BigDecimal;
 import java.sql.Timestamp;
@@ -66,7 +66,7 @@ class ManagerReservationApiIntegrationTests {
     private static final String REASON = "Khách xin ngồi gần cửa sổ";
 
     @Autowired MockMvc mockMvc;
-    @Autowired UserRepository users;
+    @Autowired EmployeeRepository users;
     @Autowired RefreshTokenRepository refreshTokens;
     @Autowired AuditLogRepository auditLogs;
     @Autowired ReservationRepository reservations;
@@ -76,7 +76,7 @@ class ManagerReservationApiIntegrationTests {
     @Autowired JdbcTemplate jdbc;
     @Autowired PasswordEncoder passwordEncoder;
 
-    User manager;
+    Employee manager;
     String token;
     Area areaA;
     Area areaB;
@@ -136,7 +136,7 @@ class ManagerReservationApiIntegrationTests {
                     i.setUnitPrice(new BigDecimal("890000"));
                     em.persist(i);
                 });
-        User waiter = saveUser("m4-waiter@restosphere.test", Role.WAITER);
+        Employee waiter = saveUser("m4-waiter@restosphere.test", Role.WAITER);
         // Cu -> moi: waiter, manager, khong actor. employeeId = manager (dong moi nhat CO actor).
         history(r, waiter, "2026-01-01T01:00:00Z");
         history(r, manager, "2026-01-01T02:00:00Z");
@@ -552,7 +552,7 @@ class ManagerReservationApiIntegrationTests {
         return m;
     }
 
-    private void history(Reservation r, User actor, String at) {
+    private void history(Reservation r, Employee actor, String at) {
         AuditLog h = new AuditLog();
         h.setTargetType("RESERVATION");
         h.setTargetId(r.getId());
@@ -579,8 +579,8 @@ class ManagerReservationApiIntegrationTests {
                         .content(body(tableId, reason)));
     }
 
-    private User saveUser(String email, Role role) {
-        User u = new User();
+    private Employee saveUser(String email, Role role) {
+        Employee u = new Employee();
         u.setEmail(email);
         u.setPasswordHash(passwordEncoder.encode(PASSWORD));
         u.setFullName(role.name());

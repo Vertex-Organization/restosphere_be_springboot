@@ -9,10 +9,10 @@ import com.vertex.restosphere.dto.response.CashierBillResponse;
 import com.vertex.restosphere.dto.response.CashierRequestResponse;
 import com.vertex.restosphere.entity.ApprovalRequest;
 import com.vertex.restosphere.entity.Bill;
+import com.vertex.restosphere.entity.Employee;
 import com.vertex.restosphere.entity.OrderItem;
 import com.vertex.restosphere.entity.Payment;
 import com.vertex.restosphere.entity.TableSession;
-import com.vertex.restosphere.entity.User;
 import com.vertex.restosphere.exception.ApiException;
 import com.vertex.restosphere.repository.ApprovalRequestRepository;
 import com.vertex.restosphere.repository.BillRepository;
@@ -70,7 +70,7 @@ public class CashierRequestServiceImpl implements CashierRequestService {
     @Override
     public CashierRequestResponse requestAdjustment(
             UUID actorId, UUID billId, CashierAdjustmentRequestRequest req) {
-        User user = currentUser.require(actorId, Role.ADMIN, Role.CASHIER);
+        Employee user = currentUser.require(actorId, Role.ADMIN, Role.CASHIER);
         restaurantLock.acquire();
         Bill bill = store.get(Bill.class, billId.toString());
         billing.editable(bill);
@@ -100,7 +100,7 @@ public class CashierRequestServiceImpl implements CashierRequestService {
     @Override
     public CashierRequestResponse requestVoid(
             UUID actorId, UUID paymentId, CashierReasonRequest req) {
-        User user = currentUser.require(actorId, Role.ADMIN, Role.CASHIER);
+        Employee user = currentUser.require(actorId, Role.ADMIN, Role.CASHIER);
         restaurantLock.acquire();
         Payment payment = store.get(Payment.class, paymentId.toString());
         if (payment.getStatus() != Payment.Status.COMPLETED) {
@@ -122,7 +122,7 @@ public class CashierRequestServiceImpl implements CashierRequestService {
     @Transactional
     @Override
     public CashierRequestResponse withdraw(UUID actorId, UUID requestId) {
-        User user = currentUser.require(actorId, Role.ADMIN, Role.CASHIER);
+        Employee user = currentUser.require(actorId, Role.ADMIN, Role.CASHIER);
         restaurantLock.acquire();
         ApprovalRequest r = store.get(ApprovalRequest.class, requestId.toString());
         if (!r.getRequestedBy().getId().equals(user.getId())
@@ -139,7 +139,7 @@ public class CashierRequestServiceImpl implements CashierRequestService {
     @Override
     public CashierBillResponse returnPaymentRequest(
             UUID actorId, UUID billId, CashierReturnPaymentRequest req) {
-        User user = currentUser.require(actorId, Role.ADMIN, Role.CASHIER);
+        Employee user = currentUser.require(actorId, Role.ADMIN, Role.CASHIER);
         restaurantLock.acquire();
         Bill bill = store.get(Bill.class, billId.toString());
         billing.requireVersion(bill, req.billVersion());

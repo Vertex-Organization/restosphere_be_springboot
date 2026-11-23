@@ -1,6 +1,6 @@
 package com.vertex.restosphere.service;
 
-import com.vertex.restosphere.entity.User;
+import com.vertex.restosphere.entity.Employee;
 import java.util.Map;
 import java.util.function.Consumer;
 
@@ -10,7 +10,7 @@ public interface WorkspaceService {
     Map<String, Object> load(String workspace, String subject);
 
     /** Chạy thao tác của phục vụ rồi trả lại snapshot staff. */
-    Map<String, Object> waiter(String subject, String action, Consumer<User> operation);
+    Map<String, Object> waiter(String subject, String action, Consumer<Employee> operation);
 
     /** Lệnh của lễ tân và phục vụ trên workspace staff. */
     Map<String, Object> command(String subject, Map<String, Object> c);

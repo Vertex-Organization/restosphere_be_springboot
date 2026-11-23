@@ -37,8 +37,8 @@ class WorkspaceIntegrationTests {
     @Autowired CashierPaymentService payments;
     @Autowired org.springframework.test.web.servlet.MockMvc mvc;
 
-    User user(Role role) {
-        var u = new User();
+    Employee user(Role role) {
+        var u = new Employee();
         u.setEmail(UUID.randomUUID() + "@test.example");
         u.setFullName(role.name());
         u.setPasswordHash("unused");
@@ -56,7 +56,7 @@ class WorkspaceIntegrationTests {
         return (List<Map<String, Object>>) state.get(key);
     }
 
-    Map<String, Object> run(String role, User user, Object... args) {
+    Map<String, Object> run(String role, Employee user, Object... args) {
         return workspace.command(id(user), map(args));
     }
 

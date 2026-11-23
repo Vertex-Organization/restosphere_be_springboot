@@ -11,6 +11,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.jayway.jsonpath.JsonPath;
 import com.vertex.restosphere.common.enums.Role;
 import com.vertex.restosphere.entity.Area;
+import com.vertex.restosphere.entity.Employee;
 import com.vertex.restosphere.entity.MenuCategory;
 import com.vertex.restosphere.entity.MenuItem;
 import com.vertex.restosphere.entity.Order;
@@ -18,15 +19,14 @@ import com.vertex.restosphere.entity.OrderDraft;
 import com.vertex.restosphere.entity.OrderItem;
 import com.vertex.restosphere.entity.RestaurantTable;
 import com.vertex.restosphere.entity.TableSession;
-import com.vertex.restosphere.entity.User;
 import com.vertex.restosphere.repository.AreaRepository;
 import com.vertex.restosphere.repository.AuditLogRepository;
+import com.vertex.restosphere.repository.EmployeeRepository;
 import com.vertex.restosphere.repository.MenuCategoryRepository;
 import com.vertex.restosphere.repository.MenuItemRepository;
 import com.vertex.restosphere.repository.RefreshTokenRepository;
 import com.vertex.restosphere.repository.RestaurantTableRepository;
 import com.vertex.restosphere.repository.TableSessionRepository;
-import com.vertex.restosphere.repository.UserRepository;
 import jakarta.persistence.EntityManager;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -58,7 +58,7 @@ class ManagerMenuItemApiIntegrationTests {
     private static final String URL = "/api/v1/menu/items";
 
     @Autowired MockMvc mockMvc;
-    @Autowired UserRepository users;
+    @Autowired EmployeeRepository users;
     @Autowired RefreshTokenRepository refreshTokens;
     @Autowired AuditLogRepository auditLogs;
     @Autowired MenuCategoryRepository categories;
@@ -70,7 +70,7 @@ class ManagerMenuItemApiIntegrationTests {
     @Autowired TransactionTemplate tx;
     @Autowired PasswordEncoder passwordEncoder;
 
-    User manager;
+    Employee manager;
     String token;
     MenuCategory visible;
     MenuCategory hidden;
@@ -344,7 +344,7 @@ class ManagerMenuItemApiIntegrationTests {
 
     /** Dua mon vao order_items (ordered) va order_draft (drafted) cua mot phien ban tu tao. */
     private void useInOrder(UUID ordered, UUID drafted) {
-        User waiter = saveUser("m2-waiter2@restosphere.test", Role.WAITER);
+        Employee waiter = saveUser("m2-waiter2@restosphere.test", Role.WAITER);
         tx.executeWithoutResult(
                 s -> {
                     TableSession session = new TableSession();
@@ -438,8 +438,8 @@ class ManagerMenuItemApiIntegrationTests {
                         .content(body));
     }
 
-    private User saveUser(String email, Role role) {
-        User u = new User();
+    private Employee saveUser(String email, Role role) {
+        Employee u = new Employee();
         u.setEmail(email);
         u.setPasswordHash(passwordEncoder.encode(PASSWORD));
         u.setFullName(role.name());

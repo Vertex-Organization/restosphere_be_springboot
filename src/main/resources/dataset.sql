@@ -1,5 +1,5 @@
 BEGIN;
-INSERT INTO users (id, email, password_hash, full_name, role, enabled, created_at, updated_at)
+INSERT INTO employees (id, email, password_hash, full_name, role, enabled, created_at, updated_at)
 SELECT md5('restosphere:demo:' || account)::uuid, account || '@restosphere.test',
        '$2b$10$LTsVxyCfFG2CRk86pJ6HKO9vBqu9FVik7RgWPNgT0jYZPLvPxU54W',
        full_name, role, true, now(), now()
@@ -13,7 +13,7 @@ FROM (VALUES
 ('waiter2', 'Phục vụ demo 2', 'WAITER')
 ) AS accounts(account, full_name, role)
 ON CONFLICT (id) DO UPDATE SET password_hash = EXCLUDED.password_hash
-WHERE users.email = EXCLUDED.email;
+WHERE employees.email = EXCLUDED.email;
 
 INSERT INTO areas (id, name, created_at, updated_at) VALUES
 ('10000000-0000-0000-0000-000000000001', 'Khu A · Tầng trệt', now(), now()),
@@ -136,7 +136,7 @@ SELECT md5('restosphere:seed:shift:' || d)::uuid, 'DEMO · Ca phục vụ ' || (
 FROM demo_cases CROSS JOIN generate_series(-6, 0) d WHERE n = 1
 ON CONFLICT DO NOTHING;
 
-INSERT INTO shift_assignments (id, shift_id, user_id, created_at)
+INSERT INTO shift_assignments (id, shift_id, employee_id, created_at)
 SELECT md5('restosphere:seed:staff:' || d || ':' || account)::uuid,
        md5('restosphere:seed:shift:' || d)::uuid, md5('restosphere:demo:' || account)::uuid,
        anchor - interval '7 days'
@@ -383,7 +383,7 @@ FROM demo_cases CROSS JOIN (VALUES
 ) messages(k,title,body,kind,path,role) WHERE n = 1
 ON CONFLICT DO NOTHING;
 
-INSERT INTO notification_reads (id, notification_id, user_id, read_at, created_at)
+INSERT INTO notification_reads (id, notification_id, employee_id, read_at, created_at)
 SELECT md5('restosphere:seed:read:' || k)::uuid, md5('restosphere:seed:notification:' || k)::uuid,
        md5('restosphere:demo:' || account)::uuid, anchor - interval '1 minute', anchor - interval '1 minute'
 FROM demo_cases CROSS JOIN (VALUES (2,'waiter2'),(4,'waiter'),(6,'kitchen')) receipts(k,account) WHERE n = 1

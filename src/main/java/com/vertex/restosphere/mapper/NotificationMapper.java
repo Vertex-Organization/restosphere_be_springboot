@@ -52,7 +52,7 @@ public class NotificationMapper {
                         ? target
                         : null,
                 "readBy",
-                reads.stream().map(r -> id(r.getUser())).toList());
+                reads.stream().map(r -> id(r.getEmployee())).toList());
     }
 
     private static String path(Notification n, String target) {

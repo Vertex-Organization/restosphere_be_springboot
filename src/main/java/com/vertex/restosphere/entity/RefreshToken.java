@@ -29,7 +29,7 @@ import org.hibernate.annotations.UuidGenerator;
         name = "refresh_tokens",
         indexes = {
             @Index(name = "idx_refresh_tokens_family_id", columnList = "family_id"),
-            @Index(name = "idx_refresh_tokens_user_id", columnList = "user_id")
+            @Index(name = "idx_refresh_tokens_employee_id", columnList = "employee_id")
         })
 public class RefreshToken {
 
@@ -39,8 +39,8 @@ public class RefreshToken {
     private UUID id;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+    @JoinColumn(name = "employee_id", nullable = false)
+    private Employee employee;
 
     @Column(name = "token_hash", nullable = false, unique = true, length = 64)
     private String tokenHash;

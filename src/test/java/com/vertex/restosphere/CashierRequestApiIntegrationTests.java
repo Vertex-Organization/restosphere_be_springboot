@@ -5,9 +5,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.vertex.restosphere.common.enums.Role;
 import com.vertex.restosphere.entity.Bill;
+import com.vertex.restosphere.entity.Employee;
 import com.vertex.restosphere.entity.OrderItem;
 import com.vertex.restosphere.entity.TableSession;
-import com.vertex.restosphere.entity.User;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -216,7 +216,7 @@ class CashierRequestApiIntegrationTests extends CashierApiTestBase {
                                 cashierToken,
                                 adjustment(f, f.item().getId().toString(), "oops")));
         String id = this.<String>json(created, "$.id");
-        User other = saveUser("c6-cashier2@restosphere.test", Role.CASHIER);
+        Employee other = saveUser("c6-cashier2@restosphere.test", Role.CASHIER);
         String otherToken = bearer(other.getEmail());
         call(HttpMethod.POST, "/requests/" + id + "/withdraw", otherToken, null)
                 .andExpect(status().isConflict());

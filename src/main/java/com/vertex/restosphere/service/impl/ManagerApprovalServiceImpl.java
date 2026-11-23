@@ -6,11 +6,11 @@ import com.vertex.restosphere.dto.response.ApprovalResponse;
 import com.vertex.restosphere.entity.ApprovalRequest;
 import com.vertex.restosphere.entity.AuditLog;
 import com.vertex.restosphere.entity.Bill;
+import com.vertex.restosphere.entity.Employee;
 import com.vertex.restosphere.entity.MenuItem;
 import com.vertex.restosphere.entity.OrderItem;
 import com.vertex.restosphere.entity.Payment;
 import com.vertex.restosphere.entity.Reservation;
-import com.vertex.restosphere.entity.User;
 import com.vertex.restosphere.exception.ApiException;
 import com.vertex.restosphere.repository.ApprovalQueryRepository;
 import com.vertex.restosphere.repository.AuditLogRepository;
@@ -68,7 +68,7 @@ public class ManagerApprovalServiceImpl implements ManagerApprovalService {
     @Override
     public ApprovalResponse decide(UUID actorId, UUID id, ApprovalDecisionRequest req) {
         restaurantLock.acquire();
-        User actor = currentUser.require(actorId, Role.ADMIN, Role.MANAGER);
+        Employee actor = currentUser.require(actorId, Role.ADMIN, Role.MANAGER);
         String reason = req.reason().strip();
         if (reason.length() < 5) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Reason must be at least 5 characters");

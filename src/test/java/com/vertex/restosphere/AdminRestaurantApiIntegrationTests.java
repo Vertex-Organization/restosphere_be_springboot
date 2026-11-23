@@ -9,12 +9,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.jayway.jsonpath.JsonPath;
 import com.vertex.restosphere.common.enums.Role;
+import com.vertex.restosphere.entity.Employee;
 import com.vertex.restosphere.entity.RestaurantSettings;
-import com.vertex.restosphere.entity.User;
 import com.vertex.restosphere.repository.AuditLogRepository;
+import com.vertex.restosphere.repository.EmployeeRepository;
 import com.vertex.restosphere.repository.RefreshTokenRepository;
 import com.vertex.restosphere.repository.RestaurantSettingsRepository;
-import com.vertex.restosphere.repository.UserRepository;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import org.junit.jupiter.api.AfterEach;
@@ -42,13 +42,13 @@ class AdminRestaurantApiIntegrationTests {
     private static final JsonMapper JSON = JsonMapper.builder().build();
 
     @Autowired MockMvc mockMvc;
-    @Autowired UserRepository users;
+    @Autowired EmployeeRepository users;
     @Autowired RefreshTokenRepository refreshTokens;
     @Autowired AuditLogRepository auditLogs;
     @Autowired RestaurantSettingsRepository settingsRepo;
     @Autowired PasswordEncoder passwordEncoder;
 
-    User admin;
+    Employee admin;
     RestaurantSettings original;
 
     @BeforeEach
@@ -248,8 +248,8 @@ class AdminRestaurantApiIntegrationTests {
                         .content(JSON.writeValueAsString(body)));
     }
 
-    private User saveUser(String email, Role role) {
-        User u = new User();
+    private Employee saveUser(String email, Role role) {
+        Employee u = new Employee();
         u.setEmail(email);
         u.setPasswordHash(passwordEncoder.encode(PASSWORD));
         u.setFullName(role.name());

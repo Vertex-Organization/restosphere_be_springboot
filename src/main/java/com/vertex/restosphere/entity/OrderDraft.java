@@ -23,7 +23,7 @@ public class OrderDraft extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "waiter_id", nullable = false)
-    private User waiter;
+    private Employee waiter;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "menu_item_id", nullable = false)

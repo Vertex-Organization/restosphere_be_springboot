@@ -57,11 +57,11 @@ public class ApprovalRequest extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "requested_by", nullable = false)
-    private User requestedBy;
+    private Employee requestedBy;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "decided_by")
-    private User decidedBy;
+    private Employee decidedBy;
 
     @Column(nullable = false, length = 50)
     private String targetType;

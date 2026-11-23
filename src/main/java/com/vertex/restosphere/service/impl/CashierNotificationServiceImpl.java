@@ -3,10 +3,10 @@ package com.vertex.restosphere.service.impl;
 import com.vertex.restosphere.common.enums.Role;
 import com.vertex.restosphere.dto.response.CashierMeResponse;
 import com.vertex.restosphere.dto.response.CashierNotificationResponse;
+import com.vertex.restosphere.entity.Employee;
 import com.vertex.restosphere.entity.Notification;
 import com.vertex.restosphere.entity.NotificationRead;
 import com.vertex.restosphere.entity.RestaurantSettings;
-import com.vertex.restosphere.entity.User;
 import com.vertex.restosphere.repository.NotificationReadRepository;
 import com.vertex.restosphere.repository.NotificationRepository;
 import com.vertex.restosphere.repository.RestaurantSettingsRepository;
@@ -56,14 +56,14 @@ public class CashierNotificationServiceImpl implements CashierNotificationServic
     @Transactional(readOnly = true)
     @Override
     public List<CashierNotificationResponse> list(UUID actorId) {
-        User user = authorize(actorId);
+        Employee user = authorize(actorId);
         return toResponses(notifications.findVisible(user.getRole(), user));
     }
 
     @Transactional
     @Override
     public List<CashierNotificationResponse> markRead(UUID actorId, List<String> ids) {
-        User user = authorize(actorId);
+        Employee user = authorize(actorId);
         restaurantLock.acquire();
         List<Notification> visible = notifications.findVisible(user.getRole(), user);
         boolean all = ids == null || ids.isEmpty();
@@ -81,7 +81,7 @@ public class CashierNotificationServiceImpl implements CashierNotificationServic
             if ((all || wanted.contains(n.getId())) && !alreadyRead.contains(n.getId())) {
                 NotificationRead read = new NotificationRead();
                 read.setNotification(n);
-                read.setUser(user);
+                read.setEmployee(user);
                 read.setReadAt(Instant.now());
                 reads.save(read);
             }
@@ -94,7 +94,7 @@ public class CashierNotificationServiceImpl implements CashierNotificationServic
     @Transactional(readOnly = true)
     @Override
     public CashierMeResponse me(UUID actorId) {
-        User u = authorize(actorId);
+        Employee u = authorize(actorId);
         List<String> current = shifts.findCurrentShiftNames(u.getId(), Instant.now());
         return new CashierMeResponse(
                 u.getId(),
@@ -107,7 +107,7 @@ public class CashierNotificationServiceImpl implements CashierNotificationServic
                 discountLimit());
     }
 
-    private User authorize(UUID actorId) {
+    private Employee authorize(UUID actorId) {
         return currentUser.require(actorId, Role.ADMIN, Role.CASHIER);
     }
 

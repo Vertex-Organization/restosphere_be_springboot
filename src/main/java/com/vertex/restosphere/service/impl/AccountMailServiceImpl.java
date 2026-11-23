@@ -1,7 +1,7 @@
 package com.vertex.restosphere.service.impl;
 
 import com.vertex.restosphere.common.enums.Role;
-import com.vertex.restosphere.entity.User;
+import com.vertex.restosphere.entity.Employee;
 import com.vertex.restosphere.service.AccountMailService;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
@@ -37,7 +37,7 @@ public class AccountMailServiceImpl implements AccountMailService {
     }
 
     @Override
-    public void sendTemporaryPassword(User user, String temporaryPassword) {
+    public void sendTemporaryPassword(Employee user, String temporaryPassword) {
         SimpleMailMessage message = new SimpleMailMessage();
         message.setFrom(from);
         message.setTo(user.getEmail());

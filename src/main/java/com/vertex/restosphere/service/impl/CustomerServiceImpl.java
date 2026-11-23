@@ -10,7 +10,7 @@ import com.vertex.restosphere.dto.response.CustomerPageResponse;
 import com.vertex.restosphere.dto.response.CustomerResponse;
 import com.vertex.restosphere.entity.AuditLog;
 import com.vertex.restosphere.entity.Customer;
-import com.vertex.restosphere.entity.User;
+import com.vertex.restosphere.entity.Employee;
 import com.vertex.restosphere.exception.ApiException;
 import com.vertex.restosphere.repository.AuditLogRepository;
 import com.vertex.restosphere.repository.CustomerRepository;
@@ -134,7 +134,7 @@ public class CustomerServiceImpl implements CustomerService {
         return get(actorId, id);
     }
 
-    private User requireManager(UUID actorId) {
+    private Employee requireManager(UUID actorId) {
         return currentUser.require(actorId, Role.ADMIN, Role.MANAGER);
     }
 
@@ -211,7 +211,7 @@ public class CustomerServiceImpl implements CustomerService {
         return stats;
     }
 
-    private void audit(User actor, String action, Customer c, String description) {
+    private void audit(Employee actor, String action, Customer c, String description) {
         var log = new AuditLog();
         log.setActor(actor);
         log.setAction(action);

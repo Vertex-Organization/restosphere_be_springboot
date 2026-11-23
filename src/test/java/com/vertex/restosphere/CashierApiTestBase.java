@@ -8,6 +8,7 @@ import com.vertex.restosphere.common.enums.Role;
 import com.vertex.restosphere.common.enums.TableStatus;
 import com.vertex.restosphere.entity.Area;
 import com.vertex.restosphere.entity.Bill;
+import com.vertex.restosphere.entity.Employee;
 import com.vertex.restosphere.entity.MenuCategory;
 import com.vertex.restosphere.entity.MenuItem;
 import com.vertex.restosphere.entity.Order;
@@ -15,11 +16,10 @@ import com.vertex.restosphere.entity.OrderItem;
 import com.vertex.restosphere.entity.RestaurantSettings;
 import com.vertex.restosphere.entity.RestaurantTable;
 import com.vertex.restosphere.entity.TableSession;
-import com.vertex.restosphere.entity.User;
 import com.vertex.restosphere.repository.AuditLogRepository;
+import com.vertex.restosphere.repository.EmployeeRepository;
 import com.vertex.restosphere.repository.RefreshTokenRepository;
 import com.vertex.restosphere.repository.RestaurantSettingsRepository;
-import com.vertex.restosphere.repository.UserRepository;
 import jakarta.persistence.EntityManager;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -48,7 +48,7 @@ abstract class CashierApiTestBase {
     static final String BASE = "/api/v1/cashier";
 
     @Autowired MockMvc mockMvc;
-    @Autowired UserRepository users;
+    @Autowired EmployeeRepository users;
     @Autowired RefreshTokenRepository refreshTokens;
     @Autowired AuditLogRepository auditLogs;
     @Autowired RestaurantSettingsRepository settings;
@@ -56,11 +56,11 @@ abstract class CashierApiTestBase {
     @Autowired TransactionTemplate tx;
     @Autowired PasswordEncoder passwordEncoder;
 
-    User cashier;
-    User waiter;
+    Employee cashier;
+    Employee waiter;
     String cashierToken;
     String waiterToken;
-    final List<User> testUsers = new ArrayList<>();
+    final List<Employee> testUsers = new ArrayList<>();
 
     final List<Object> created = new ArrayList<>();
 
@@ -80,7 +80,7 @@ abstract class CashierApiTestBase {
         tx.executeWithoutResult(
                 s -> {
                     if (!testUsers.isEmpty()) {
-                        em.createQuery("delete from NotificationRead r where r.user in :u")
+                        em.createQuery("delete from NotificationRead r where r.employee in :u")
                                 .setParameter("u", testUsers)
                                 .executeUpdate();
                         em.createQuery("delete from Payment p where p.cashierShift.cashier in :u")
@@ -268,8 +268,8 @@ abstract class CashierApiTestBase {
         }
     }
 
-    User saveUser(String email, Role role) {
-        User u = new User();
+    Employee saveUser(String email, Role role) {
+        Employee u = new Employee();
         u.setEmail(email);
         u.setPasswordHash(passwordEncoder.encode(PASSWORD));
         u.setFullName(role.name() + " " + email);

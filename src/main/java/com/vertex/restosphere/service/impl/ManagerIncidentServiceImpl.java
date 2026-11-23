@@ -4,12 +4,12 @@ import com.vertex.restosphere.common.enums.Role;
 import com.vertex.restosphere.dto.request.ManagerIncidentUpdateRequest;
 import com.vertex.restosphere.dto.response.ManagerIncidentResponse;
 import com.vertex.restosphere.entity.AuditLog;
+import com.vertex.restosphere.entity.Employee;
 import com.vertex.restosphere.entity.Incident;
-import com.vertex.restosphere.entity.User;
 import com.vertex.restosphere.exception.ApiException;
 import com.vertex.restosphere.repository.AuditLogRepository;
+import com.vertex.restosphere.repository.EmployeeRepository;
 import com.vertex.restosphere.repository.IncidentRepository;
-import com.vertex.restosphere.repository.UserRepository;
 import com.vertex.restosphere.security.CurrentUserService;
 import com.vertex.restosphere.service.ManagerIncidentService;
 import com.vertex.restosphere.service.RestaurantLock;
@@ -35,7 +35,7 @@ public class ManagerIncidentServiceImpl implements ManagerIncidentService {
     private final CurrentUserService currentUser;
     private final RestaurantLock restaurantLock;
     private final IncidentRepository incidents;
-    private final UserRepository users;
+    private final EmployeeRepository users;
     private final ServiceWorkflow serviceWorkflow;
     private final AuditLogRepository auditLogs;
 
@@ -52,7 +52,7 @@ public class ManagerIncidentServiceImpl implements ManagerIncidentService {
     @Override
     public ManagerIncidentResponse update(UUID actorId, UUID id, ManagerIncidentUpdateRequest req) {
         restaurantLock.acquire();
-        User actor = currentUser.require(actorId, Role.ADMIN, Role.MANAGER);
+        Employee actor = currentUser.require(actorId, Role.ADMIN, Role.MANAGER);
         Incident i =
                 incidents
                         .findWithDetailsById(id)
@@ -67,12 +67,12 @@ public class ManagerIncidentServiceImpl implements ManagerIncidentService {
         if (reply != null && reply.length() < 5) {
             throw bad("Reply must be at least 5 characters");
         }
-        User oldAssignee = i.getAssignee();
-        User assignee = oldAssignee;
+        Employee oldAssignee = i.getAssignee();
+        Employee assignee = oldAssignee;
         if (req.assigneeId() != null) {
             assignee =
                     users.findById(req.assigneeId())
-                            .filter(u -> u.isEnabled() && u.getRole() != Role.CUSTOMER)
+                            .filter(Employee::isEnabled)
                             .orElseThrow(() -> bad("Assignee must be an active employee"));
         }
         if (req.status() == Incident.Status.RESOLVED) {
@@ -133,7 +133,7 @@ public class ManagerIncidentServiceImpl implements ManagerIncidentService {
         return ManagerIncidentResponse.from(i);
     }
 
-    private static boolean sameUser(User a, User b) {
+    private static boolean sameUser(Employee a, Employee b) {
         return Objects.equals(a == null ? null : a.getId(), b == null ? null : b.getId());
     }
 

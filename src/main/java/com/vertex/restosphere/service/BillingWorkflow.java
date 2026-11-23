@@ -3,9 +3,9 @@ package com.vertex.restosphere.service;
 import com.vertex.restosphere.common.enums.DiscountMode;
 import com.vertex.restosphere.entity.ApprovalRequest;
 import com.vertex.restosphere.entity.Bill;
+import com.vertex.restosphere.entity.Employee;
 import com.vertex.restosphere.entity.OrderItem;
 import com.vertex.restosphere.entity.TableSession;
-import com.vertex.restosphere.entity.User;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
@@ -32,7 +32,7 @@ public interface BillingWorkflow {
     /** Chuyển hóa đơn sang PAID khi đã thu đủ, ngược lại mở lại. */
     void settle(Bill b);
 
-    void applyDiscount(Bill b, DiscountMode mode, BigDecimal value, String reason, User user);
+    void applyDiscount(Bill b, DiscountMode mode, BigDecimal value, String reason, Employee user);
 
     ApprovalRequest request(
             ApprovalRequest.Type type,
@@ -40,8 +40,8 @@ public interface BillingWorkflow {
             UUID targetId,
             BigDecimal amount,
             String reason,
-            User user);
+            Employee user);
 
     /** Duyệt hoặc từ chối yêu cầu và áp dụng hệ quả lên hóa đơn, món, thanh toán, thực đơn. */
-    void decide(UUID requestId, boolean approve, String reason, User user);
+    void decide(UUID requestId, boolean approve, String reason, Employee user);
 }

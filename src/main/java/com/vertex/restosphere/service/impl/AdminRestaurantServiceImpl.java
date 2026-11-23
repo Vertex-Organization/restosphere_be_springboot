@@ -7,8 +7,8 @@ import com.vertex.restosphere.dto.request.RestaurantImageRequest;
 import com.vertex.restosphere.dto.request.RestaurantProfileRequest;
 import com.vertex.restosphere.dto.response.RestaurantProfileResponse;
 import com.vertex.restosphere.entity.AuditLog;
+import com.vertex.restosphere.entity.Employee;
 import com.vertex.restosphere.entity.RestaurantSettings;
-import com.vertex.restosphere.entity.User;
 import com.vertex.restosphere.exception.ApiException;
 import com.vertex.restosphere.repository.AuditLogRepository;
 import com.vertex.restosphere.security.CurrentUserService;
@@ -122,7 +122,7 @@ public class AdminRestaurantServiceImpl implements AdminRestaurantService {
     @Override
     public RestaurantProfileResponse update(UUID actorId, RestaurantProfileRequest req) {
         RestaurantSettings settings = store.lock();
-        User actor = currentUser.require(actorId, Role.ADMIN);
+        Employee actor = currentUser.require(actorId, Role.ADMIN);
 
         List<String> values = FIELDS.stream().map(f -> validate(f, req)).toList();
         List<String> changed = new ArrayList<>();
@@ -146,7 +146,7 @@ public class AdminRestaurantServiceImpl implements AdminRestaurantService {
             UUID actorId, String kind, RestaurantImageRequest req) {
         String field = imageField(kind);
         RestaurantSettings settings = store.lock();
-        User actor = currentUser.require(actorId, Role.ADMIN);
+        Employee actor = currentUser.require(actorId, Role.ADMIN);
         if (!imageStorage.isEnabled()) {
             throw new ApiException(
                     HttpStatus.SERVICE_UNAVAILABLE, "Image upload is not configured");
@@ -162,7 +162,7 @@ public class AdminRestaurantServiceImpl implements AdminRestaurantService {
     public RestaurantProfileResponse removeImage(UUID actorId, String kind) {
         String field = imageField(kind);
         RestaurantSettings settings = store.lock();
-        User actor = currentUser.require(actorId, Role.ADMIN);
+        Employee actor = currentUser.require(actorId, Role.ADMIN);
         String current = kind.equals("logo") ? settings.getLogoUrl() : settings.getCoverUrl();
         if (current == null) {
             return RestaurantProfileResponse.from(settings);
@@ -188,7 +188,7 @@ public class AdminRestaurantServiceImpl implements AdminRestaurantService {
         }
     }
 
-    private void audit(User actor, RestaurantSettings settings, String fields) {
+    private void audit(Employee actor, RestaurantSettings settings, String fields) {
         AuditLog log = new AuditLog();
         log.setActor(actor);
         log.setAction(AdminAuditAction.RESTAURANT_UPDATED.name());

@@ -9,14 +9,14 @@ import lombok.Setter;
 @Entity
 @Table(
         name = "shift_assignments",
-        uniqueConstraints = @UniqueConstraint(columnNames = {"shift_id", "user_id"}),
-        indexes = @Index(name = "idx_shift_assignments_user_id", columnList = "user_id"))
+        uniqueConstraints = @UniqueConstraint(columnNames = {"shift_id", "employee_id"}),
+        indexes = @Index(name = "idx_shift_assignments_employee_id", columnList = "employee_id"))
 public class ShiftAssignment extends ImmutableEntity {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "shift_id", nullable = false)
     private Shift shift;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+    @JoinColumn(name = "employee_id", nullable = false)
+    private Employee employee;
 }

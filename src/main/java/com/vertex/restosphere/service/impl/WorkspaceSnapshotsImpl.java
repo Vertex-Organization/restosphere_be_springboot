@@ -121,7 +121,7 @@ public class WorkspaceSnapshotsImpl implements WorkspaceSnapshots {
     private final IncidentMapper incidents;
 
     @Override
-    public Map<String, Object> snapshot(String workspace, User user) {
+    public Map<String, Object> snapshot(String workspace, Employee user) {
         var settings = db.lock();
         db.flush();
         var ctx = new SnapshotContext(db, settings, user);
@@ -180,8 +180,7 @@ public class WorkspaceSnapshotsImpl implements WorkspaceSnapshots {
     }
 
     private List<Map<String, Object>> staff(SnapshotContext ctx, String workspace) {
-        return ctx.all(User.class).stream()
-                .filter(u -> u.getRole() != Role.CUSTOMER)
+        return ctx.all(Employee.class).stream()
                 .map(
                         u ->
                                 staffMapper.toMap(
@@ -306,7 +305,7 @@ public class WorkspaceSnapshotsImpl implements WorkspaceSnapshots {
 
     private List<Map<String, Object>> incidentList(SnapshotContext ctx) {
         var managerIds =
-                ctx.all(User.class).stream()
+                ctx.all(Employee.class).stream()
                         .filter(u -> u.getRole() == Role.MANAGER)
                         .map(u -> id(u))
                         .toList();
@@ -329,7 +328,7 @@ public class WorkspaceSnapshotsImpl implements WorkspaceSnapshots {
 
     private List<Map<String, Object>> scheduledShifts(SnapshotContext ctx) {
         return ctx.all(ShiftAssignment.class).stream()
-                .filter(a -> a.getUser().getRole() == Role.CASHIER)
+                .filter(a -> a.getEmployee().getRole() == Role.CASHIER)
                 .map(cashierMapper::toScheduledMap)
                 .toList();
     }

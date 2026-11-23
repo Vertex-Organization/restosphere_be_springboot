@@ -8,8 +8,8 @@ import static com.vertex.restosphere.common.util.Values.required;
 
 import com.vertex.restosphere.common.enums.Role;
 import com.vertex.restosphere.entity.ApprovalRequest;
+import com.vertex.restosphere.entity.Employee;
 import com.vertex.restosphere.entity.Reservation;
-import com.vertex.restosphere.entity.User;
 import com.vertex.restosphere.exception.ApiException;
 import com.vertex.restosphere.service.BillingWorkflow;
 import com.vertex.restosphere.service.ReservationWorkflow;
@@ -81,7 +81,7 @@ public class WorkspaceServiceImpl implements WorkspaceService {
     }
 
     @Override
-    public Map<String, Object> waiter(String subject, String action, Consumer<User> operation) {
+    public Map<String, Object> waiter(String subject, String action, Consumer<Employee> operation) {
         var settings = db.lock();
         var user = authorize("staff", subject);
         if (user.getRole() != Role.ADMIN && user.getRole() != Role.WAITER) {
@@ -138,7 +138,7 @@ public class WorkspaceServiceImpl implements WorkspaceService {
                 reservationId);
     }
 
-    private void requestException(Map<String, Object> c, User user) {
+    private void requestException(Map<String, Object> c, Employee user) {
         var r = db.get(Reservation.class, required(c, "id", 100));
         String reason = required(c, "reason", 200);
         if (reason.length() < 5) {
@@ -170,7 +170,7 @@ public class WorkspaceServiceImpl implements WorkspaceService {
                 id(request));
     }
 
-    private static void requireStaffRole(User user, boolean reception) {
+    private static void requireStaffRole(Employee user, boolean reception) {
         if (user.getRole() == Role.ADMIN) {
             return;
         }
@@ -181,10 +181,10 @@ public class WorkspaceServiceImpl implements WorkspaceService {
         }
     }
 
-    private User authorize(String workspace, String subject) {
-        User user;
+    private Employee authorize(String workspace, String subject) {
+        Employee user;
         try {
-            user = db.get(User.class, subject);
+            user = db.get(Employee.class, subject);
         } catch (ApiException e) {
             throw new ApiException(HttpStatus.FORBIDDEN, "Account unavailable");
         }

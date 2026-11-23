@@ -4,8 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.vertex.restosphere.common.enums.Role;
+import com.vertex.restosphere.entity.Employee;
 import com.vertex.restosphere.entity.Notification;
-import com.vertex.restosphere.entity.User;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -17,7 +17,7 @@ class CashierNotificationApiIntegrationTests extends CashierApiTestBase {
         return "c9";
     }
 
-    private Notification notification(String kind, Role audience, User recipient, String path) {
+    private Notification notification(String kind, Role audience, Employee recipient, String path) {
         Notification n = new Notification();
         n.setKind(kind);
         n.setTitle("t-" + kind);
@@ -28,8 +28,9 @@ class CashierNotificationApiIntegrationTests extends CashierApiTestBase {
         return persist(n);
     }
 
-    private long readsBy(User u) {
-        return count("select count(r) from NotificationRead r where r.user.id = :p0", u.getId());
+    private long readsBy(Employee u) {
+        return count(
+                "select count(r) from NotificationRead r where r.employee.id = :p0", u.getId());
     }
 
     private Map<String, Object> find(List<Map<String, Object>> list, Notification n) {
@@ -57,7 +58,7 @@ class CashierNotificationApiIntegrationTests extends CashierApiTestBase {
         Notification decided = notification("REQUEST_DECIDED", Role.CASHIER, null, "request-1");
         Notification personal = notification("TRANSFER_RECEIVED", null, cashier, "bill-2");
         Notification waiterOnly = notification("PAYMENT", Role.WAITER, null, "session-1");
-        User other = saveUser("c9-cashier2@restosphere.test", Role.CASHIER);
+        Employee other = saveUser("c9-cashier2@restosphere.test", Role.CASHIER);
         Notification forOther = notification("TRANSFER_FAILED", null, other, "bill-3");
 
         List<Map<String, Object>> list =

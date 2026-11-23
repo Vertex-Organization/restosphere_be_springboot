@@ -3,8 +3,8 @@ package com.vertex.restosphere.controller;
 import com.vertex.restosphere.config.OpenApiConfig;
 import com.vertex.restosphere.dto.request.LoginRequest;
 import com.vertex.restosphere.dto.request.RefreshTokenRequest;
+import com.vertex.restosphere.dto.response.EmployeeResponse;
 import com.vertex.restosphere.dto.response.TokenResponse;
-import com.vertex.restosphere.dto.response.UserResponse;
 import com.vertex.restosphere.service.AuthService;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -47,7 +47,7 @@ public class AuthController {
 
     @GetMapping("/me")
     @SecurityRequirement(name = OpenApiConfig.BEARER_AUTH)
-    public UserResponse me(@AuthenticationPrincipal Jwt jwt) {
+    public EmployeeResponse me(@AuthenticationPrincipal Jwt jwt) {
         return authService.currentUser(UUID.fromString(jwt.getSubject()));
     }
 }

@@ -18,7 +18,7 @@ import lombok.Setter;
 public class AuditLog extends ImmutableEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "actor_id")
-    private User actor;
+    private Employee actor;
 
     @Column(nullable = false, length = 100)
     private String action;

@@ -1,8 +1,8 @@
 package com.vertex.restosphere.repository;
 
 import com.vertex.restosphere.common.enums.Role;
+import com.vertex.restosphere.entity.Employee;
 import com.vertex.restosphere.entity.Notification;
-import com.vertex.restosphere.entity.User;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -16,5 +16,5 @@ public interface NotificationRepository extends JpaRepository<Notification, UUID
     @Query(
             "select n from Notification n where n.audienceRole = :role or n.recipient = :user "
                     + "order by n.createdAt desc, n.id desc")
-    List<Notification> findVisible(@Param("role") Role role, @Param("user") User user);
+    List<Notification> findVisible(@Param("role") Role role, @Param("user") Employee user);
 }

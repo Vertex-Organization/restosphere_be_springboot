@@ -10,13 +10,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.jayway.jsonpath.JsonPath;
 import com.vertex.restosphere.common.enums.Role;
-import com.vertex.restosphere.entity.User;
+import com.vertex.restosphere.entity.Employee;
 import com.vertex.restosphere.repository.AreaRepository;
 import com.vertex.restosphere.repository.AuditLogRepository;
+import com.vertex.restosphere.repository.EmployeeRepository;
 import com.vertex.restosphere.repository.MenuCategoryRepository;
 import com.vertex.restosphere.repository.MenuItemRepository;
 import com.vertex.restosphere.repository.RestaurantTableRepository;
-import com.vertex.restosphere.repository.UserRepository;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -41,7 +41,7 @@ class CatalogApiIntegrationTests {
     @Autowired RestaurantTableRepository tables;
     @Autowired AreaRepository areas;
 
-    @Autowired UserRepository users;
+    @Autowired EmployeeRepository users;
     @Autowired AuditLogRepository auditLogs;
     @Autowired PasswordEncoder passwordEncoder;
 
@@ -49,11 +49,11 @@ class CatalogApiIntegrationTests {
     // role.
     RequestPostProcessor as(String role) {
         String email = "catalog-" + role.toLowerCase() + "@restosphere.test";
-        User user =
+        Employee user =
                 users.findByEmail(email)
                         .orElseGet(
                                 () -> {
-                                    User u = new User();
+                                    Employee u = new Employee();
                                     u.setEmail(email);
                                     u.setPasswordHash(passwordEncoder.encode("unused-password"));
                                     u.setFullName(role);

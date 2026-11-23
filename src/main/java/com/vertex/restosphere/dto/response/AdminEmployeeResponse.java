@@ -2,11 +2,11 @@ package com.vertex.restosphere.dto.response;
 
 import com.vertex.restosphere.common.enums.AccountStatus;
 import com.vertex.restosphere.common.enums.Role;
-import com.vertex.restosphere.entity.User;
+import com.vertex.restosphere.entity.Employee;
 import java.time.Instant;
 import java.util.UUID;
 
-public record AdminUserResponse(
+public record AdminEmployeeResponse(
         UUID id,
         String fullName,
         String email,
@@ -15,8 +15,8 @@ public record AdminUserResponse(
         Instant createdAt,
         String initials) {
 
-    public static AdminUserResponse from(User u) {
-        return new AdminUserResponse(
+    public static AdminEmployeeResponse from(Employee u) {
+        return new AdminEmployeeResponse(
                 u.getId(),
                 u.getFullName(),
                 u.getEmail(),

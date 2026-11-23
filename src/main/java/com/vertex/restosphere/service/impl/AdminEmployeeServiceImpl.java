@@ -5,20 +5,20 @@ import com.vertex.restosphere.common.enums.AdminAuditAction;
 import com.vertex.restosphere.common.enums.Role;
 import com.vertex.restosphere.common.util.EmailUtils;
 import com.vertex.restosphere.common.util.TemporaryPasswordGenerator;
-import com.vertex.restosphere.dto.request.CreateUserRequest;
-import com.vertex.restosphere.dto.response.AdminUserResponse;
+import com.vertex.restosphere.dto.request.CreateEmployeeRequest;
+import com.vertex.restosphere.dto.response.AdminEmployeeResponse;
 import com.vertex.restosphere.entity.AuditLog;
+import com.vertex.restosphere.entity.Employee;
 import com.vertex.restosphere.entity.TableSession;
-import com.vertex.restosphere.entity.User;
 import com.vertex.restosphere.exception.ApiException;
 import com.vertex.restosphere.repository.AuditLogRepository;
 import com.vertex.restosphere.repository.CashierShiftRepository;
+import com.vertex.restosphere.repository.EmployeeRepository;
 import com.vertex.restosphere.repository.RefreshTokenRepository;
 import com.vertex.restosphere.repository.TableSessionRepository;
-import com.vertex.restosphere.repository.UserRepository;
 import com.vertex.restosphere.security.CurrentUserService;
 import com.vertex.restosphere.service.AccountMailService;
-import com.vertex.restosphere.service.AdminUserService;
+import com.vertex.restosphere.service.AdminEmployeeService;
 import com.vertex.restosphere.service.RestaurantLock;
 import java.time.Instant;
 import java.util.List;
@@ -33,9 +33,9 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 @Transactional
-public class AdminUserServiceImpl implements AdminUserService {
+public class AdminEmployeeServiceImpl implements AdminEmployeeService {
 
-    private final UserRepository users;
+    private final EmployeeRepository users;
     private final RefreshTokenRepository refreshTokens;
     private final AuditLogRepository auditLogs;
     private final TableSessionRepository tableSessions;
@@ -47,22 +47,25 @@ public class AdminUserServiceImpl implements AdminUserService {
 
     @Transactional(readOnly = true)
     @Override
-    public List<AdminUserResponse> list(UUID actorId) {
+    public List<AdminEmployeeResponse> list(UUID actorId) {
         currentUser.require(actorId, Role.ADMIN);
-        return users.findAllByOrderByCreatedAtDesc().stream().map(AdminUserResponse::from).toList();
+        return users.findAllByOrderByCreatedAtDesc().stream()
+                .map(AdminEmployeeResponse::from)
+                .toList();
     }
 
     @Override
-    public AdminUserResponse updateStatus(UUID actorId, UUID targetId, AccountStatus status) {
+    public AdminEmployeeResponse updateStatus(UUID actorId, UUID targetId, AccountStatus status) {
         restaurantLock.acquire();
-        User actor = currentUser.require(actorId, Role.ADMIN);
+        Employee actor = currentUser.require(actorId, Role.ADMIN);
         if (actor.getId().equals(targetId)) {
             throw ApiException.conflict("Cannot change your own access");
         }
-        User target = users.findById(targetId).orElseThrow(() -> ApiException.notFound("User"));
+        Employee target =
+                users.findById(targetId).orElseThrow(() -> ApiException.notFound("Employee"));
         boolean enable = status == AccountStatus.ACTIVE;
         if (target.isEnabled() == enable) {
-            return AdminUserResponse.from(target);
+            return AdminEmployeeResponse.from(target);
         }
         target.setEnabled(enable);
         if (!enable
@@ -83,22 +86,20 @@ public class AdminUserServiceImpl implements AdminUserService {
         log.setTargetId(target.getId());
         log.setDescription(target.getEmail());
         auditLogs.save(log);
-        return AdminUserResponse.from(target);
+        return AdminEmployeeResponse.from(target);
     }
 
     @Override
-    public AdminUserResponse updateRole(UUID actorId, UUID targetId, Role role) {
-        if (role == Role.CUSTOMER) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "Role CUSTOMER cannot be assigned");
-        }
+    public AdminEmployeeResponse updateRole(UUID actorId, UUID targetId, Role role) {
         restaurantLock.acquire();
-        User actor = currentUser.require(actorId, Role.ADMIN);
+        Employee actor = currentUser.require(actorId, Role.ADMIN);
         if (actor.getId().equals(targetId)) {
             throw ApiException.conflict("Cannot change your own access");
         }
-        User target = users.findById(targetId).orElseThrow(() -> ApiException.notFound("User"));
+        Employee target =
+                users.findById(targetId).orElseThrow(() -> ApiException.notFound("Employee"));
         if (target.getRole() == role) {
-            return AdminUserResponse.from(target);
+            return AdminEmployeeResponse.from(target);
         }
         if (target.getRole() == Role.ADMIN
                 && target.isEnabled()
@@ -119,16 +120,13 @@ public class AdminUserServiceImpl implements AdminUserService {
         log.setTargetId(target.getId());
         log.setDescription(target.getEmail() + ": " + oldRole + " → " + role);
         auditLogs.save(log);
-        return AdminUserResponse.from(target);
+        return AdminEmployeeResponse.from(target);
     }
 
     @Override
-    public AdminUserResponse create(UUID actorId, CreateUserRequest req) {
-        if (req.role() == Role.CUSTOMER) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "Role CUSTOMER cannot be assigned");
-        }
+    public AdminEmployeeResponse create(UUID actorId, CreateEmployeeRequest req) {
         restaurantLock.acquire();
-        User actor = currentUser.require(actorId, Role.ADMIN);
+        Employee actor = currentUser.require(actorId, Role.ADMIN);
         if (!accountMailService.isEnabled()) {
             throw new ApiException(
                     HttpStatus.SERVICE_UNAVAILABLE, "Email service is not configured");
@@ -138,7 +136,7 @@ public class AdminUserServiceImpl implements AdminUserService {
             throw ApiException.conflict("Email already exists");
         }
         String password = TemporaryPasswordGenerator.generate();
-        User user = new User();
+        Employee user = new Employee();
         user.setEmail(email);
         user.setFullName(req.fullName().strip());
         user.setRole(req.role());
@@ -159,6 +157,6 @@ public class AdminUserServiceImpl implements AdminUserService {
         } catch (MailException e) {
             throw new ApiException(HttpStatus.BAD_GATEWAY, "Could not send email");
         }
-        return AdminUserResponse.from(user);
+        return AdminEmployeeResponse.from(user);
     }
 }

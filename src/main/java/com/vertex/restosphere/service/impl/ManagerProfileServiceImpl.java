@@ -2,8 +2,8 @@ package com.vertex.restosphere.service.impl;
 
 import com.vertex.restosphere.common.enums.Role;
 import com.vertex.restosphere.dto.response.ManagerProfileResponse;
+import com.vertex.restosphere.entity.Employee;
 import com.vertex.restosphere.entity.RestaurantSettings;
-import com.vertex.restosphere.entity.User;
 import com.vertex.restosphere.repository.RestaurantSettingsRepository;
 import com.vertex.restosphere.security.CurrentUserService;
 import com.vertex.restosphere.service.ManagerProfileService;
@@ -34,7 +34,7 @@ public class ManagerProfileServiceImpl implements ManagerProfileService {
     @Transactional(readOnly = true)
     @Override
     public ManagerProfileResponse me(UUID actorId) {
-        User actor = currentUser.require(actorId, Role.ADMIN, Role.MANAGER);
+        Employee actor = currentUser.require(actorId, Role.ADMIN, Role.MANAGER);
         long approvalLimit =
                 settings.findBySingletonKey(1)
                         .orElseGet(RestaurantSettings::new)

@@ -26,7 +26,7 @@ public class CashierShift extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "cashier_id", nullable = false)
-    private User cashier;
+    private Employee cashier;
 
     @Column(nullable = false)
     private Instant openedAt;

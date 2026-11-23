@@ -9,10 +9,10 @@ import com.vertex.restosphere.dto.response.CashierPaymentResponse;
 import com.vertex.restosphere.dto.response.CashierReceiptResponse;
 import com.vertex.restosphere.entity.AuditLog;
 import com.vertex.restosphere.entity.Bill;
+import com.vertex.restosphere.entity.Employee;
 import com.vertex.restosphere.entity.OrderItem;
 import com.vertex.restosphere.entity.Payment;
 import com.vertex.restosphere.entity.RestaurantSettings;
-import com.vertex.restosphere.entity.User;
 import com.vertex.restosphere.exception.ApiException;
 import com.vertex.restosphere.repository.AuditLogRepository;
 import com.vertex.restosphere.repository.BillRepository;
@@ -107,7 +107,7 @@ public class CashierBillServiceImpl implements CashierBillService {
     @Transactional(readOnly = true)
     @Override
     public CashierReceiptResponse receipt(UUID actorId, UUID billId) {
-        User user = currentUser.require(actorId, Role.ADMIN, Role.CASHIER);
+        Employee user = currentUser.require(actorId, Role.ADMIN, Role.CASHIER);
         Bill bill = bills.findDetailedById(billId).orElseThrow(() -> ApiException.notFound("Bill"));
         RestaurantSettings cfg = settings.findBySingletonKey(1).orElseGet(RestaurantSettings::new);
         List<Payment> done =

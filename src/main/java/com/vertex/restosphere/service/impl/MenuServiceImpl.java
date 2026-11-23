@@ -9,9 +9,9 @@ import com.vertex.restosphere.dto.request.MenuItemRequest;
 import com.vertex.restosphere.dto.response.MenuCategoryResponse;
 import com.vertex.restosphere.dto.response.MenuItemResponse;
 import com.vertex.restosphere.entity.AuditLog;
+import com.vertex.restosphere.entity.Employee;
 import com.vertex.restosphere.entity.MenuCategory;
 import com.vertex.restosphere.entity.MenuItem;
-import com.vertex.restosphere.entity.User;
 import com.vertex.restosphere.exception.ApiException;
 import com.vertex.restosphere.repository.AuditLogRepository;
 import com.vertex.restosphere.repository.MenuCategoryRepository;
@@ -66,7 +66,7 @@ public class MenuServiceImpl implements MenuService {
     @Override
     public MenuCategoryResponse createCategory(UUID actorId, MenuCategoryRequest req) {
         restaurantLock.acquire();
-        User actor = currentUser.require(actorId, Role.ADMIN, Role.MANAGER);
+        Employee actor = currentUser.require(actorId, Role.ADMIN, Role.MANAGER);
         String name = req.name().strip();
         if (categories.existsByNameIgnoreCase(name)) {
             throw ApiException.conflict("Category name already exists");
@@ -84,7 +84,7 @@ public class MenuServiceImpl implements MenuService {
     @Override
     public MenuCategoryResponse updateCategory(UUID actorId, UUID id, MenuCategoryRequest req) {
         restaurantLock.acquire();
-        User actor = currentUser.require(actorId, Role.ADMIN, Role.MANAGER);
+        Employee actor = currentUser.require(actorId, Role.ADMIN, Role.MANAGER);
         MenuCategory c = findCategory(id);
         String name = req.name().strip();
         if (categories.existsByNameIgnoreCaseAndIdNot(name, id)) {
@@ -108,7 +108,7 @@ public class MenuServiceImpl implements MenuService {
     @Override
     public void deleteCategory(UUID actorId, UUID id) {
         restaurantLock.acquire();
-        User actor = currentUser.require(actorId, Role.ADMIN, Role.MANAGER);
+        Employee actor = currentUser.require(actorId, Role.ADMIN, Role.MANAGER);
         MenuCategory c = findCategory(id);
         if (items.existsByCategoryId(id)) {
             throw ApiException.conflict("Category still has menu items");
@@ -118,7 +118,7 @@ public class MenuServiceImpl implements MenuService {
     }
 
     /** Trang Manager doc description lam "Hoat dong gan day" / "Lich su xu ly". */
-    private void audit(User actor, String action, MenuCategory c, String prefix) {
+    private void audit(Employee actor, String action, MenuCategory c, String prefix) {
         AuditLog log = new AuditLog();
         log.setActor(actor);
         log.setAction(action);
@@ -151,7 +151,7 @@ public class MenuServiceImpl implements MenuService {
     @Override
     public MenuItemResponse createItem(UUID actorId, MenuItemRequest req) {
         restaurantLock.acquire();
-        User actor = currentUser.require(actorId, Role.ADMIN, Role.MANAGER);
+        Employee actor = currentUser.require(actorId, Role.ADMIN, Role.MANAGER);
         MenuItem item = new MenuItem();
         item.setName(req.name().strip());
         item.setCategory(visibleCategory(req.categoryId()));
@@ -169,7 +169,7 @@ public class MenuServiceImpl implements MenuService {
     @Override
     public MenuItemResponse updateItem(UUID actorId, UUID id, MenuItemRequest req) {
         restaurantLock.acquire();
-        User actor = currentUser.require(actorId, Role.ADMIN, Role.MANAGER);
+        Employee actor = currentUser.require(actorId, Role.ADMIN, Role.MANAGER);
         MenuItem item = findItem(id);
         // Mon dang o danh muc an van sua duoc; chi chan khi chuyen SANG danh muc an.
         MenuCategory category =
@@ -221,7 +221,7 @@ public class MenuServiceImpl implements MenuService {
     @Override
     public void deleteItem(UUID actorId, UUID id) {
         restaurantLock.acquire();
-        User actor = currentUser.require(actorId, Role.ADMIN, Role.MANAGER);
+        Employee actor = currentUser.require(actorId, Role.ADMIN, Role.MANAGER);
         MenuItem item = findItem(id);
         // Mon da vao don / nhap don / dat truoc thi giu lai de lich su va hoa don con tham chieu.
         if (orderItems.existsByMenuItemId(id)
@@ -233,7 +233,7 @@ public class MenuServiceImpl implements MenuService {
         auditItem(actor, "MENU_ITEM_DELETED", id, "Xóa món " + item.getName());
     }
 
-    private void auditItem(User actor, String action, UUID itemId, String description) {
+    private void auditItem(Employee actor, String action, UUID itemId, String description) {
         AuditLog log = new AuditLog();
         log.setActor(actor);
         log.setAction(action);

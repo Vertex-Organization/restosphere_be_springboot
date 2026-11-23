@@ -2,6 +2,7 @@ package com.vertex.restosphere.service.impl;
 
 import com.vertex.restosphere.entity.AuditLog;
 import com.vertex.restosphere.entity.Bill;
+import com.vertex.restosphere.entity.Employee;
 import com.vertex.restosphere.entity.Notification;
 import com.vertex.restosphere.entity.NotificationRead;
 import com.vertex.restosphere.entity.Order;
@@ -10,7 +11,6 @@ import com.vertex.restosphere.entity.RestaurantSettings;
 import com.vertex.restosphere.entity.RestaurantTable;
 import com.vertex.restosphere.entity.ShiftAssignment;
 import com.vertex.restosphere.entity.TableSession;
-import com.vertex.restosphere.entity.User;
 import com.vertex.restosphere.exception.ApiException;
 import com.vertex.restosphere.service.WorkspaceStore;
 import java.time.Instant;
@@ -30,14 +30,14 @@ import java.util.function.Supplier;
 final class SnapshotContext {
 
     final RestaurantSettings settings;
-    final User user;
+    final Employee user;
     final ZoneId zone;
     final Instant now = Instant.now();
 
     private final WorkspaceStore db;
     private final Map<Object, Object> memo = new HashMap<>();
 
-    SnapshotContext(WorkspaceStore db, RestaurantSettings settings, User user) {
+    SnapshotContext(WorkspaceStore db, RestaurantSettings settings, Employee user) {
         this.db = db;
         this.settings = settings;
         this.user = user;
@@ -113,10 +113,10 @@ final class SnapshotContext {
                 .get(table.getId());
     }
 
-    List<ShiftAssignment> assignmentsOf(User u) {
+    List<ShiftAssignment> assignmentsOf(Employee u) {
         return memo(
                         "assignByUser",
-                        () -> group(all(ShiftAssignment.class), a -> a.getUser().getId()))
+                        () -> group(all(ShiftAssignment.class), a -> a.getEmployee().getId()))
                 .getOrDefault(u.getId(), List.of());
     }
 
@@ -127,7 +127,7 @@ final class SnapshotContext {
                 .getOrDefault(n.getId(), List.of());
     }
 
-    boolean mine(User owner) {
+    boolean mine(Employee owner) {
         return owner != null && owner.getId().equals(user.getId());
     }
 }

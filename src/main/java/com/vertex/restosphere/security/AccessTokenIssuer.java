@@ -1,6 +1,6 @@
 package com.vertex.restosphere.security;
 
-import com.vertex.restosphere.entity.User;
+import com.vertex.restosphere.entity.Employee;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -21,7 +21,7 @@ public class AccessTokenIssuer {
     private final JwtEncoder jwtEncoder;
     private final JwtProperties properties;
 
-    public String issue(User user) {
+    public String issue(Employee user) {
         Instant now = Instant.now();
         JwtClaimsSet claims =
                 JwtClaimsSet.builder()

@@ -5,9 +5,9 @@ import static com.vertex.restosphere.common.util.Values.text;
 
 import com.vertex.restosphere.common.enums.Role;
 import com.vertex.restosphere.entity.AuditLog;
+import com.vertex.restosphere.entity.Employee;
 import com.vertex.restosphere.entity.Notification;
 import com.vertex.restosphere.entity.NotificationRead;
-import com.vertex.restosphere.entity.User;
 import com.vertex.restosphere.service.ServiceWorkflow;
 import com.vertex.restosphere.service.WorkspaceStore;
 import java.time.Instant;
@@ -37,7 +37,8 @@ public class ServiceWorkflowImpl implements ServiceWorkflow {
     }
 
     @Override
-    public void audit(User actor, String action, UUID target, String entity, String description) {
+    public void audit(
+            Employee actor, String action, UUID target, String entity, String description) {
         var a = new AuditLog();
         a.setActor(actor);
         a.setAction(action);
@@ -48,7 +49,7 @@ public class ServiceWorkflowImpl implements ServiceWorkflow {
     }
 
     @Override
-    public void read(Map<String, Object> c, User user) {
+    public void read(Map<String, Object> c, Employee user) {
         Set<String> ids = new HashSet<>();
         if (c.get("ids") instanceof List<?> list) {
             list.forEach(x -> ids.add(x.toString()));
@@ -58,7 +59,10 @@ public class ServiceWorkflowImpl implements ServiceWorkflow {
         }
         Set<UUID> alreadyRead = new HashSet<>();
         for (var read :
-                db.query(NotificationRead.class, "from NotificationRead r where r.user=?1", user)) {
+                db.query(
+                        NotificationRead.class,
+                        "from NotificationRead r where r.employee=?1",
+                        user)) {
             alreadyRead.add(read.getNotification().getId());
         }
         var visible =
@@ -72,7 +76,7 @@ public class ServiceWorkflowImpl implements ServiceWorkflow {
             if (wanted && !alreadyRead.contains(n.getId())) {
                 var read = new NotificationRead();
                 read.setNotification(n);
-                read.setUser(user);
+                read.setEmployee(user);
                 read.setReadAt(Instant.now());
                 db.save(read);
             }

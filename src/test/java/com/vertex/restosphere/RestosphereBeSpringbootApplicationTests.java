@@ -44,7 +44,7 @@ class RestosphereBeSpringbootApplicationTests {
             try (var statement =
                     connection.prepareStatement(
                             """
-                    insert into users (id,email,password_hash,full_name,role,enabled,created_at,updated_at)
+                    insert into employees (id,email,password_hash,full_name,role,enabled,created_at,updated_at)
                     values (?, 'outside@restosphere.test', 'unchanged', 'Unrelated user', 'WAITER', true, now(), now())
                     """)) {
                 statement.setObject(1, outsider);
@@ -56,9 +56,9 @@ class RestosphereBeSpringbootApplicationTests {
                         "unchanged",
                         scalar(
                                 connection,
-                                "select password_hash from users where email='outside@restosphere.test'"));
+                                "select password_hash from employees where email='outside@restosphere.test'"));
             } finally {
-                try (var statement = connection.prepareStatement("delete from users where id=?")) {
+                try (var statement = connection.prepareStatement("delete from employees where id=?")) {
                     statement.setObject(1, outsider);
                     statement.executeUpdate();
                 }
@@ -87,7 +87,7 @@ class RestosphereBeSpringbootApplicationTests {
         var result = new LinkedHashMap<String, String>();
         for (var table :
                 new String[] {
-                    "users",
+                    "employees",
                     "areas",
                     "restaurant_tables",
                     "menu_categories",
@@ -251,7 +251,7 @@ class RestosphereBeSpringbootApplicationTests {
                 var rows =
                         statement.executeQuery(
                                 """
-                select password_hash from users where id in
+                select password_hash from employees where id in
                 (select md5('restosphere:demo:' || account)::uuid from
                  unnest(array['admin','manager','cashier','kitchen','receptionist','waiter','waiter2']) account)
                 """)) {

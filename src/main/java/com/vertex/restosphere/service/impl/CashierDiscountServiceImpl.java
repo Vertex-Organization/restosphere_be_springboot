@@ -8,7 +8,7 @@ import com.vertex.restosphere.dto.response.CashierBillResponse;
 import com.vertex.restosphere.dto.response.CashierRequestResponse;
 import com.vertex.restosphere.entity.ApprovalRequest;
 import com.vertex.restosphere.entity.Bill;
-import com.vertex.restosphere.entity.User;
+import com.vertex.restosphere.entity.Employee;
 import com.vertex.restosphere.exception.ApiException;
 import com.vertex.restosphere.security.CurrentUserService;
 import com.vertex.restosphere.service.BillingWorkflow;
@@ -38,7 +38,7 @@ public class CashierDiscountServiceImpl implements CashierDiscountService {
     @Transactional
     @Override
     public CashierBillResponse apply(UUID actorId, UUID billId, CashierDiscountRequest req) {
-        User user = currentUser.require(actorId, Role.ADMIN, Role.CASHIER);
+        Employee user = currentUser.require(actorId, Role.ADMIN, Role.CASHIER);
         restaurantLock.acquire();
         Bill bill = prepare(billId, req.billVersion());
         Parsed d = parse(bill, req.discount());
@@ -63,7 +63,7 @@ public class CashierDiscountServiceImpl implements CashierDiscountService {
     @Transactional
     @Override
     public CashierBillResponse remove(UUID actorId, UUID billId, long billVersion) {
-        User user = currentUser.require(actorId, Role.ADMIN, Role.CASHIER);
+        Employee user = currentUser.require(actorId, Role.ADMIN, Role.CASHIER);
         restaurantLock.acquire();
         Bill bill = prepare(billId, billVersion);
         bill.setDiscountValue(null);
@@ -77,7 +77,7 @@ public class CashierDiscountServiceImpl implements CashierDiscountService {
     @Transactional
     @Override
     public CashierRequestResponse request(UUID actorId, UUID billId, CashierDiscountRequest req) {
-        User user = currentUser.require(actorId, Role.ADMIN, Role.CASHIER);
+        Employee user = currentUser.require(actorId, Role.ADMIN, Role.CASHIER);
         restaurantLock.acquire();
         Bill bill = prepare(billId, req.billVersion());
         Parsed d = parse(bill, req.discount());

@@ -1,7 +1,7 @@
 package com.vertex.restosphere.dto.response;
 
 import com.vertex.restosphere.entity.AuditLog;
-import com.vertex.restosphere.entity.User;
+import com.vertex.restosphere.entity.Employee;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -15,7 +15,7 @@ public record ManagerActivityResponse(
         String text) {
 
     public static ManagerActivityResponse from(AuditLog a) {
-        User actor = a.getActor();
+        Employee actor = a.getActor();
         return new ManagerActivityResponse(
                 a.getId(),
                 a.getCreatedAt(),

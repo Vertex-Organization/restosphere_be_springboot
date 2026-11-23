@@ -2,9 +2,9 @@ package com.vertex.restosphere.service.impl;
 
 import com.vertex.restosphere.common.enums.Role;
 import com.vertex.restosphere.dto.response.ManagerNotificationResponse;
+import com.vertex.restosphere.entity.Employee;
 import com.vertex.restosphere.entity.Notification;
 import com.vertex.restosphere.entity.NotificationRead;
-import com.vertex.restosphere.entity.User;
 import com.vertex.restosphere.repository.NotificationReadRepository;
 import com.vertex.restosphere.repository.NotificationRepository;
 import com.vertex.restosphere.security.CurrentUserService;
@@ -32,7 +32,7 @@ public class ManagerNotificationServiceImpl implements ManagerNotificationServic
     @Transactional(readOnly = true)
     @Override
     public List<ManagerNotificationResponse> list(UUID actorId) {
-        User actor = currentUser.require(actorId, Role.ADMIN, Role.MANAGER);
+        Employee actor = currentUser.require(actorId, Role.ADMIN, Role.MANAGER);
         return toResponses(notifications.findVisible(Role.MANAGER, actor));
     }
 
@@ -40,7 +40,7 @@ public class ManagerNotificationServiceImpl implements ManagerNotificationServic
     @Override
     public List<ManagerNotificationResponse> markRead(UUID actorId, List<UUID> ids) {
         restaurantLock.acquire();
-        User actor = currentUser.require(actorId, Role.ADMIN, Role.MANAGER);
+        Employee actor = currentUser.require(actorId, Role.ADMIN, Role.MANAGER);
         List<Notification> visible = notifications.findVisible(Role.MANAGER, actor);
         Set<UUID> alreadyRead = reads.findReadNotificationIds(actor);
         boolean all = ids == null || ids.isEmpty();
@@ -50,7 +50,7 @@ public class ManagerNotificationServiceImpl implements ManagerNotificationServic
             if ((all || wanted.contains(n.getId())) && !alreadyRead.contains(n.getId())) {
                 NotificationRead r = new NotificationRead();
                 r.setNotification(n);
-                r.setUser(actor);
+                r.setEmployee(actor);
                 r.setReadAt(now);
                 reads.save(r);
             }

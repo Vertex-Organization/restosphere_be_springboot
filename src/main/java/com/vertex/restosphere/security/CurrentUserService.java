@@ -1,9 +1,9 @@
 package com.vertex.restosphere.security;
 
 import com.vertex.restosphere.common.enums.Role;
-import com.vertex.restosphere.entity.User;
+import com.vertex.restosphere.entity.Employee;
 import com.vertex.restosphere.exception.ApiException;
-import com.vertex.restosphere.repository.UserRepository;
+import com.vertex.restosphere.repository.EmployeeRepository;
 import java.util.Arrays;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -15,9 +15,9 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class CurrentUserService {
 
-    private final UserRepository users;
+    private final EmployeeRepository users;
 
-    public User require(UUID userId, Role... allowed) {
+    public Employee require(UUID userId, Role... allowed) {
         return users.findById(userId)
                 .filter(u -> u.isEnabled() && Arrays.asList(allowed).contains(u.getRole()))
                 .orElseThrow(() -> new ApiException(HttpStatus.FORBIDDEN, "Access denied"));

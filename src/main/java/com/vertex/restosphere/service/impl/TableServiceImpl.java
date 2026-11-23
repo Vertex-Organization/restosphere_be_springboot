@@ -7,10 +7,10 @@ import com.vertex.restosphere.dto.response.ManagerTableResponse;
 import com.vertex.restosphere.dto.response.TableResponse;
 import com.vertex.restosphere.entity.Area;
 import com.vertex.restosphere.entity.AuditLog;
+import com.vertex.restosphere.entity.Employee;
 import com.vertex.restosphere.entity.Reservation;
 import com.vertex.restosphere.entity.RestaurantTable;
 import com.vertex.restosphere.entity.TableSession;
-import com.vertex.restosphere.entity.User;
 import com.vertex.restosphere.exception.ApiException;
 import com.vertex.restosphere.repository.AreaRepository;
 import com.vertex.restosphere.repository.AuditLogRepository;
@@ -118,7 +118,7 @@ public class TableServiceImpl implements TableService {
     @Override
     public TableResponse update(UUID actorId, UUID id, TableRequest req) {
         requireIdle(id);
-        User actor = currentUser.require(actorId, Role.ADMIN, Role.MANAGER);
+        Employee actor = currentUser.require(actorId, Role.ADMIN, Role.MANAGER);
         RestaurantTable table = find(id);
         // Chi chan o day (khong dua vao requireIdle) de PATCH /status va DELETE giu hanh vi cu.
         if (table.getStatus() == TableStatus.OCCUPIED

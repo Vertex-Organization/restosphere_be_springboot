@@ -5,13 +5,13 @@ import com.vertex.restosphere.common.enums.TableStatus;
 import com.vertex.restosphere.dto.request.ChangeReservationTableRequest;
 import com.vertex.restosphere.dto.response.ManagerReservationResponse;
 import com.vertex.restosphere.entity.AuditLog;
+import com.vertex.restosphere.entity.Employee;
 import com.vertex.restosphere.entity.Reservation;
 import com.vertex.restosphere.entity.ReservationItem;
 import com.vertex.restosphere.entity.ReservationTable;
 import com.vertex.restosphere.entity.RestaurantSettings;
 import com.vertex.restosphere.entity.RestaurantTable;
 import com.vertex.restosphere.entity.TableSession;
-import com.vertex.restosphere.entity.User;
 import com.vertex.restosphere.exception.ApiException;
 import com.vertex.restosphere.repository.AuditLogRepository;
 import com.vertex.restosphere.repository.ReservationItemRepository;
@@ -102,7 +102,7 @@ public class ManagerReservationServiceImpl implements ManagerReservationService 
     public ManagerReservationResponse changeTable(
             UUID actorId, UUID id, ChangeReservationTableRequest req) {
         restaurantLock.acquire();
-        User actor = currentUser.require(actorId, Role.ADMIN, Role.MANAGER);
+        Employee actor = currentUser.require(actorId, Role.ADMIN, Role.MANAGER);
         String reason = req.reason().strip();
         if (reason.length() < 5) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Reason must be at least 5 characters");

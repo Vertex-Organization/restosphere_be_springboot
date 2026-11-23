@@ -8,11 +8,11 @@ import com.vertex.restosphere.dto.request.CashierPayCashRequest;
 import com.vertex.restosphere.dto.response.CashierPaymentResponse;
 import com.vertex.restosphere.entity.Bill;
 import com.vertex.restosphere.entity.CashierShift;
+import com.vertex.restosphere.entity.Employee;
 import com.vertex.restosphere.entity.OrderItem;
 import com.vertex.restosphere.entity.Payment;
 import com.vertex.restosphere.entity.RestaurantSettings;
 import com.vertex.restosphere.entity.TableSession;
-import com.vertex.restosphere.entity.User;
 import com.vertex.restosphere.exception.ApiException;
 import com.vertex.restosphere.repository.CashierShiftRepository;
 import com.vertex.restosphere.repository.PaymentRepository;
@@ -101,7 +101,7 @@ public class CashierPaymentServiceImpl implements CashierPaymentService {
     @Override
     public CashierPaymentResponse confirmTransfer(
             UUID actorId, UUID paymentId, CashierConfirmTransferRequest req) {
-        User user = currentUser.require(actorId, Role.ADMIN, Role.CASHIER);
+        Employee user = currentUser.require(actorId, Role.ADMIN, Role.CASHIER);
         restaurantLock.acquire();
         Payment payment = pendingTransferOf(user, paymentId);
         String ref = req.bankReference() == null ? "" : req.bankReference().trim();
@@ -125,7 +125,7 @@ public class CashierPaymentServiceImpl implements CashierPaymentService {
     @Transactional
     @Override
     public CashierPaymentResponse cancelTransfer(UUID actorId, UUID paymentId) {
-        User user = currentUser.require(actorId, Role.ADMIN, Role.CASHIER);
+        Employee user = currentUser.require(actorId, Role.ADMIN, Role.CASHIER);
         restaurantLock.acquire();
         Payment payment = pendingTransferOf(user, paymentId);
         payment.setStatus(Payment.Status.CANCELLED);
@@ -134,7 +134,7 @@ public class CashierPaymentServiceImpl implements CashierPaymentService {
         return CashierPaymentResponse.from(payment);
     }
 
-    private Payment pendingTransferOf(User user, UUID paymentId) {
+    private Payment pendingTransferOf(Employee user, UUID paymentId) {
         Payment p = store.get(Payment.class, paymentId.toString());
         if (p.getMethod() != Payment.Method.TRANSFER || p.getStatus() != Payment.Status.PENDING) {
             throw ApiException.conflict("Transfer is not pending");
@@ -155,7 +155,7 @@ public class CashierPaymentServiceImpl implements CashierPaymentService {
             BigDecimal rawTendered,
             String rawKey) {
         boolean cash = method == Payment.Method.CASH;
-        User user = currentUser.require(actorId, Role.ADMIN, Role.CASHIER);
+        Employee user = currentUser.require(actorId, Role.ADMIN, Role.CASHIER);
         restaurantLock.acquire();
         String key = rawKey.trim();
         if (key.isEmpty() || key.length() > 150) {

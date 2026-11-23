@@ -97,7 +97,7 @@ public class BillingWorkflowImpl implements BillingWorkflow {
 
     @Override
     public void applyDiscount(
-            Bill b, DiscountMode mode, BigDecimal value, String reason, User user) {
+            Bill b, DiscountMode mode, BigDecimal value, String reason, Employee user) {
         b.setDiscountMode(mode);
         b.setDiscountValue(value);
         b.setDiscountReason(reason);
@@ -124,7 +124,7 @@ public class BillingWorkflowImpl implements BillingWorkflow {
             UUID targetId,
             BigDecimal amount,
             String reason,
-            User user) {
+            Employee user) {
         if (!db.query(
                         ApprovalRequest.class,
                         "from ApprovalRequest r where r.type=?1 and r.targetId=?2 and r.status=?3",
@@ -153,7 +153,7 @@ public class BillingWorkflowImpl implements BillingWorkflow {
     }
 
     @Override
-    public void decide(UUID requestId, boolean approve, String reason, User user) {
+    public void decide(UUID requestId, boolean approve, String reason, Employee user) {
         var r = db.get(ApprovalRequest.class, requestId.toString());
         if (r.getStatus() != ApprovalRequest.Status.PENDING)
             throw ApiException.conflict("Request already decided");

@@ -20,7 +20,7 @@ public class Order extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "waiter_id", nullable = false)
-    private User waiter;
+    private Employee waiter;
 
     @Column(nullable = false)
     private int roundNumber;
@@ -29,7 +29,7 @@ public class Order extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "priority_by_id")
-    private User priorityBy;
+    private Employee priorityBy;
 
     @Column(length = 1000)
     private String priorityReason;

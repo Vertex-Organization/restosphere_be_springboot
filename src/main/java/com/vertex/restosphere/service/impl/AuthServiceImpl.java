@@ -2,12 +2,12 @@ package com.vertex.restosphere.service.impl;
 
 import com.vertex.restosphere.common.util.EmailUtils;
 import com.vertex.restosphere.dto.request.LoginRequest;
+import com.vertex.restosphere.dto.response.EmployeeResponse;
 import com.vertex.restosphere.dto.response.TokenResponse;
-import com.vertex.restosphere.dto.response.UserResponse;
-import com.vertex.restosphere.entity.User;
+import com.vertex.restosphere.entity.Employee;
 import com.vertex.restosphere.exception.ApiException;
-import com.vertex.restosphere.mapper.UserMapper;
-import com.vertex.restosphere.repository.UserRepository;
+import com.vertex.restosphere.mapper.EmployeeMapper;
+import com.vertex.restosphere.repository.EmployeeRepository;
 import com.vertex.restosphere.security.AccessTokenIssuer;
 import com.vertex.restosphere.security.AppUserPrincipal;
 import com.vertex.restosphere.security.JwtProperties;
@@ -32,8 +32,8 @@ public class AuthServiceImpl implements AuthService {
     private final AuthenticationManager authenticationManager;
     private final AccessTokenIssuer accessTokenIssuer;
     private final RefreshTokenService refreshTokenService;
-    private final UserRepository userRepository;
-    private final UserMapper userMapper;
+    private final EmployeeRepository userRepository;
+    private final EmployeeMapper userMapper;
     private final JwtProperties properties;
 
     private static final int MAX_FAILURES = 10;
@@ -70,7 +70,7 @@ public class AuthServiceImpl implements AuthService {
             throw e;
         }
         failures.remove(key);
-        User user = ((AppUserPrincipal) authentication.getPrincipal()).user();
+        Employee user = ((AppUserPrincipal) authentication.getPrincipal()).user();
         return tokenResponse(user, refreshTokenService.issue(user));
     }
 
@@ -86,14 +86,14 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    public UserResponse currentUser(UUID userId) {
+    public EmployeeResponse currentUser(UUID userId) {
         return userRepository
                 .findById(userId)
                 .map(userMapper::toResponse)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
     }
 
-    private TokenResponse tokenResponse(User user, String refreshToken) {
+    private TokenResponse tokenResponse(Employee user, String refreshToken) {
         return TokenResponse.bearer(
                 accessTokenIssuer.issue(user),
                 refreshToken,

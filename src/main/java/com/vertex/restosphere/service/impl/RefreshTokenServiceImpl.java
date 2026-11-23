@@ -1,8 +1,8 @@
 package com.vertex.restosphere.service.impl;
 
 import com.vertex.restosphere.common.util.HashUtils;
+import com.vertex.restosphere.entity.Employee;
 import com.vertex.restosphere.entity.RefreshToken;
-import com.vertex.restosphere.entity.User;
 import com.vertex.restosphere.exception.InvalidRefreshTokenException;
 import com.vertex.restosphere.repository.RefreshTokenRepository;
 import com.vertex.restosphere.security.JwtProperties;
@@ -27,7 +27,7 @@ public class RefreshTokenServiceImpl implements RefreshTokenService {
 
     @Override
     @Transactional
-    public String issue(User user) {
+    public String issue(Employee user) {
         refreshTokenRepository.deleteExpiredByUser(user.getId(), Instant.now());
         return create(user, UUID.randomUUID());
     }
@@ -51,7 +51,7 @@ public class RefreshTokenServiceImpl implements RefreshTokenService {
         }
 
         current.setRevokedAt(now);
-        User user = current.getUser();
+        Employee user = current.getEmployee();
         if (current.getExpiresAt().isBefore(now) || !user.isEnabled()) {
             throw new InvalidRefreshTokenException();
         }
@@ -70,13 +70,13 @@ public class RefreshTokenServiceImpl implements RefreshTokenService {
                                         token.getFamilyId(), Instant.now()));
     }
 
-    private String create(User user, UUID familyId) {
+    private String create(Employee user, UUID familyId) {
         byte[] bytes = new byte[TOKEN_BYTES];
         secureRandom.nextBytes(bytes);
         String rawToken = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
 
         RefreshToken token = new RefreshToken();
-        token.setUser(user);
+        token.setEmployee(user);
         token.setTokenHash(HashUtils.sha256Hex(rawToken));
         token.setFamilyId(familyId);
         token.setExpiresAt(Instant.now().plus(properties.refreshTokenTtl()));

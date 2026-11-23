@@ -34,5 +34,5 @@ public class Notification extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "recipient_id")
-    private User recipient;
+    private Employee recipient;
 }

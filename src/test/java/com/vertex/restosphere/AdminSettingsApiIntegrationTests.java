@@ -11,18 +11,18 @@ import com.jayway.jsonpath.JsonPath;
 import com.vertex.restosphere.common.enums.Role;
 import com.vertex.restosphere.entity.Area;
 import com.vertex.restosphere.entity.Bill;
+import com.vertex.restosphere.entity.Employee;
 import com.vertex.restosphere.entity.RestaurantSettings;
 import com.vertex.restosphere.entity.RestaurantTable;
 import com.vertex.restosphere.entity.TableSession;
-import com.vertex.restosphere.entity.User;
 import com.vertex.restosphere.repository.AreaRepository;
 import com.vertex.restosphere.repository.AuditLogRepository;
 import com.vertex.restosphere.repository.BillRepository;
+import com.vertex.restosphere.repository.EmployeeRepository;
 import com.vertex.restosphere.repository.RefreshTokenRepository;
 import com.vertex.restosphere.repository.RestaurantSettingsRepository;
 import com.vertex.restosphere.repository.RestaurantTableRepository;
 import com.vertex.restosphere.repository.TableSessionRepository;
-import com.vertex.restosphere.repository.UserRepository;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.LinkedHashMap;
@@ -53,7 +53,7 @@ class AdminSettingsApiIntegrationTests {
     private static final JsonMapper JSON = JsonMapper.builder().build();
 
     @Autowired MockMvc mockMvc;
-    @Autowired UserRepository users;
+    @Autowired EmployeeRepository users;
     @Autowired RefreshTokenRepository refreshTokens;
     @Autowired AuditLogRepository auditLogs;
     @Autowired RestaurantSettingsRepository settingsRepo;
@@ -63,7 +63,7 @@ class AdminSettingsApiIntegrationTests {
     @Autowired AreaRepository areas;
     @Autowired PasswordEncoder passwordEncoder;
 
-    User admin;
+    Employee admin;
     RestaurantSettings original;
     Bill createdBill;
     TableSession createdSession;
@@ -364,8 +364,8 @@ class AdminSettingsApiIntegrationTests {
                         .content(JSON.writeValueAsString(body)));
     }
 
-    private User saveUser(String email, Role role) {
-        User u = new User();
+    private Employee saveUser(String email, Role role) {
+        Employee u = new Employee();
         u.setEmail(email);
         u.setPasswordHash(passwordEncoder.encode(PASSWORD));
         u.setFullName(role.name());

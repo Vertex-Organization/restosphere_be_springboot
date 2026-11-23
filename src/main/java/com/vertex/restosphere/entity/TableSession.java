@@ -36,7 +36,7 @@ public class TableSession extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "waiter_id")
-    private User waiter;
+    private Employee waiter;
 
     @Column(nullable = false)
     private int guestCount;

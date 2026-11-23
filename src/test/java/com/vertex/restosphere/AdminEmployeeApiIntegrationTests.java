@@ -9,10 +9,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.jayway.jsonpath.JsonPath;
 import com.vertex.restosphere.common.enums.Role;
-import com.vertex.restosphere.entity.User;
+import com.vertex.restosphere.entity.Employee;
 import com.vertex.restosphere.repository.AuditLogRepository;
+import com.vertex.restosphere.repository.EmployeeRepository;
 import com.vertex.restosphere.repository.RefreshTokenRepository;
-import com.vertex.restosphere.repository.UserRepository;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -30,21 +30,21 @@ import org.springframework.test.web.servlet.ResultActions;
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest
 @AutoConfigureMockMvc
-class AdminUserApiIntegrationTests {
+class AdminEmployeeApiIntegrationTests {
 
     private static final String ADMIN_EMAIL = "a1-admin@restosphere.test";
     private static final String WAITER_EMAIL = "a1-waiter@restosphere.test";
     private static final String PASSWORD = "correct-horse-battery";
-    private static final String USERS = "/api/v1/admin/users";
+    private static final String USERS = "/api/v1/admin/employees";
 
     @Autowired MockMvc mockMvc;
-    @Autowired UserRepository users;
+    @Autowired EmployeeRepository users;
     @Autowired RefreshTokenRepository refreshTokens;
     @Autowired AuditLogRepository auditLogs;
     @Autowired PasswordEncoder passwordEncoder;
 
-    User admin;
-    User waiter;
+    Employee admin;
+    Employee waiter;
 
     @BeforeEach
     void setUp() throws InterruptedException {
@@ -104,7 +104,7 @@ class AdminUserApiIntegrationTests {
                         });
         login(WAITER_EMAIL).andExpect(status().isUnauthorized());
         assertThat(refreshTokens.findAll())
-                .filteredOn(t -> t.getUser().getId().equals(waiter.getId()))
+                .filteredOn(t -> t.getEmployee().getId().equals(waiter.getId()))
                 .isNotEmpty()
                 .allSatisfy(t -> assertThat(t.getRevokedAt()).isNotNull());
         mockMvc.perform(
@@ -165,8 +165,8 @@ class AdminUserApiIntegrationTests {
                         .content("{\"status\":\"%s\"}".formatted(status)));
     }
 
-    private User saveUser(String email, String fullName, Role role) {
-        User u = new User();
+    private Employee saveUser(String email, String fullName, Role role) {
+        Employee u = new Employee();
         u.setEmail(email);
         u.setPasswordHash(passwordEncoder.encode(PASSWORD));
         u.setFullName(fullName);

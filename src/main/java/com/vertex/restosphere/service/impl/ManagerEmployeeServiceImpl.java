@@ -5,11 +5,11 @@ import com.vertex.restosphere.dto.request.AssignEmployeeAreaRequest;
 import com.vertex.restosphere.dto.response.ManagerEmployeeResponse;
 import com.vertex.restosphere.entity.Area;
 import com.vertex.restosphere.entity.AuditLog;
-import com.vertex.restosphere.entity.User;
+import com.vertex.restosphere.entity.Employee;
 import com.vertex.restosphere.exception.ApiException;
 import com.vertex.restosphere.repository.AreaRepository;
 import com.vertex.restosphere.repository.AuditLogRepository;
-import com.vertex.restosphere.repository.UserRepository;
+import com.vertex.restosphere.repository.EmployeeRepository;
 import com.vertex.restosphere.security.CurrentUserService;
 import com.vertex.restosphere.service.ManagerEmployeeService;
 import com.vertex.restosphere.service.RestaurantLock;
@@ -19,7 +19,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,7 +33,7 @@ public class ManagerEmployeeServiceImpl implements ManagerEmployeeService {
 
     private final CurrentUserService currentUser;
     private final RestaurantLock restaurantLock;
-    private final UserRepository users;
+    private final EmployeeRepository users;
     private final AreaRepository areas;
     private final AuditLogRepository auditLogs;
 
@@ -42,10 +41,7 @@ public class ManagerEmployeeServiceImpl implements ManagerEmployeeService {
     @Override
     public List<ManagerEmployeeResponse> list(UUID actorId) {
         currentUser.require(actorId, Role.ADMIN, Role.MANAGER);
-        return users.findByRoleNot(Role.CUSTOMER).stream()
-                .map(ManagerEmployeeResponse::from)
-                .sorted(ORDER)
-                .toList();
+        return users.findAll().stream().map(ManagerEmployeeResponse::from).sorted(ORDER).toList();
     }
 
     @Transactional
@@ -53,11 +49,8 @@ public class ManagerEmployeeServiceImpl implements ManagerEmployeeService {
     public ManagerEmployeeResponse assignArea(
             UUID actorId, UUID id, AssignEmployeeAreaRequest req) {
         restaurantLock.acquire();
-        User actor = currentUser.require(actorId, Role.ADMIN, Role.MANAGER);
-        User employee = users.findById(id).orElseThrow(() -> ApiException.notFound("Employee"));
-        if (employee.getRole() == Role.CUSTOMER) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "Not an employee");
-        }
+        Employee actor = currentUser.require(actorId, Role.ADMIN, Role.MANAGER);
+        Employee employee = users.findById(id).orElseThrow(() -> ApiException.notFound("Employee"));
         if (!employee.isEnabled()) {
             throw ApiException.conflict("Employee is inactive");
         }

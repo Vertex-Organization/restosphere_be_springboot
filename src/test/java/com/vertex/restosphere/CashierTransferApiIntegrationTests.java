@@ -5,9 +5,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.vertex.restosphere.common.enums.Role;
 import com.vertex.restosphere.entity.Bill;
+import com.vertex.restosphere.entity.Employee;
 import com.vertex.restosphere.entity.Payment;
 import com.vertex.restosphere.entity.RestaurantSettings;
-import com.vertex.restosphere.entity.User;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -254,7 +254,7 @@ class CashierTransferApiIntegrationTests extends CashierApiTestBase {
         Fixture f = billFixture();
         openShift(cashierToken, 0);
         String paymentId = createTransfer(f, 100000, "c4-owner");
-        User other = saveUser("c4-cashier2@restosphere.test", Role.CASHIER);
+        Employee other = saveUser("c4-cashier2@restosphere.test", Role.CASHIER);
         String otherToken = bearer(other.getEmail());
         call(
                         HttpMethod.POST,

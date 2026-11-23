@@ -100,7 +100,8 @@ public class ReservationWorkflowImpl implements ReservationWorkflow {
     }
 
     @Override
-    public Reservation create(Map<String, Object> input, User actor, boolean web, boolean walkIn) {
+    public Reservation create(
+            Map<String, Object> input, Employee actor, boolean web, boolean walkIn) {
         var r = new Reservation();
         r.setSource(
                 web
@@ -521,7 +522,7 @@ public class ReservationWorkflowImpl implements ReservationWorkflow {
     }
 
     @Override
-    public void command(String type, Map<String, Object> c, User actor) {
+    public void command(String type, Map<String, Object> c, Employee actor) {
         var r = db.get(Reservation.class, required(c, "id", 100));
         switch (type) {
             case "edit" -> {
@@ -717,7 +718,7 @@ public class ReservationWorkflowImpl implements ReservationWorkflow {
     }
 
     @Override
-    public void history(Reservation r, User actor, String action, String description) {
+    public void history(Reservation r, Employee actor, String action, String description) {
         var h = new AuditLog();
         h.setTargetType("RESERVATION");
         h.setTargetId(r.getId());

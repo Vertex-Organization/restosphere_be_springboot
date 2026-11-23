@@ -3,9 +3,9 @@ package com.vertex.restosphere.mapper;
 import static com.vertex.restosphere.common.util.Values.id;
 import static com.vertex.restosphere.common.util.Values.map;
 
+import com.vertex.restosphere.entity.Employee;
 import com.vertex.restosphere.entity.RestaurantSettings;
 import com.vertex.restosphere.entity.ShiftAssignment;
-import com.vertex.restosphere.entity.User;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -46,7 +46,7 @@ public class StaffMapper {
                     "reports.export");
 
     public Map<String, Object> toMap(
-            User u,
+            Employee u,
             String workspace,
             RestaurantSettings settings,
             List<ShiftAssignment> assignments,
@@ -99,7 +99,7 @@ public class StaffMapper {
         };
     }
 
-    private static String department(User u) {
+    private static String department(Employee u) {
         return switch (u.getRole()) {
             case WAITER -> "SERVICE";
             case KITCHEN -> "KITCHEN";

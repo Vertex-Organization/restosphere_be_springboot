@@ -6,8 +6,8 @@ import com.vertex.restosphere.dto.request.SystemSettingsRequest;
 import com.vertex.restosphere.dto.response.SystemSettingsResponse;
 import com.vertex.restosphere.entity.AuditLog;
 import com.vertex.restosphere.entity.Bill;
+import com.vertex.restosphere.entity.Employee;
 import com.vertex.restosphere.entity.RestaurantSettings;
-import com.vertex.restosphere.entity.User;
 import com.vertex.restosphere.exception.ApiException;
 import com.vertex.restosphere.repository.AuditLogRepository;
 import com.vertex.restosphere.repository.BillRepository;
@@ -120,7 +120,7 @@ public class AdminSettingsServiceImpl implements AdminSettingsService {
     @Override
     public SystemSettingsResponse update(UUID actorId, SystemSettingsRequest req) {
         RestaurantSettings settings = store.lock();
-        User actor = currentUser.require(actorId, Role.ADMIN);
+        Employee actor = currentUser.require(actorId, Role.ADMIN);
 
         String timezone = text(req.timezone());
         try {

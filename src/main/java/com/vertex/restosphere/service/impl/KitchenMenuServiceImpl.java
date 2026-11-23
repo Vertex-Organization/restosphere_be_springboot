@@ -5,8 +5,8 @@ import com.vertex.restosphere.common.enums.Role;
 import com.vertex.restosphere.dto.response.KitchenMenuItemResponse;
 import com.vertex.restosphere.dto.response.KitchenMenuRequestResponse;
 import com.vertex.restosphere.entity.ApprovalRequest;
+import com.vertex.restosphere.entity.Employee;
 import com.vertex.restosphere.entity.MenuItem;
-import com.vertex.restosphere.entity.User;
 import com.vertex.restosphere.exception.ApiException;
 import com.vertex.restosphere.repository.ApprovalRequestRepository;
 import com.vertex.restosphere.repository.MenuItemRepository;
@@ -50,7 +50,7 @@ public class KitchenMenuServiceImpl implements KitchenMenuService {
     @Override
     public KitchenMenuItemResponse setStatus(
             UUID actorId, String menuItemId, MenuItemStatus status) {
-        User user = currentUser.require(actorId, Role.ADMIN, Role.KITCHEN);
+        Employee user = currentUser.require(actorId, Role.ADMIN, Role.KITCHEN);
         restaurantLock.acquire();
         MenuItem menu = store.get(MenuItem.class, menuItemId);
         validate(menu, status);
@@ -79,7 +79,7 @@ public class KitchenMenuServiceImpl implements KitchenMenuService {
     @Override
     public KitchenMenuRequestResponse request(
             UUID actorId, String menuItemId, MenuItemStatus status) {
-        User user = currentUser.require(actorId, Role.ADMIN, Role.KITCHEN);
+        Employee user = currentUser.require(actorId, Role.ADMIN, Role.KITCHEN);
         restaurantLock.acquire();
         MenuItem menu = store.get(MenuItem.class, menuItemId);
         validate(menu, status);
