@@ -23,7 +23,6 @@ import org.springframework.transaction.annotation.Transactional;
 @SpringBootTest(
         properties = {
             "spring.config.import=",
-            "spring.jpa.hibernate.ddl-auto=create-drop",
             "spring.sql.init.mode=never",
             "spring.docker.compose.enabled=false",
             "app.mail.enabled=false",

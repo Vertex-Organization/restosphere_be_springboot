@@ -12,19 +12,17 @@ spring:
     password: ${DB_PASSWORD:restosphere}
 
   jpa:
-    defer-datasource-initialization: true
     open-in-view: false
     hibernate:
-      # TODO(confirm): doi sang validate khi V1 hoan chinh (giai doan 1, buoc cuoi).
-      ddl-auto: ${JPA_DDL_AUTO:update}
+      # Schema do Flyway quan ly (db/migration); Hibernate chi kiem tra, khong tu sua.
+      ddl-auto: ${JPA_DDL_AUTO:validate}
     properties:
       hibernate:
         jdbc:
           time_zone: UTC
 
   flyway:
-    # TODO(confirm): tam tat cho den khi V1 hoan chinh (giai doan 1, buoc cuoi).
-    enabled: ${FLYWAY_ENABLED:false}
+    enabled: ${FLYWAY_ENABLED:true}
     locations: classpath:db/migration
 
   sql:
