@@ -6,7 +6,7 @@
 - Cập nhật lần cuối: 2026-11-23 18:50
 
 ## Đang làm
-- GĐ1: bước "restaurant_settings.bank_bin", rồi "V1 migration + seed"
+- GĐ1: bước "V1 migration + validate" (sinh DDL từ entity -> viết V1 đặt tên constraint rõ ràng -> chuyển seed sang db/seed -> bật validate)
 
 ## Câu hỏi đang chờ
 - [x] FE mobile / màn lễ tân + phục vụ -> đã trả lời, xem mục Quyết định
@@ -118,6 +118,7 @@
 - 2026-11-23 19:37 – GĐ1: gộp order_drafts vào orders xong, 196/196 test pass. Đã nhận 4 quyết định từ người dùng (mobile bắt buộc, areas active/sort_order, area_id NULL, seed -> Flyway db/seed). Sẽ sửa thẳng V1 khi tạo, drop/tạo lại restosphere_v2 để kiểm tra.
 - 2026-11-23 19:06 – GĐ1: Flyway dep + rename User->Employee xong, 196/196 test pass. Baseline trước đó fail toàn bộ vì Flyway bật mà DB không rỗng -> đặt flyway.enabled=false tạm.
 - 2026-11-23 18:50 – Tạo nhánh refactor/db-flyway-payos từ develop. Lưu ý: `application.yaml` có thay đổi chưa commit của người dùng (SQL_INIT_MODE mặc định never -> always), giữ nguyên, không đưa vào commit của mình cho tới khi cần.
+
 
 
 
