@@ -6,7 +6,7 @@
 - Cập nhật lần cuối: 2026-11-23 18:50
 
 ## Đang làm
-- GĐ1: bước "Payments: cột mới, method mới, cọc, MANUAL_TRANSFER" và "Phiên - bill (table_sessions.bill_id, ghép/tách)"
+- GĐ1: bước "Payments: cột mới, method mới, cọc, MANUAL_TRANSFER, chặn đóng ca"
 
 ## Câu hỏi đang chờ
 - [x] FE mobile / màn lễ tân + phục vụ -> đã trả lời, xem mục Quyết định
@@ -36,7 +36,8 @@
 - [x] User -> Employee, bỏ role CUSTOMER — commit `aa8fbbd` (endpoint đổi `/api/v1/admin/users` -> `/api/v1/admin/employees`, FE phải cập nhật ở GĐ3; JSON field không đổi)
 - [x] Cột người thực hiện -> FK + bills.approval_request_id — commit `e213aa6` (JSON vẫn trả id dạng chuỗi, FE không vỡ)
 - [x] Gộp order_drafts vào orders — commit `fd70c7e` (thêm orders.status/submitted_at, order_items.DRAFT, `OrderItem.NOT_BILLABLE`, partial unique index 1 DRAFT/(session,waiter) trong DatabaseConstraintsInitializer tạm thời; endpoint giữ nguyên)
-- [ ] Phiên-bill: table_sessions.bill_id, ghép/tách
+- [x] Phiên-bill A1: table_sessions.bill_id, bỏ bills.session_id, bill tạo khi mở phiên — commit `ca4f0d7` (Bill có `sessions`; `bill.tableCodes()`/`guestCount()`/`awaitingPayment()`; bỏ unique reservation_id; response bill: `tableCode` có thể là "T1 + T2")
+- [ ] Phiên-bill A2: ghép/tách + luật chặn (cần payments từ bước kế)
 - [ ] Payments: cột mới, method mới, cọc, MANUAL_TRANSFER, chặn đóng ca
 - [x] areas: active + sort_order — commit `fe0fad2` (BE xong; UI quản lý khu ở GĐ3 web). API `/areas` trả thêm `active`, `sortOrder`; `AreaRequest` nhận `active`/`sortOrder` tùy chọn; public settings chỉ trả khu active
 - [ ] V1 migration + validate (kèm chuyển seed dataset.sql -> db/seed, profile dev, xóa dataset.sql)
@@ -109,10 +110,12 @@
 - `application.yaml` có thay đổi cục bộ chưa commit của người dùng (`SQL_INIT_MODE` mặc định `always`). Không đụng vào cho tới khi cần sửa file này (khi sửa sẽ giữ nguyên dòng đó).
 
 ## Nhật ký
+- 2026-11-23 20:21 – GĐ1: A1 phiên-bill xong, 197/197 test pass. dataset.sql tạm sửa (bill chèn trước phiên, cập nhật tổng sau). Nhánh CHƯA push (người dùng hỏi; chờ xác nhận).
 - 2026-11-23 19:55 – GĐ1: areas active/sort_order + area_id NULL xong, 197/197 test pass (thêm 1 test mới). Lưu ý: `reservations.areaName` giờ là "Không yêu cầu khu" khi NULL.
 - 2026-11-23 19:37 – GĐ1: gộp order_drafts vào orders xong, 196/196 test pass. Đã nhận 4 quyết định từ người dùng (mobile bắt buộc, areas active/sort_order, area_id NULL, seed -> Flyway db/seed). Sẽ sửa thẳng V1 khi tạo, drop/tạo lại restosphere_v2 để kiểm tra.
 - 2026-11-23 19:06 – GĐ1: Flyway dep + rename User->Employee xong, 196/196 test pass. Baseline trước đó fail toàn bộ vì Flyway bật mà DB không rỗng -> đặt flyway.enabled=false tạm.
 - 2026-11-23 18:50 – Tạo nhánh refactor/db-flyway-payos từ develop. Lưu ý: `application.yaml` có thay đổi chưa commit của người dùng (SQL_INIT_MODE mặc định never -> always), giữ nguyên, không đưa vào commit của mình cho tới khi cần.
+
 
 
 
