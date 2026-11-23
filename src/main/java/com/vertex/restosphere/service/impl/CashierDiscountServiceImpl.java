@@ -68,6 +68,7 @@ public class CashierDiscountServiceImpl implements CashierDiscountService {
         Bill bill = prepare(billId, billVersion);
         bill.setDiscountValue(null);
         bill.setDiscountMode(null);
+        bill.setApprovalRequest(null);
         billing.recalculate(bill);
         writes.commit(user, "remove-discount");
         store.flush();

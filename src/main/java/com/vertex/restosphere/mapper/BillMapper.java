@@ -92,9 +92,9 @@ public class BillMapper {
                 "bankReference",
                 p.getTransactionReference(),
                 "verifiedBy",
-                p.getVerifiedBy(),
+                id(p.getVerifiedBy()),
                 "createdBy",
-                p.getCreatedBy(),
+                id(p.getCreatedBy()),
                 "createdAt",
                 p.getCreatedAt(),
                 "completedAt",
@@ -122,7 +122,7 @@ public class BillMapper {
                 "reason",
                 b.getDiscountReason(),
                 "appliedBy",
-                b.getDiscountAppliedBy(),
+                id(b.getDiscountAppliedBy()),
                 "appliedAt",
                 b.getDiscountAppliedAt());
     }

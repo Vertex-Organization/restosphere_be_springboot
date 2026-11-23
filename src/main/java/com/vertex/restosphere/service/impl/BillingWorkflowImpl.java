@@ -1,6 +1,5 @@
 package com.vertex.restosphere.service.impl;
 
-import static com.vertex.restosphere.common.util.Values.id;
 import static com.vertex.restosphere.common.util.Values.whole;
 
 import com.vertex.restosphere.common.enums.DiscountMode;
@@ -101,7 +100,7 @@ public class BillingWorkflowImpl implements BillingWorkflow {
         b.setDiscountMode(mode);
         b.setDiscountValue(value);
         b.setDiscountReason(reason);
-        b.setDiscountAppliedBy(id(user));
+        b.setDiscountAppliedBy(user);
         b.setDiscountAppliedAt(Instant.now());
         recalculate(b);
     }
@@ -172,6 +171,7 @@ public class BillingWorkflowImpl implements BillingWorkflow {
                     recalculate(b);
                     applyDiscount(
                             b, r.getDiscountMode(), r.getDiscountValue(), r.getReason(), user);
+                    b.setApprovalRequest(r);
                 }
                 case CANCEL_ITEM, BILL_ADJUSTMENT -> {
                     var item = db.get(OrderItem.class, r.getTargetId().toString());

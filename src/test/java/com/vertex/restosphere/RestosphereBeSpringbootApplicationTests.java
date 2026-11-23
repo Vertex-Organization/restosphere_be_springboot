@@ -58,7 +58,8 @@ class RestosphereBeSpringbootApplicationTests {
                                 connection,
                                 "select password_hash from employees where email='outside@restosphere.test'"));
             } finally {
-                try (var statement = connection.prepareStatement("delete from employees where id=?")) {
+                try (var statement =
+                        connection.prepareStatement("delete from employees where id=?")) {
                     statement.setObject(1, outsider);
                     statement.executeUpdate();
                 }

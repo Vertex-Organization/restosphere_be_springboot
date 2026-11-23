@@ -112,7 +112,7 @@ public class CashierPaymentServiceImpl implements CashierPaymentService {
             throw ApiException.conflict("Bank reference was already used");
         }
         payment.setTransactionReference(ref);
-        payment.setVerifiedBy(user.getId().toString());
+        payment.setVerifiedBy(user);
         payment.setStatus(Payment.Status.COMPLETED);
         payment.setPaidAt(Instant.now());
         billing.settle(payment.getBill());
@@ -164,7 +164,8 @@ public class CashierPaymentServiceImpl implements CashierPaymentService {
         var old = payments.findByIdempotencyKey(key);
         if (old.isPresent()) {
             Payment p = old.get();
-            if (!user.getId().toString().equals(p.getCreatedBy())
+            if (p.getCreatedBy() == null
+                    || !user.getId().equals(p.getCreatedBy().getId())
                     || !p.getBill().getId().equals(billId)
                     || p.getAmount().compareTo(Values.money(rawAmount, "amount")) != 0
                     || p.getMethod() != method
@@ -207,7 +208,7 @@ public class CashierPaymentServiceImpl implements CashierPaymentService {
         payment.setBill(bill);
         payment.setCashierShift(shift);
         payment.setAmount(amount);
-        payment.setCreatedBy(user.getId().toString());
+        payment.setCreatedBy(user);
         payment.setIdempotencyKey(key);
         if (cash) {
             BigDecimal tendered = Values.money(rawTendered, "tendered");

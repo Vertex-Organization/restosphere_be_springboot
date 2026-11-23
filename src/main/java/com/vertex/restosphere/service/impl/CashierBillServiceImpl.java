@@ -1,5 +1,7 @@
 package com.vertex.restosphere.service.impl;
 
+import static com.vertex.restosphere.common.util.Values.id;
+
 import com.vertex.restosphere.common.enums.Role;
 import com.vertex.restosphere.common.util.Values;
 import com.vertex.restosphere.dto.response.CashierBillResponse;
@@ -144,7 +146,7 @@ public class CashierBillServiceImpl implements CashierBillService {
                                 bill.getDiscountMode(),
                                 bill.getDiscountValue(),
                                 bill.getDiscountReason(),
-                                bill.getDiscountAppliedBy(),
+                                id(bill.getDiscountAppliedBy()),
                                 bill.getDiscountAppliedAt());
         var receiptPayments =
                 done.stream()

@@ -351,7 +351,10 @@ public class WorkspaceSnapshotsImpl implements WorkspaceSnapshots {
     private Map<String, Object> processedKeys(SnapshotContext ctx) {
         Map<String, Object> keys = new LinkedHashMap<>();
         ctx.all(Payment.class).stream()
-                .filter(p -> id(ctx.user).equals(p.getCreatedBy()) && p.getIdempotencyKey() != null)
+                .filter(
+                        p ->
+                                id(ctx.user).equals(id(p.getCreatedBy()))
+                                        && p.getIdempotencyKey() != null)
                 .forEach(p -> keys.put(p.getIdempotencyKey(), id(p)));
         return keys;
     }

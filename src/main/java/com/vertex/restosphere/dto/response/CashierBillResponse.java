@@ -2,6 +2,7 @@ package com.vertex.restosphere.dto.response;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.vertex.restosphere.common.enums.DiscountMode;
+import com.vertex.restosphere.common.util.Values;
 import com.vertex.restosphere.entity.Bill;
 import com.vertex.restosphere.entity.TableSession;
 import java.math.BigDecimal;
@@ -68,7 +69,7 @@ public record CashierBillResponse(
                                 b.getDiscountMode(),
                                 b.getDiscountValue(),
                                 b.getDiscountReason(),
-                                b.getDiscountAppliedBy(),
+                                Values.id(b.getDiscountAppliedBy()),
                                 b.getDiscountAppliedAt());
         var table = b.getSession().getTable();
         return new CashierBillResponse(

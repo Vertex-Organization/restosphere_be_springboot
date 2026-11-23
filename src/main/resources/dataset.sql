@@ -274,14 +274,14 @@ ON CONFLICT DO NOTHING;
 
 INSERT INTO bills
 (id, version, code, session_id, subtotal, discount, service_charge, tax_amount, total, status,
- discount_mode, discount_value, discount_reason, discount_applied_by, discount_applied_at, requested_at, paid_at, created_at, updated_at)
+ discount_mode, discount_value, discount_reason, discount_applied_by_id, discount_applied_at, requested_at, paid_at, created_at, updated_at)
 SELECT md5('restosphere:seed:bill:' || n)::uuid, 0, 'DEMO-B-' || lpad(n::text, 3, '0'),
        md5('restosphere:seed:session:' || n)::uuid, subtotal, discount, service, tax,
        subtotal - discount + service + tax,
        CASE WHEN n <= 18 THEN 'PAID' WHEN n = 26 THEN 'VOIDED' ELSE 'OPEN' END,
        CASE WHEN n % 3 = 0 THEN 'PERCENT' END, CASE WHEN n % 3 = 0 THEN 5 END,
        CASE WHEN n % 3 = 0 THEN 'Ưu đãi khách thân thiết' END,
-       CASE WHEN n % 3 = 0 THEN md5('restosphere:demo:cashier')::uuid::text END,
+       CASE WHEN n % 3 = 0 THEN md5('restosphere:demo:cashier')::uuid END,
        CASE WHEN n % 3 = 0 THEN starts_at + interval '40 minutes' END,
        CASE WHEN n <= 18 OR n >= 23 THEN starts_at + interval '45 minutes' END,
        CASE WHEN n <= 18 THEN starts_at + interval '60 minutes' END,
@@ -298,15 +298,15 @@ WHERE settings.singleton_key = 1
 ON CONFLICT DO NOTHING;
 
 INSERT INTO payments
-(id, bill_id, cashier_shift_id, amount, method, status, tendered, created_by, verified_by,
+(id, bill_id, cashier_shift_id, amount, method, status, tendered, created_by_id, verified_by_id,
  transaction_reference, idempotency_key, paid_at, note, created_at, updated_at)
 SELECT md5('restosphere:seed:payment:' || n || ':' || attempt)::uuid, b.id,
        md5('restosphere:seed:cashier:' || day)::uuid,
        CASE WHEN n IN (23,24) THEN CASE WHEN attempt = 1 THEN floor(b.total / 2) ELSE b.total - floor(b.total / 2) END ELSE b.total END,
        CASE WHEN n % 2 = 0 OR attempt > 1 THEN 'TRANSFER' ELSE 'CASH' END, state,
        CASE WHEN n % 2 <> 0 AND attempt = 1 THEN ceil(b.total / 100000) * 100000 END,
-       md5('restosphere:demo:cashier')::uuid::text,
-       CASE WHEN state = 'COMPLETED' AND (n % 2 = 0 OR attempt > 1) THEN md5('restosphere:demo:cashier')::uuid::text END,
+       md5('restosphere:demo:cashier')::uuid,
+       CASE WHEN state = 'COMPLETED' AND (n % 2 = 0 OR attempt > 1) THEN md5('restosphere:demo:cashier')::uuid END,
        CASE WHEN n % 2 = 0 OR attempt > 1 THEN 'DEMO-TX-' || n || '-' || attempt END,
        'DEMO-PAY-' || n || '-' || attempt,
        CASE WHEN state IN ('COMPLETED','VOIDED') THEN starts_at + interval '60 minutes' END,

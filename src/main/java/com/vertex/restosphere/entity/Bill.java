@@ -35,8 +35,13 @@ public class Bill extends BaseEntity {
     @Column(length = 1000)
     private String discountReason;
 
-    @Column(length = 254)
-    private String discountAppliedBy;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "discount_applied_by_id")
+    private Employee discountAppliedBy;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "approval_request_id")
+    private ApprovalRequest approvalRequest;
 
     private Instant discountAppliedAt;
 

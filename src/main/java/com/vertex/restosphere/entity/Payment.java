@@ -38,11 +38,13 @@ public class Payment extends BaseEntity {
     @Column(precision = 14, scale = 0)
     private BigDecimal tendered;
 
-    @Column(length = 254)
-    private String createdBy;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "created_by_id")
+    private Employee createdBy;
 
-    @Column(length = 254)
-    private String verifiedBy;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "verified_by_id")
+    private Employee verifiedBy;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "bill_id", nullable = false)

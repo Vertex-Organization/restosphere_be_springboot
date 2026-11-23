@@ -1,5 +1,6 @@
 package com.vertex.restosphere.dto.response;
 
+import com.vertex.restosphere.common.util.Values;
 import com.vertex.restosphere.entity.Payment;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -36,8 +37,8 @@ public record CashierPaymentResponse(
                         ? "RS" + p.getId().toString().replace("-", "")
                         : null,
                 p.getTransactionReference(),
-                p.getVerifiedBy(),
-                p.getCreatedBy(),
+                Values.id(p.getVerifiedBy()),
+                Values.id(p.getCreatedBy()),
                 p.getCreatedAt(),
                 p.getPaidAt());
     }
