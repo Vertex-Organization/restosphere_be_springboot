@@ -26,6 +26,7 @@ import com.vertex.restosphere.repository.TableSessionRepository;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
@@ -97,6 +98,7 @@ class AdminSettingsApiIntegrationTests {
         s.setVatRate(original.getVatRate());
         s.setBankAccountNumber(original.getBankAccountNumber());
         s.setBankName(original.getBankName());
+        s.setBankBin(original.getBankBin());
         s.setBankAccountName(original.getBankAccountName());
         s.setTimezone(original.getTimezone());
         s.setCurrency(original.getCurrency());
@@ -152,6 +154,7 @@ class AdminSettingsApiIntegrationTests {
                         "vatPercent",
                         "bankAccount",
                         "bankName",
+                        "bankBin",
                         "bankAccountName");
     }
 
@@ -188,6 +191,24 @@ class AdminSettingsApiIntegrationTests {
         // Gui lai cung du lieu (5 trong khi DB luu 5.00): khong ghi them log.
         putSettings(token, body).andExpect(status().isOk());
         assertThat(auditLogs.count()).isEqualTo(1);
+    }
+
+    @Test
+    void bankBinMustBeSixDigitsAndIsSavedTrimmed() throws Exception {
+        String token = bearer(ADMIN_EMAIL);
+        Map<String, Object> body = settings();
+        billing(body).put("bankBin", " 970436 ");
+        putSettings(token, body)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.billing.bankBin").value("970436"));
+        for (String bad : List.of("97043", "9704366", "abcdef", "97 436")) {
+            billing(body).put("bankBin", bad);
+            putSettings(token, body).andExpect(status().isBadRequest());
+        }
+        billing(body).put("bankBin", "");
+        putSettings(token, body)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.billing.bankBin").value(""));
     }
 
     @Test

@@ -80,6 +80,8 @@ public class CashierMapper {
                                 ? map(
                                         "bankName",
                                         str(s.getBankName()),
+                                        "bin",
+                                        str(s.getBankBin()),
                                         "accountNumber",
                                         s.getBankAccountNumber(),
                                         "accountName",

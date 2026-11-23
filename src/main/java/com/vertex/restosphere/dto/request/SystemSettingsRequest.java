@@ -29,5 +29,7 @@ public record SystemSettingsRequest(
             @Pattern(regexp = "\\s*(\\d{6,20})?\\s*", message = "must be 6-20 digits")
                     String bankAccount,
             @Size(max = 100) String bankName,
+            @Pattern(regexp = "\\s*(\\d{6})?\\s*", message = "must be a 6-digit bank BIN")
+                    String bankBin,
             @Size(max = 100) String bankAccountName) {}
 }

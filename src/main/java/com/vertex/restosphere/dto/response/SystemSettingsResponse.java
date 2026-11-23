@@ -19,6 +19,7 @@ public record SystemSettingsResponse(
             BigDecimal vatPercent,
             String bankAccount,
             String bankName,
+            String bankBin,
             String bankAccountName) {}
 
     public static SystemSettingsResponse from(RestaurantSettings s) {
@@ -32,6 +33,7 @@ public record SystemSettingsResponse(
                         s.getVatRate(),
                         str(s.getBankAccountNumber()),
                         str(s.getBankName()),
+                        str(s.getBankBin()),
                         str(s.getBankAccountName())),
                 str(s.getTimezone()),
                 str(s.getCurrency()),

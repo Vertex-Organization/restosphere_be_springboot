@@ -83,6 +83,11 @@ public class AdminSettingsServiceImpl implements AdminSettingsService {
                             RestaurantSettings::getBankName,
                             (s, v) -> s.setBankName((String) v)),
                     new Field(
+                            "billing.bankBin",
+                            r -> text(r.billing().bankBin()),
+                            RestaurantSettings::getBankBin,
+                            (s, v) -> s.setBankBin((String) v)),
+                    new Field(
                             "billing.bankAccountName",
                             r -> text(r.billing().bankAccountName()),
                             RestaurantSettings::getBankAccountName,

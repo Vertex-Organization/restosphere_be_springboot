@@ -55,6 +55,11 @@ public class RestaurantSettings extends BaseEntity {
     private BigDecimal serviceChargeRate = BigDecimal.ZERO;
 
     private String bankName;
+
+    // 6-digit napas BIN of the bank; with the account number it builds the static VietQR.
+    @Column(length = 6)
+    private String bankBin;
+
     private String bankAccountNumber;
     private String bankAccountName;
 

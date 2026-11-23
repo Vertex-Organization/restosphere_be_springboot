@@ -191,6 +191,7 @@ public class CashierBillServiceImpl implements CashierBillService {
                 transfer
                         ? new CashierConfigResponse.Bank(
                                 s.getBankName() == null ? "" : s.getBankName(),
+                                s.getBankBin() == null ? "" : s.getBankBin(),
                                 s.getBankAccountNumber(),
                                 s.getBankAccountName() == null ? "" : s.getBankAccountName())
                         : null;

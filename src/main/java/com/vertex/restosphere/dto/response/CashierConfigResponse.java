@@ -10,5 +10,5 @@ public record CashierConfigResponse(
         BigDecimal taxRate,
         Map<String, Boolean> methods,
         Bank bank) {
-    public record Bank(String bankName, String accountNumber, String accountName) {}
+    public record Bank(String bankName, String bin, String accountNumber, String accountName) {}
 }
