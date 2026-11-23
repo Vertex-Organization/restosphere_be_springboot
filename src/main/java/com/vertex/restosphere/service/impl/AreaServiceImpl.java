@@ -24,7 +24,9 @@ public class AreaServiceImpl implements AreaService {
     @Transactional(readOnly = true)
     @Override
     public List<AreaResponse> list() {
-        return areas.findAll().stream().map(AreaResponse::from).toList();
+        return areas.findAllByOrderBySortOrderAscNameAsc().stream()
+                .map(AreaResponse::from)
+                .toList();
     }
 
     @Override
@@ -35,6 +37,7 @@ public class AreaServiceImpl implements AreaService {
         }
         Area area = new Area();
         area.setName(name);
+        applyOptions(area, req);
         return AreaResponse.from(areas.save(area));
     }
 
@@ -46,6 +49,7 @@ public class AreaServiceImpl implements AreaService {
             throw ApiException.conflict("Area name already exists");
         }
         area.setName(name);
+        applyOptions(area, req);
         return AreaResponse.from(area);
     }
 
@@ -56,6 +60,11 @@ public class AreaServiceImpl implements AreaService {
             throw ApiException.conflict("Area still has tables");
         }
         areas.delete(area);
+    }
+
+    private static void applyOptions(Area area, AreaRequest req) {
+        if (req.active() != null) area.setActive(req.active());
+        if (req.sortOrder() != null) area.setSortOrder(req.sortOrder());
     }
 
     private Area find(UUID id) {

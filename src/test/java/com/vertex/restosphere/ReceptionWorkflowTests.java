@@ -109,6 +109,36 @@ class ReceptionWorkflowTests {
     }
 
     @Test
+    void reservationWithoutAreaIsAutoAssignedAndInactiveAreasAreRejected() {
+        var open = area("Open area");
+        var closed = area("Closed area");
+        closed.setActive(false);
+        table(open, 4);
+        table(closed, 4);
+        var input =
+                map(
+                        "name",
+                        "Guest",
+                        "phone",
+                        "0706710269",
+                        "startsAt",
+                        Instant.now().plusSeconds(7200).toString(),
+                        "guests",
+                        2);
+        var booking = reservations.createPublic(input);
+        var r = byCode(booking.get("code").toString());
+        assertNull(r.getArea());
+        run(user(Role.RECEPTIONIST), "type", "confirm", "id", id(r));
+        assertEquals(Reservation.Status.CONFIRMED, r.getStatus());
+        assertEquals(id(open), id(reservations.assignment(r).getTable().getArea()));
+
+        input.put("areaId", id(closed));
+        assertThrows(ApiException.class, () -> reservations.createPublic(input));
+        var areas = (List<?>) reservations.settings().get("areas");
+        assertTrue(areas.stream().noneMatch(a -> id(closed).equals(((Map<?, ?>) a).get("id"))));
+    }
+
+    @Test
     void legacyVietnamesePhoneLookupAndCancelAcceptBothFormsOnly() {
         var area = area("Legacy phone");
         table(area, 4);

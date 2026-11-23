@@ -76,7 +76,11 @@ public class ReservationWorkflowImpl implements ReservationWorkflow {
                 "timezone",
                 s.getTimezone(),
                 "areas",
-                db.all(Area.class).stream()
+                db
+                        .query(
+                                Area.class,
+                                "from Area a where a.active = true order by a.sortOrder, a.name")
+                        .stream()
                         .map(a -> map("id", id(a), "name", a.getName()))
                         .toList());
     }
@@ -194,8 +198,7 @@ public class ReservationWorkflowImpl implements ReservationWorkflow {
             throw invalid("email", "Email không hợp lệ.");
         r.setEmail(email);
         r.setGuestCount(integer(input, "guests", 1, 200));
-        String areaId = required(input, "areaId", 100);
-        r.setArea(db.get(Area.class, areaId));
+        r.setArea(requestedArea(input, r.getArea()));
         Instant start;
         String startField = text(input, "startsAt").isEmpty() ? "date" : "startsAt";
         try {
@@ -249,35 +252,59 @@ public class ReservationWorkflowImpl implements ReservationWorkflow {
                     "Dịp đặc biệt tối đa 150 ký tự, yêu cầu đặc biệt tối đa 255 ký tự.");
         r.setOccasion(occasion);
         r.setSpecialRequests(special);
-        int capacity =
-                db
-                        .query(
-                                RestaurantTable.class,
-                                "from RestaurantTable t where t.area=?1 and t.status<>?2",
-                                r.getArea(),
-                                TableStatus.OUT_OF_SERVICE)
-                        .stream()
-                        .mapToInt(RestaurantTable::getCapacity)
-                        .sum();
+        int capacity = areaCapacity(r.getArea());
         // Sums guests per area; does not check how they fit into individual tables.
         long buffer = db.lock().getBufferMinutes() * 60L;
         int booked =
                 db
                         .query(
                                 Reservation.class,
-                                "from Reservation o where o.area=?1 and o.status in ?2 and"
-                                        + " o.startsAt<?3 and o.endsAt>?4",
-                                r.getArea(),
+                                "from Reservation o where o.status in ?1 and o.startsAt<?2 and"
+                                        + " o.endsAt>?3",
                                 ACTIVE,
                                 r.getEndsAt().plusSeconds(buffer),
                                 r.getStartsAt().minusSeconds(buffer))
                         .stream()
                         .filter(o -> !o.equals(r))
+                        .filter(o -> r.getArea() == null || bookedIn(o, r.getArea()))
                         .mapToInt(Reservation::getGuestCount)
                         .sum();
         if (capacity - booked < r.getGuestCount())
             throw ApiException.conflict(
                     "Khu vực đã kín chỗ trong khung giờ này. Hãy chọn giờ hoặc khu khác.");
+    }
+
+    // Empty areaId means "no preference". An inactive area is only accepted when unchanged.
+    private Area requestedArea(Map<String, Object> input, Area current) {
+        String areaId = text(input, "areaId");
+        if (areaId.isEmpty()) return null;
+        var area = db.get(Area.class, areaId);
+        if (!area.isActive() && (current == null || !current.getId().equals(area.getId())))
+            throw invalid("areaId", "Khu vực này tạm đóng, vui lòng chọn khu khác.");
+        return area;
+    }
+
+    private int areaCapacity(Area area) {
+        var tables =
+                area == null
+                        ? db.query(
+                                RestaurantTable.class,
+                                "from RestaurantTable t where t.area.active = true and"
+                                        + " t.status<>?1",
+                                TableStatus.OUT_OF_SERVICE)
+                        : db.query(
+                                RestaurantTable.class,
+                                "from RestaurantTable t where t.area=?1 and t.status<>?2",
+                                area,
+                                TableStatus.OUT_OF_SERVICE);
+        return tables.stream().mapToInt(RestaurantTable::getCapacity).sum();
+    }
+
+    // A booking without a preferred area counts against the area of its assigned table.
+    private boolean bookedIn(Reservation other, Area area) {
+        if (other.getArea() != null) return other.getArea().getId().equals(area.getId());
+        var assigned = assignment(other);
+        return assigned != null && assigned.getTable().getArea().getId().equals(area.getId());
     }
 
     void replaceItems(Reservation r, Map<String, Object> input, boolean web) {
@@ -457,7 +484,8 @@ public class ReservationWorkflowImpl implements ReservationWorkflow {
     public void assign(Reservation r, String tableId) {
         var table = db.get(RestaurantTable.class, tableId);
         int guests = r.getActualGuests() == null ? r.getGuestCount() : r.getActualGuests();
-        if (!id(table.getArea()).equals(id(r.getArea()))
+        if ((r.getArea() != null && !id(table.getArea()).equals(id(r.getArea())))
+                || !table.getArea().isActive()
                 || table.getCapacity() < guests
                 || table.getStatus() == TableStatus.OUT_OF_SERVICE)
             throw ApiException.conflict(
@@ -493,12 +521,18 @@ public class ReservationWorkflowImpl implements ReservationWorkflow {
 
     void autoAssign(Reservation r) {
         var tables =
-                db.query(
-                        RestaurantTable.class,
-                        "from RestaurantTable t where t.area=?1 and t.capacity>=?2 order by"
-                                + " t.capacity",
-                        r.getArea(),
-                        r.getGuestCount());
+                r.getArea() == null
+                        ? db.query(
+                                RestaurantTable.class,
+                                "from RestaurantTable t where t.area.active = true and"
+                                        + " t.capacity>=?1 order by t.capacity",
+                                r.getGuestCount())
+                        : db.query(
+                                RestaurantTable.class,
+                                "from RestaurantTable t where t.area=?1 and t.capacity>=?2 order"
+                                        + " by t.capacity",
+                                r.getArea(),
+                                r.getGuestCount());
         for (var t : tables) {
             try {
                 assign(r, id(t));

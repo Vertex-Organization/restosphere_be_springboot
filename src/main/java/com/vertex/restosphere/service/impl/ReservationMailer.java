@@ -162,7 +162,7 @@ public class ReservationMailer {
         if (r.getEndsAt() != null) time += " – " + r.getEndsAt().atZone(zone).format(TIME);
         rows.add(new String[] {"Giờ", time});
         rows.add(new String[] {"Số khách", r.getGuestCount() + " khách"});
-        if (r.getArea() != null) rows.add(new String[] {"Khu vực", r.getArea().getName()});
+        rows.add(new String[] {"Khu vực", r.areaName()});
         if (r.getDepositAmount() != null && !r.awaitingDeposit())
             rows.add(new String[] {"Đã cọc", money(r.getDepositAmount())});
         var contact = contact(s);

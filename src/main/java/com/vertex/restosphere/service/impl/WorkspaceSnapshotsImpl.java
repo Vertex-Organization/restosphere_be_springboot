@@ -19,6 +19,7 @@ import com.vertex.restosphere.service.ReservationWorkflow;
 import com.vertex.restosphere.service.WorkspaceSnapshots;
 import com.vertex.restosphere.service.WorkspaceStore;
 import java.time.LocalDate;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -156,7 +157,15 @@ public class WorkspaceSnapshotsImpl implements WorkspaceSnapshots {
 
         put.accept("staff", () -> staff(ctx, workspace));
         put.accept("employees", () -> staff(ctx, workspace));
-        put.accept("areas", () -> ctx.all(Area.class).stream().map(tables::toMap).toList());
+        put.accept(
+                "areas",
+                () ->
+                        ctx.all(Area.class).stream()
+                                .sorted(
+                                        Comparator.comparingInt(Area::getSortOrder)
+                                                .thenComparing(Area::getName))
+                                .map(tables::toMap)
+                                .toList());
         put.accept("tables", () -> tableList(ctx));
         put.accept("sessions", () -> sessions(ctx));
         put.accept("tableSessions", () -> sessions(ctx));

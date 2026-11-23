@@ -129,7 +129,7 @@ public class ReservationMapper {
                 "areaId",
                 id(r.getArea()),
                 "areaName",
-                r.getArea().getName(),
+                r.areaName(),
                 "date",
                 local.toLocalDate(),
                 "time",

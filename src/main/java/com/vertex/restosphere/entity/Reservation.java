@@ -53,9 +53,14 @@ public class Reservation extends BaseEntity {
     @Column(length = 254)
     private String email;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "area_id", nullable = false)
+    // null: khách không yêu cầu khu, lễ tân tự xếp bàn.
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "area_id")
     private Area area;
+
+    public String areaName() {
+        return area == null ? "Không yêu cầu khu" : area.getName();
+    }
 
     @Column(nullable = false)
     private int guestCount;

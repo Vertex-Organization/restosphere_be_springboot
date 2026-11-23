@@ -15,7 +15,15 @@ import org.springframework.stereotype.Component;
 public class TableMapper {
 
     public Map<String, Object> toMap(Area a) {
-        return map("id", id(a), "name", a.getName());
+        return map(
+                "id",
+                id(a),
+                "name",
+                a.getName(),
+                "active",
+                a.isActive(),
+                "sortOrder",
+                a.getSortOrder());
     }
 
     public Map<String, Object> toMap(RestaurantTable t, TableSession openSession) {

@@ -91,7 +91,7 @@ public class CustomerServiceImpl implements CustomerService {
                                                 r.getCode(),
                                                 r.getStartsAt(),
                                                 r.getGuestCount(),
-                                                r.getArea().getName(),
+                                                r.areaName(),
                                                 r.getStatus()))
                         .toList();
         var stats = statsByPhone(List.of(c)).getOrDefault(c.getPhone(), Stats.NONE);
