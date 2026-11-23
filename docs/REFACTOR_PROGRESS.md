@@ -6,7 +6,7 @@
 - Cập nhật lần cuối: 2026-11-23 18:50
 
 ## Đang làm
-- GĐ1: bước "areas active/sort_order + reservations.area_id NULL"
+- GĐ1: bước "Payments: cột mới, method mới, cọc, MANUAL_TRANSFER" và "Phiên - bill (table_sessions.bill_id, ghép/tách)"
 
 ## Câu hỏi đang chờ
 - [x] FE mobile / màn lễ tân + phục vụ -> đã trả lời, xem mục Quyết định
@@ -38,7 +38,7 @@
 - [x] Gộp order_drafts vào orders — commit `fd70c7e` (thêm orders.status/submitted_at, order_items.DRAFT, `OrderItem.NOT_BILLABLE`, partial unique index 1 DRAFT/(session,waiter) trong DatabaseConstraintsInitializer tạm thời; endpoint giữ nguyên)
 - [ ] Phiên-bill: table_sessions.bill_id, ghép/tách
 - [ ] Payments: cột mới, method mới, cọc, MANUAL_TRANSFER, chặn đóng ca
-- [ ] areas: active + sort_order (UI quản lý khu ở GĐ3 web)`n- [ ] reservations.area_id NULL (BE logic xếp chỗ + form)`n- [ ] restaurant_settings.bank_bin
+- [x] areas: active + sort_order — commit `fe0fad2` (BE xong; UI quản lý khu ở GĐ3 web). API `/areas` trả thêm `active`, `sortOrder`; `AreaRequest` nhận `active`/`sortOrder` tùy chọn; public settings chỉ trả khu active
 - [ ] V1 migration + validate (kèm chuyển seed dataset.sql -> db/seed, profile dev, xóa dataset.sql)
 ### Giai đoạn 2
 - [ ] Cấu hình SDK payOS
@@ -109,9 +109,11 @@
 - `application.yaml` có thay đổi cục bộ chưa commit của người dùng (`SQL_INIT_MODE` mặc định `always`). Không đụng vào cho tới khi cần sửa file này (khi sửa sẽ giữ nguyên dòng đó).
 
 ## Nhật ký
+- 2026-11-23 19:55 – GĐ1: areas active/sort_order + area_id NULL xong, 197/197 test pass (thêm 1 test mới). Lưu ý: `reservations.areaName` giờ là "Không yêu cầu khu" khi NULL.
 - 2026-11-23 19:37 – GĐ1: gộp order_drafts vào orders xong, 196/196 test pass. Đã nhận 4 quyết định từ người dùng (mobile bắt buộc, areas active/sort_order, area_id NULL, seed -> Flyway db/seed). Sẽ sửa thẳng V1 khi tạo, drop/tạo lại restosphere_v2 để kiểm tra.
 - 2026-11-23 19:06 – GĐ1: Flyway dep + rename User->Employee xong, 196/196 test pass. Baseline trước đó fail toàn bộ vì Flyway bật mà DB không rỗng -> đặt flyway.enabled=false tạm.
 - 2026-11-23 18:50 – Tạo nhánh refactor/db-flyway-payos từ develop. Lưu ý: `application.yaml` có thay đổi chưa commit của người dùng (SQL_INIT_MODE mặc định never -> always), giữ nguyên, không đưa vào commit của mình cho tới khi cần.
+
 
 
 
