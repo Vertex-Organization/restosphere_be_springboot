@@ -104,8 +104,8 @@ class AdminSettingsApiIntegrationTests {
         settingsRepo.save(s);
         // Hoa don -> phien -> ban/khu tu tao, theo thu tu khoa ngoai.
         if (createdBill != null) {
-            bills.delete(createdBill);
             tableSessions.delete(createdSession);
+            bills.delete(createdBill);
             createdBill = null;
         }
         if (createdTable != null) {
@@ -329,15 +329,15 @@ class AdminSettingsApiIntegrationTests {
     }
 
     private void openBill() {
+        createdBill = new Bill();
+        createdBill.setCode("A4-" + UUID.randomUUID().toString().substring(0, 8));
+        bills.save(createdBill);
         createdSession = new TableSession();
+        createdSession.setBill(createdBill);
         createdSession.setTable(anyTable());
         createdSession.setGuestCount(2);
         createdSession.setStartedAt(Instant.now());
         tableSessions.save(createdSession);
-        createdBill = new Bill();
-        createdBill.setCode("A4-" + UUID.randomUUID().toString().substring(0, 8));
-        createdBill.setSession(createdSession);
-        bills.save(createdBill);
     }
 
     // Dung ban seed neu con; test catalog co the da xoa het ban nen tu tao khi can.

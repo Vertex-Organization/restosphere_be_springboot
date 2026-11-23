@@ -11,6 +11,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.jayway.jsonpath.JsonPath;
 import com.vertex.restosphere.common.enums.Role;
 import com.vertex.restosphere.entity.Area;
+import com.vertex.restosphere.entity.Bill;
 import com.vertex.restosphere.entity.Employee;
 import com.vertex.restosphere.entity.MenuCategory;
 import com.vertex.restosphere.entity.MenuItem;
@@ -346,7 +347,11 @@ class ManagerMenuItemApiIntegrationTests {
         Employee waiter = saveUser("m2-waiter2@restosphere.test", Role.WAITER);
         tx.executeWithoutResult(
                 s -> {
+                    Bill bill = new Bill();
+                    bill.setCode("M2-" + UUID.randomUUID().toString().substring(0, 8));
+                    em.persist(bill);
                     TableSession session = new TableSession();
+                    session.setBill(bill);
                     session.setTable(em.merge(anyTable()));
                     session.setGuestCount(2);
                     session.setStartedAt(Instant.now());
@@ -379,7 +384,7 @@ class ManagerMenuItemApiIntegrationTests {
                     d.setUnitPrice(new BigDecimal("1000"));
                     d.setStatus(OrderItem.Status.DRAFT);
                     em.persist(d);
-                    usage.addAll(List.of(session, order, oi, cart, d));
+                    usage.addAll(List.of(bill, session, order, oi, cart, d));
                 });
     }
 

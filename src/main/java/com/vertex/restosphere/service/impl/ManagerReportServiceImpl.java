@@ -129,7 +129,7 @@ public class ManagerReportServiceImpl implements ManagerReportService {
     }
 
     private static long guests(Collection<Bill> bills) {
-        return bills.stream().mapToLong(b -> b.getSession().getGuestCount()).sum();
+        return bills.stream().mapToLong(b -> b.guestCount()).sum();
     }
 
     private static BigDecimal revenue(Collection<Payment> payments) {
@@ -160,10 +160,9 @@ public class ManagerReportServiceImpl implements ManagerReportService {
         if (bills.isEmpty()) {
             return List.of();
         }
-        Set<UUID> sessionIds =
-                bills.stream().map(b -> b.getSession().getId()).collect(Collectors.toSet());
+        Set<UUID> billIds = bills.stream().map(Bill::getId).collect(Collectors.toSet());
         Map<String, List<OrderItem>> byName =
-                reports.findItemsBySessionIdIn(sessionIds, EXCLUDED_ITEMS).stream()
+                reports.findItemsByBillIdIn(billIds, EXCLUDED_ITEMS).stream()
                         .collect(Collectors.groupingBy(OrderItem::getItemName));
         return byName.entrySet().stream()
                 .map(

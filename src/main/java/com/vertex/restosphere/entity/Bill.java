@@ -4,6 +4,10 @@ import com.vertex.restosphere.common.enums.DiscountMode;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.Comparator;
+import java.util.LinkedHashSet;
+import java.util.Set;
+import java.util.stream.Collectors;
 import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.Check;
@@ -54,9 +58,9 @@ public class Bill extends BaseEntity {
     @Column(nullable = false, unique = true, length = 50)
     private String code;
 
-    @OneToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "session_id", nullable = false, unique = true)
-    private TableSession session;
+    // Inverse side only: the owning column is table_sessions.bill_id.
+    @OneToMany(mappedBy = "bill")
+    private Set<TableSession> sessions = new LinkedHashSet<>();
 
     @Column(nullable = false, precision = 14, scale = 0)
     private BigDecimal subtotal = BigDecimal.ZERO;
@@ -78,4 +82,33 @@ public class Bill extends BaseEntity {
     private Status status = Status.OPEN;
 
     private Instant paidAt;
+
+    /** The earliest session stands for the bill wherever one table or waiter is shown. */
+    public TableSession primarySession() {
+        return sessions.stream()
+                .min(Comparator.comparing(TableSession::getStartedAt))
+                .orElseThrow(() -> new IllegalStateException("Bill has no session"));
+    }
+
+    public String tableCodes() {
+        return sessions.stream()
+                .sorted(Comparator.comparing(TableSession::getStartedAt))
+                .map(s -> s.getTable().getCode())
+                .collect(Collectors.joining(" + "));
+    }
+
+    public int guestCount() {
+        return sessions.stream().mapToInt(TableSession::getGuestCount).sum();
+    }
+
+    /** Payable only once every table of the bill has asked for the check. */
+    public boolean awaitingPayment() {
+        return !sessions.isEmpty()
+                && sessions.stream()
+                        .allMatch(s -> s.getStatus() == TableSession.Status.PAYMENT_REQUESTED);
+    }
+
+    public boolean guestLeft() {
+        return sessions.stream().anyMatch(s -> s.getGuestLeftAt() != null);
+    }
 }

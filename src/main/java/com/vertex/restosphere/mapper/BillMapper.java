@@ -6,7 +6,6 @@ import static com.vertex.restosphere.common.util.Values.map;
 import com.vertex.restosphere.entity.AuditLog;
 import com.vertex.restosphere.entity.Bill;
 import com.vertex.restosphere.entity.Payment;
-import com.vertex.restosphere.entity.TableSession;
 import java.util.List;
 import java.util.Map;
 import org.springframework.stereotype.Component;
@@ -22,7 +21,7 @@ public class BillMapper {
                 "code",
                 b.getCode(),
                 "sessionId",
-                id(b.getSession()),
+                id(b.primarySession()),
                 "status",
                 status(b),
                 "version",
@@ -105,9 +104,7 @@ public class BillMapper {
         if (b.getStatus() == Bill.Status.PAID) {
             return "PAID";
         }
-        return b.getSession().getStatus() == TableSession.Status.PAYMENT_REQUESTED
-                ? "PAYMENT_REQUESTED"
-                : "UNPAID";
+        return b.awaitingPayment() ? "PAYMENT_REQUESTED" : "UNPAID";
     }
 
     private static Map<String, Object> discount(Bill b) {

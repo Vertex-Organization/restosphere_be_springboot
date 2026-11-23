@@ -11,6 +11,7 @@ import com.vertex.restosphere.entity.MenuItem;
 import com.vertex.restosphere.entity.OrderItem;
 import com.vertex.restosphere.entity.Payment;
 import com.vertex.restosphere.entity.Reservation;
+import com.vertex.restosphere.entity.TableSession;
 import com.vertex.restosphere.exception.ApiException;
 import com.vertex.restosphere.repository.ApprovalQueryRepository;
 import com.vertex.restosphere.repository.AuditLogRepository;
@@ -108,13 +109,13 @@ public class ManagerApprovalServiceImpl implements ManagerApprovalService {
                         targets(list, "ORDER_ITEM"),
                         approvals::findOrderItemsWithTableByIdIn,
                         OrderItem::getId);
-        Map<UUID, Bill> billBySession =
+        Map<UUID, TableSession> sessions =
                 load(
                         items.values().stream()
                                 .map(i -> i.getOrder().getSession().getId())
                                 .collect(Collectors.toSet()),
-                        approvals::findBillsBySessionIdIn,
-                        b -> b.getSession().getId());
+                        approvals::findSessionsWithBillByIdIn,
+                        TableSession::getId);
         Map<UUID, Payment> payments =
                 load(
                         targets(list, "PAYMENT"),
@@ -146,16 +147,15 @@ public class ManagerApprovalServiceImpl implements ManagerApprovalService {
                                                     : "Hóa đơn "
                                                             + b.getCode()
                                                             + " · Bàn "
-                                                            + b.getSession().getTable().getCode();
+                                                            + b.tableCodes();
                                 }
                                 case "ORDER_ITEM" -> {
                                     itemId = target;
                                     OrderItem i = items.get(target);
                                     if (i != null) {
-                                        Bill b =
-                                                billBySession.get(
-                                                        i.getOrder().getSession().getId());
-                                        billId = b == null ? null : b.getId();
+                                        TableSession s =
+                                                sessions.get(i.getOrder().getSession().getId());
+                                        billId = s == null ? null : s.getBill().getId();
                                         label =
                                                 i.getItemName()
                                                         + " · Bàn "

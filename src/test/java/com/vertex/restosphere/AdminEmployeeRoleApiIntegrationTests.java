@@ -10,12 +10,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.jayway.jsonpath.JsonPath;
 import com.vertex.restosphere.common.enums.Role;
 import com.vertex.restosphere.entity.Area;
+import com.vertex.restosphere.entity.Bill;
 import com.vertex.restosphere.entity.CashierShift;
 import com.vertex.restosphere.entity.Employee;
 import com.vertex.restosphere.entity.RestaurantTable;
 import com.vertex.restosphere.entity.TableSession;
 import com.vertex.restosphere.repository.AreaRepository;
 import com.vertex.restosphere.repository.AuditLogRepository;
+import com.vertex.restosphere.repository.BillRepository;
 import com.vertex.restosphere.repository.CashierShiftRepository;
 import com.vertex.restosphere.repository.EmployeeRepository;
 import com.vertex.restosphere.repository.RefreshTokenRepository;
@@ -55,6 +57,7 @@ class AdminEmployeeRoleApiIntegrationTests {
     @Autowired CashierShiftRepository cashierShifts;
     @Autowired RestaurantTableRepository tables;
     @Autowired AreaRepository areas;
+    @Autowired BillRepository bills;
     @Autowired PasswordEncoder passwordEncoder;
 
     Employee admin;
@@ -73,6 +76,7 @@ class AdminEmployeeRoleApiIntegrationTests {
     void clean() {
         // Bang con tham chieu users phai xoa truoc.
         tableSessions.deleteAll();
+        bills.deleteAll();
         cashierShifts.deleteAll();
         auditLogs.deleteAll();
         refreshTokens.deleteAll();
@@ -151,7 +155,11 @@ class AdminEmployeeRoleApiIntegrationTests {
 
     @Test
     void waiterWithOpenSessionIsBlocked() throws Exception {
+        Bill bill = new Bill();
+        bill.setCode("A2-" + UUID.randomUUID().toString().substring(0, 8));
+        bills.save(bill);
         TableSession s = new TableSession();
+        s.setBill(bill);
         s.setTable(anyTable());
         s.setWaiter(waiter);
         s.setGuestCount(2);

@@ -12,7 +12,6 @@ import com.vertex.restosphere.entity.Employee;
 import com.vertex.restosphere.entity.OrderItem;
 import com.vertex.restosphere.entity.Payment;
 import com.vertex.restosphere.entity.RestaurantSettings;
-import com.vertex.restosphere.entity.TableSession;
 import com.vertex.restosphere.exception.ApiException;
 import com.vertex.restosphere.repository.CashierShiftRepository;
 import com.vertex.restosphere.repository.PaymentRepository;
@@ -179,14 +178,14 @@ public class CashierPaymentServiceImpl implements CashierPaymentService {
         Bill bill = store.get(Bill.class, billId.toString());
         billing.requireVersion(bill, billVersion);
         billing.recalculate(bill);
-        if (bill.getStatus() != Bill.Status.OPEN
-                || bill.getSession().getStatus() != TableSession.Status.PAYMENT_REQUESTED) {
+        if (bill.getStatus() != Bill.Status.OPEN || !bill.awaitingPayment()) {
             throw ApiException.conflict("Bill is not awaiting payment");
         }
         if (billing.items(bill).stream()
                 .anyMatch(
                         i ->
                                 Set.of(
+                                                OrderItem.Status.DRAFT,
                                                 OrderItem.Status.SUBMITTED,
                                                 OrderItem.Status.PREPARING,
                                                 OrderItem.Status.READY)
@@ -245,7 +244,7 @@ public class CashierPaymentServiceImpl implements CashierPaymentService {
                     "PAYMENT",
                     "Payment received",
                     bill.getCode(),
-                    bill.getSession().getId().toString());
+                    bill.primarySession().getId().toString());
         }
     }
 }

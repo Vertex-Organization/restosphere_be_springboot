@@ -4,7 +4,6 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.vertex.restosphere.common.enums.DiscountMode;
 import com.vertex.restosphere.common.util.Values;
 import com.vertex.restosphere.entity.Bill;
-import com.vertex.restosphere.entity.TableSession;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
@@ -51,9 +50,7 @@ public record CashierBillResponse(
         if (b.getStatus() == Bill.Status.PAID) {
             return "PAID";
         }
-        return b.getSession().getStatus() == TableSession.Status.PAYMENT_REQUESTED
-                ? "PAYMENT_REQUESTED"
-                : "UNPAID";
+        return b.awaitingPayment() ? "PAYMENT_REQUESTED" : "UNPAID";
     }
 
     public static CashierBillResponse from(
@@ -71,11 +68,11 @@ public record CashierBillResponse(
                                 b.getDiscountReason(),
                                 Values.id(b.getDiscountAppliedBy()),
                                 b.getDiscountAppliedAt());
-        var table = b.getSession().getTable();
+        var table = b.primarySession().getTable();
         return new CashierBillResponse(
                 b.getId(),
                 b.getCode(),
-                b.getSession().getId(),
+                b.primarySession().getId(),
                 statusOf(b),
                 b.getVersion(),
                 b.getCreatedAt(),
@@ -91,9 +88,9 @@ public record CashierBillResponse(
                         b.getTotal()),
                 paid,
                 b.getTotal().subtract(paid).max(BigDecimal.ZERO),
-                table.getCode(),
+                b.tableCodes(),
                 table.getArea().getName(),
-                b.getSession().getGuestCount(),
+                b.guestCount(),
                 history,
                 items,
                 payments);

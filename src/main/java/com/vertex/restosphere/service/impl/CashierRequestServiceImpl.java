@@ -78,7 +78,7 @@ public class CashierRequestServiceImpl implements CashierRequestService {
             throw Values.invalid("itemId is required (max 100)");
         }
         OrderItem item = store.get(OrderItem.class, itemId);
-        if (!item.getOrder().getSession().getId().equals(bill.getSession().getId())
+        if (!item.getOrder().getSession().getBill().getId().equals(bill.getId())
                 || REMOVED.contains(item.getStatus())) {
             throw Values.invalid("Invalid bill line");
         }
@@ -145,10 +145,10 @@ public class CashierRequestServiceImpl implements CashierRequestService {
         billing.recalculate(bill);
         billing.editable(bill);
         reason(req.reason());
-        if (bill.getSession().getStatus() != TableSession.Status.PAYMENT_REQUESTED) {
+        if (!bill.awaitingPayment()) {
             throw ApiException.conflict("Payment was not requested");
         }
-        bill.getSession().setStatus(TableSession.Status.OPEN);
+        bill.getSessions().forEach(s -> s.setStatus(TableSession.Status.OPEN));
         bill.setRequestedAt(null);
         writes.commit(user, "return-payment-request");
         store.flush();
@@ -181,16 +181,15 @@ public class CashierRequestServiceImpl implements CashierRequestService {
             payments.findAllById(paymentIds)
                     .forEach(p -> billByPayment.put(p.getId(), p.getBill().getId()));
         }
-        Map<UUID, UUID> sessionByItem = new HashMap<>();
+        Map<UUID, UUID> billByItem = new HashMap<>();
         if (!itemIds.isEmpty()) {
             orderItems
                     .findWithOrderByIdIn(itemIds)
-                    .forEach(i -> sessionByItem.put(i.getId(), i.getOrder().getSession().getId()));
-        }
-        Map<UUID, UUID> billBySession = new HashMap<>();
-        if (!sessionByItem.isEmpty()) {
-            bills.findBySessionIdIn(sessionByItem.values().stream().distinct().toList())
-                    .forEach(b -> billBySession.put(b.getSession().getId(), b.getId()));
+                    .forEach(
+                            i ->
+                                    billByItem.put(
+                                            i.getId(),
+                                            i.getOrder().getSession().getBill().getId()));
         }
         return found.stream()
                 .map(
@@ -205,8 +204,7 @@ public class CashierRequestServiceImpl implements CashierRequestService {
                                                         null);
                                         default ->
                                                 new Ref(
-                                                        billBySession.get(
-                                                                sessionByItem.get(r.getTargetId())),
+                                                        billByItem.get(r.getTargetId()),
                                                         null,
                                                         r.getTargetId());
                                     };

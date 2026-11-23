@@ -189,23 +189,24 @@ abstract class CashierApiTestBase {
         table.setCapacity(4);
         table.setStatus(TableStatus.OCCUPIED);
         table = persist(table);
+        Bill bill = new Bill();
+        bill.setCode(prefix() + "-B-" + UUID.randomUUID().toString().substring(0, 8));
+        bill.setSubtotal(new BigDecimal("100000"));
+        bill.setTotal(new BigDecimal("100000"));
+        bill.setRequestedAt(Instant.now());
+        bill = persist(bill);
         TableSession session = new TableSession();
+        session.setBill(bill);
         session.setTable(table);
         session.setWaiter(waiter);
         session.setGuestCount(2);
         session.setStartedAt(Instant.now());
         session.setStatus(TableSession.Status.PAYMENT_REQUESTED);
         session = persist(session);
+        bill.getSessions().add(session);
         MenuItem menu = menu("Dish");
         Order order = order(session, 1);
         OrderItem item = item(order, menu, OrderItem.Status.SERVED);
-        Bill bill = new Bill();
-        bill.setCode(prefix() + "-B-" + UUID.randomUUID().toString().substring(0, 8));
-        bill.setSession(session);
-        bill.setSubtotal(new BigDecimal("100000"));
-        bill.setTotal(new BigDecimal("100000"));
-        bill.setRequestedAt(Instant.now());
-        bill = persist(bill);
         return new Fixture(area, table, session, menu, order, item, bill);
     }
 

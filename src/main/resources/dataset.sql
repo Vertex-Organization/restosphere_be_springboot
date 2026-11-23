@@ -211,10 +211,25 @@ FROM generate_series(1, 32) k JOIN reservations r ON r.id = md5('restosphere:see
 CROSS JOIN generate_series(0, 1) step WHERE step = 0 OR r.status <> 'PENDING'
 ON CONFLICT DO NOTHING;
 
+INSERT INTO bills
+(id, version, code, subtotal, discount, service_charge, tax_amount, total, status,
+ discount_mode, discount_value, discount_reason, discount_applied_by_id, discount_applied_at, requested_at, paid_at, created_at, updated_at)
+SELECT md5('restosphere:seed:bill:' || n)::uuid, 0, 'DEMO-B-' || lpad(n::text, 3, '0'), 0, 0, 0, 0, 0,
+       CASE WHEN n <= 18 THEN 'PAID' WHEN n = 26 THEN 'VOIDED' ELSE 'OPEN' END,
+       CASE WHEN n % 3 = 0 THEN 'PERCENT' END, CASE WHEN n % 3 = 0 THEN 5 END,
+       CASE WHEN n % 3 = 0 THEN 'Ưu đãi khách thân thiết' END,
+       CASE WHEN n % 3 = 0 THEN md5('restosphere:demo:cashier')::uuid END,
+       CASE WHEN n % 3 = 0 THEN starts_at + interval '40 minutes' END,
+       CASE WHEN n <= 18 OR n >= 23 THEN starts_at + interval '45 minutes' END,
+       CASE WHEN n <= 18 THEN starts_at + interval '60 minutes' END,
+       starts_at, starts_at + interval '45 minutes'
+FROM demo_cases
+ON CONFLICT DO NOTHING;
+
 WITH inserted AS (
 INSERT INTO table_sessions
-(id, table_id, reservation_id, waiter_id, guest_count, started_at, accepted_at, ended_at, guest_left_at, status, created_at, updated_at)
-SELECT md5('restosphere:seed:session:' || n)::uuid, md5('restosphere:table:' || left(table_code, 1) || substring(table_code from 2)::int)::uuid,
+(id, bill_id, table_id, reservation_id, waiter_id, guest_count, started_at, accepted_at, ended_at, guest_left_at, status, created_at, updated_at)
+SELECT md5('restosphere:seed:session:' || n)::uuid, md5('restosphere:seed:bill:' || n)::uuid, md5('restosphere:table:' || left(table_code, 1) || substring(table_code from 2)::int)::uuid,
        md5('restosphere:seed:reservation:' || n)::uuid,
        md5('restosphere:demo:' || CASE WHEN n % 2 = 0 THEN 'waiter2' ELSE 'waiter' END)::uuid,
        4, starts_at, starts_at + interval '3 minutes',
@@ -279,31 +294,19 @@ SELECT md5('restosphere:seed:draft')::uuid, 0, md5('restosphere:seed:cart')::uui
 FROM demo_cases c JOIN menu_items m ON m.id = md5('restosphere:menu:lemonade')::uuid WHERE n = 19
 ON CONFLICT DO NOTHING;
 
-INSERT INTO bills
-(id, version, code, session_id, subtotal, discount, service_charge, tax_amount, total, status,
- discount_mode, discount_value, discount_reason, discount_applied_by_id, discount_applied_at, requested_at, paid_at, created_at, updated_at)
-SELECT md5('restosphere:seed:bill:' || n)::uuid, 0, 'DEMO-B-' || lpad(n::text, 3, '0'),
-       md5('restosphere:seed:session:' || n)::uuid, subtotal, discount, service, tax,
-       subtotal - discount + service + tax,
-       CASE WHEN n <= 18 THEN 'PAID' WHEN n = 26 THEN 'VOIDED' ELSE 'OPEN' END,
-       CASE WHEN n % 3 = 0 THEN 'PERCENT' END, CASE WHEN n % 3 = 0 THEN 5 END,
-       CASE WHEN n % 3 = 0 THEN 'Ưu đãi khách thân thiết' END,
-       CASE WHEN n % 3 = 0 THEN md5('restosphere:demo:cashier')::uuid END,
-       CASE WHEN n % 3 = 0 THEN starts_at + interval '40 minutes' END,
-       CASE WHEN n <= 18 OR n >= 23 THEN starts_at + interval '45 minutes' END,
-       CASE WHEN n <= 18 THEN starts_at + interval '60 minutes' END,
-       starts_at, starts_at + interval '45 minutes'
-FROM demo_cases c CROSS JOIN restaurant_settings settings
-CROSS JOIN LATERAL (SELECT coalesce(sum(round(i.quantity * i.unit_price)),0) AS subtotal
- FROM order_items i JOIN orders o ON o.id = i.order_id
- WHERE o.session_id = md5('restosphere:seed:session:' || n)::uuid
- AND i.status NOT IN ('CANCELLED','REJECTED','VOIDED')) sums
-CROSS JOIN LATERAL (SELECT CASE WHEN n % 3 = 0 THEN round(subtotal * 0.05) ELSE 0 END AS discount) discounts
-CROSS JOIN LATERAL (SELECT round((subtotal - discount) * settings.service_charge_rate / 100) AS service) charges
-CROSS JOIN LATERAL (SELECT round((subtotal - discount + service) * settings.vat_rate / 100) AS tax) taxes
-WHERE settings.singleton_key = 1
-ON CONFLICT DO NOTHING;
-
+UPDATE bills b SET subtotal = x.subtotal, discount = x.discount, service_charge = x.service,
+       tax_amount = x.tax, total = x.subtotal - x.discount + x.service + x.tax
+FROM (SELECT n, subtotal, discount, service, tax
+ FROM demo_cases c CROSS JOIN restaurant_settings settings
+ CROSS JOIN LATERAL (SELECT coalesce(sum(round(i.quantity * i.unit_price)),0) AS subtotal
+  FROM order_items i JOIN orders o ON o.id = i.order_id
+  WHERE o.session_id = md5('restosphere:seed:session:' || n)::uuid
+  AND i.status NOT IN ('DRAFT','CANCELLED','REJECTED','VOIDED')) sums
+ CROSS JOIN LATERAL (SELECT CASE WHEN n % 3 = 0 THEN round(subtotal * 0.05) ELSE 0 END AS discount) discounts
+ CROSS JOIN LATERAL (SELECT round((subtotal - discount) * settings.service_charge_rate / 100) AS service) charges
+ CROSS JOIN LATERAL (SELECT round((subtotal - discount + service) * settings.vat_rate / 100) AS tax) taxes
+ WHERE settings.singleton_key = 1) x
+WHERE b.id = md5('restosphere:seed:bill:' || x.n)::uuid;
 INSERT INTO payments
 (id, bill_id, cashier_shift_id, amount, method, status, tendered, created_by_id, verified_by_id,
  transaction_reference, idempotency_key, paid_at, note, created_at, updated_at)

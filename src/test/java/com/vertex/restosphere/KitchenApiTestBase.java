@@ -7,6 +7,7 @@ import com.jayway.jsonpath.JsonPath;
 import com.vertex.restosphere.common.enums.Role;
 import com.vertex.restosphere.common.enums.TableStatus;
 import com.vertex.restosphere.entity.Area;
+import com.vertex.restosphere.entity.Bill;
 import com.vertex.restosphere.entity.Employee;
 import com.vertex.restosphere.entity.MenuCategory;
 import com.vertex.restosphere.entity.MenuItem;
@@ -169,12 +170,17 @@ abstract class KitchenApiTestBase {
         table.setCapacity(4);
         table.setStatus(TableStatus.OCCUPIED);
         table = persist(table);
+        Bill bill = new Bill();
+        bill.setCode(prefix() + "-B-" + UUID.randomUUID().toString().substring(0, 8));
+        bill = persist(bill);
         TableSession session = new TableSession();
+        session.setBill(bill);
         session.setTable(table);
         session.setWaiter(waiter);
         session.setGuestCount(2);
         session.setStartedAt(Instant.now());
         session = persist(session);
+        bill.getSessions().add(session);
         return new Fixture(area, table, session, menu("Dish"));
     }
 

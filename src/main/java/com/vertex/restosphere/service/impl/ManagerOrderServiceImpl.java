@@ -61,9 +61,9 @@ public class ManagerOrderServiceImpl implements ManagerOrderService {
         Set<UUID> sessionIds =
                 list.stream().map(o -> o.getSession().getId()).collect(Collectors.toSet());
         Set<UUID> paidSessions =
-                approvalQueries.findBillsBySessionIdIn(sessionIds).stream()
-                        .filter(b -> b.getStatus() == Bill.Status.PAID)
-                        .map(b -> b.getSession().getId())
+                approvalQueries.findSessionsWithBillByIdIn(sessionIds).stream()
+                        .filter(s -> s.getBill().getStatus() == Bill.Status.PAID)
+                        .map(TableSession::getId)
                         .collect(Collectors.toSet());
         Comparator<OrderItem> byCreated =
                 Comparator.comparing(OrderItem::getCreatedAt).thenComparing(OrderItem::getId);

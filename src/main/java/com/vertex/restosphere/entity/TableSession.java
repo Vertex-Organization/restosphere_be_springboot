@@ -30,9 +30,14 @@ public class TableSession extends BaseEntity {
     @JoinColumn(name = "table_id", nullable = false)
     private RestaurantTable table;
 
-    @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "reservation_id", unique = true)
+    // Many sessions can share a reservation (one per table) and a bill (merged tables).
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "reservation_id")
     private Reservation reservation;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "bill_id", nullable = false)
+    private Bill bill;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "waiter_id")

@@ -700,17 +700,19 @@ public class ReservationWorkflowImpl implements ReservationWorkflow {
                         a.getTable(),
                         now,
                         now.plus(Duration.between(r.getStartsAt(), r.getEndsAt())));
+                var bill = new Bill();
+                bill.setCode(
+                        "B-" + java.util.UUID.randomUUID().toString().substring(28).toUpperCase());
+                db.save(bill);
                 var session = new TableSession();
+                session.setBill(bill);
+                bill.getSessions().add(session);
                 session.setTable(a.getTable());
                 session.setReservation(r);
                 session.setGuestCount(
                         r.getActualGuests() == null ? r.getGuestCount() : r.getActualGuests());
                 session.setStartedAt(Instant.now());
                 db.save(session);
-                var bill = new Bill();
-                bill.setSession(session);
-                bill.setCode(code("B", session));
-                db.save(bill);
                 a.getTable().setStatus(TableStatus.OCCUPIED);
                 r.setHandedOverAt(Instant.now());
                 r.setStatus(Reservation.Status.SEATED);

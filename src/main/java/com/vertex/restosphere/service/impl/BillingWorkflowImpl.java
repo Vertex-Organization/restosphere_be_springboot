@@ -21,15 +21,12 @@ public class BillingWorkflowImpl implements BillingWorkflow {
 
     @Override
     public Bill bill(TableSession session) {
-        return db.query(Bill.class, "from Bill b where b.session=?1", session).stream()
-                .findFirst()
-                .orElseThrow(() -> ApiException.notFound("Bill"));
+        return session.getBill();
     }
 
     @Override
     public List<OrderItem> items(Bill bill) {
-        return db.query(
-                OrderItem.class, "from OrderItem i where i.order.session=?1", bill.getSession());
+        return db.query(OrderItem.class, "from OrderItem i where i.order.session.bill=?1", bill);
     }
 
     @Override
@@ -197,7 +194,7 @@ public class BillingWorkflowImpl implements BillingWorkflow {
                     var p = db.get(Payment.class, r.getTargetId().toString());
                     if (p.getStatus() != Payment.Status.COMPLETED
                             || p.getCashierShift().getClosedAt() != null
-                            || p.getBill().getSession().getGuestLeftAt() != null)
+                            || p.getBill().guestLeft())
                         throw ApiException.conflict("Payment can no longer be voided");
                     p.setStatus(Payment.Status.VOIDED);
                     p.getBill().setStatus(Bill.Status.OPEN);

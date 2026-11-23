@@ -174,8 +174,9 @@ class RestosphereBeSpringbootApplicationTests {
                         """
                 select count(*) from bills b where b.subtotal <>
                 (select coalesce(sum(round(i.quantity*i.unit_price)),0) from order_items i
-                 join orders o on o.id=i.order_id where o.session_id=b.session_id
-                 and i.status not in ('CANCELLED','REJECTED','VOIDED'))
+                 join orders o on o.id=i.order_id join table_sessions s on s.id=o.session_id
+                 where s.bill_id=b.id
+                 and i.status not in ('DRAFT','CANCELLED','REJECTED','VOIDED'))
                 """));
         assertEquals(
                 "0",
@@ -193,7 +194,7 @@ class RestosphereBeSpringbootApplicationTests {
                 scalar(
                         connection,
                         """
-                select count(*) from bills b join table_sessions s on s.id=b.session_id
+                select count(*) from bills b join table_sessions s on s.bill_id=b.id
                 where (b.status='PAID' and (s.status<>'CLOSED' or b.total <>
                     (select coalesce(sum(amount),0) from payments p where p.bill_id=b.id and p.status='COMPLETED')))
                 or (b.status='OPEN' and b.total <=

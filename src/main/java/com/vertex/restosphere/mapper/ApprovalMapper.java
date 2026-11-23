@@ -38,7 +38,7 @@ public class ApprovalMapper {
                 "itemId",
                 item == null ? null : id(item),
                 "sessionId",
-                bill == null ? null : id(bill.getSession()),
+                bill == null ? null : id(bill.primarySession()),
                 "amount",
                 r.getAmount(),
                 "menuStatus",

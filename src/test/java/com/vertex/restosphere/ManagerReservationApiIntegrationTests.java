@@ -14,6 +14,7 @@ import com.vertex.restosphere.common.enums.Role;
 import com.vertex.restosphere.common.enums.TableStatus;
 import com.vertex.restosphere.entity.Area;
 import com.vertex.restosphere.entity.AuditLog;
+import com.vertex.restosphere.entity.Bill;
 import com.vertex.restosphere.entity.Employee;
 import com.vertex.restosphere.entity.MenuCategory;
 import com.vertex.restosphere.entity.MenuItem;
@@ -83,6 +84,7 @@ class ManagerReservationApiIntegrationTests {
     // Id du lieu tu tao; xoa bang SQL theo thu tu khoa ngoai (PATCH tao them dong gan ban/lich su).
     final List<UUID> reservationIds = new ArrayList<>();
     final List<UUID> sessionIds = new ArrayList<>();
+    final List<UUID> billIds = new ArrayList<>();
     final List<UUID> tableIds = new ArrayList<>();
     final List<UUID> areaIds = new ArrayList<>();
     final List<UUID> menuItemIds = new ArrayList<>();
@@ -104,12 +106,13 @@ class ManagerReservationApiIntegrationTests {
             jdbc.update("delete from reservation_items where reservation_id = ?", id);
         }
         sessionIds.forEach(id -> jdbc.update("delete from table_sessions where id = ?", id));
+        billIds.forEach(id -> jdbc.update("delete from bills where id = ?", id));
         reservationIds.forEach(id -> jdbc.update("delete from reservations where id = ?", id));
         tableIds.forEach(id -> jdbc.update("delete from restaurant_tables where id = ?", id));
         areaIds.forEach(id -> jdbc.update("delete from areas where id = ?", id));
         menuItemIds.forEach(id -> jdbc.update("delete from menu_items where id = ?", id));
         categoryIds.forEach(id -> jdbc.update("delete from menu_categories where id = ?", id));
-        List.of(reservationIds, sessionIds, tableIds, areaIds, menuItemIds, categoryIds)
+        List.of(reservationIds, sessionIds, billIds, tableIds, areaIds, menuItemIds, categoryIds)
                 .forEach(List::clear);
         cleanUsers();
     }
@@ -529,7 +532,12 @@ class ManagerReservationApiIntegrationTests {
     }
 
     private void session(RestaurantTable t) {
+        Bill bill = new Bill();
+        bill.setCode("M4-" + UUID.randomUUID().toString().substring(0, 8));
+        persist(bill);
+        billIds.add(bill.getId());
         TableSession s = new TableSession();
+        s.setBill(bill);
         s.setTable(t);
         s.setGuestCount(2);
         s.setStartedAt(Instant.now());

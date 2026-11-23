@@ -13,7 +13,7 @@ import org.springframework.data.repository.query.Param;
 public interface ReportQueryRepository extends Repository<Payment, UUID> {
 
     @Query(
-            "select p from Payment p join fetch p.bill b join fetch b.session s "
+            "select p from Payment p join fetch p.bill b "
                     + "where p.status = :status and coalesce(p.paidAt, p.createdAt) >= :from "
                     + "and coalesce(p.paidAt, p.createdAt) < :to")
     List<Payment> findPaymentsWithBillBetween(
@@ -22,10 +22,10 @@ public interface ReportQueryRepository extends Repository<Payment, UUID> {
             @Param("to") Instant to);
 
     @Query(
-            "select i from OrderItem i join i.order o where o.session.id in :sessionIds and"
+            "select i from OrderItem i join i.order o where o.session.bill.id in :billIds and"
                     + " i.status not in :excluded")
-    List<OrderItem> findItemsBySessionIdIn(
-            @Param("sessionIds") Collection<UUID> sessionIds,
+    List<OrderItem> findItemsByBillIdIn(
+            @Param("billIds") Collection<UUID> billIds,
             @Param("excluded") Collection<OrderItem.Status> excluded);
 
     @Query(

@@ -11,7 +11,6 @@ import com.vertex.restosphere.entity.RestaurantSettings;
 import com.vertex.restosphere.entity.RestaurantTable;
 import com.vertex.restosphere.entity.ShiftAssignment;
 import com.vertex.restosphere.entity.TableSession;
-import com.vertex.restosphere.exception.ApiException;
 import com.vertex.restosphere.service.WorkspaceStore;
 import java.time.Instant;
 import java.time.ZoneId;
@@ -88,13 +87,7 @@ final class SnapshotContext {
     }
 
     Bill bill(TableSession session) {
-        var bill =
-                memo("billBySession", () -> first(all(Bill.class), b -> b.getSession().getId()))
-                        .get(session.getId());
-        if (bill == null) {
-            throw ApiException.notFound("Bill");
-        }
-        return bill;
+        return session.getBill();
     }
 
     TableSession openSession(RestaurantTable table) {

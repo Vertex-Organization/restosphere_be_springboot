@@ -93,9 +93,7 @@ public class CashierBillServiceImpl implements CashierBillService {
         Bill bill = bills.findDetailedById(billId).orElseThrow(() -> ApiException.notFound("Bill"));
         List<Payment> billPayments = payments.findByBillIdInOrderByCreatedAtAsc(List.of(billId));
         List<CashierItemResponse> items =
-                orderItems
-                        .findByOrderSessionIdOrderByCreatedAtAsc(bill.getSession().getId())
-                        .stream()
+                orderItems.findSentByBillId(billId).stream()
                         .map(CashierItemResponse::from)
                         .toList();
         return CashierBillResponse.from(
@@ -118,9 +116,7 @@ public class CashierBillServiceImpl implements CashierBillService {
                         .toList();
         BigDecimal paid = paid(done);
         var lines =
-                orderItems
-                        .findByOrderSessionIdOrderByCreatedAtAsc(bill.getSession().getId())
-                        .stream()
+                orderItems.findSentByBillId(billId).stream()
                         .filter(i -> !OrderItem.NOT_BILLABLE.contains(i.getStatus()))
                         .map(
                                 i ->
@@ -132,7 +128,7 @@ public class CashierBillServiceImpl implements CashierBillService {
                                                         i.getUnitPrice()
                                                                 .multiply(i.getQuantity()))))
                         .toList();
-        var table = bill.getSession().getTable();
+        var table = bill.primarySession().getTable();
         CashierBillResponse.Discount discount =
                 bill.getDiscountValue() == null
                         ? null
@@ -163,10 +159,10 @@ public class CashierBillServiceImpl implements CashierBillService {
                 cfg.getPhone(),
                 bill.getCode(),
                 CashierBillResponse.statusOf(bill),
-                table.getCode(),
+                bill.tableCodes(),
                 table.getArea().getName(),
-                bill.getSession().getGuestCount(),
-                bill.getSession().getWaiter().getFullName(),
+                bill.guestCount(),
+                bill.primarySession().getWaiter().getFullName(),
                 user.getFullName(),
                 bill.getCreatedAt(),
                 bill.getPaidAt(),

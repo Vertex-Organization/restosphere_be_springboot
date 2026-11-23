@@ -276,11 +276,6 @@ class KitchenApiIntegrationTests {
         Fixture f = fixture();
         Order o = persist(order(f.session, 1));
         OrderItem item = persist(item(o, f.menu, OrderItem.Status.SUBMITTED));
-        Bill bill = new Bill();
-        bill.setCode("K1-" + UUID.randomUUID().toString().substring(0, 8));
-        bill.setSession(f.session);
-        persist(bill);
-
         String res =
                 kitchenPost(
                                 kitchenToken,
@@ -408,12 +403,17 @@ class KitchenApiIntegrationTests {
         table.setCapacity(4);
         table.setStatus(TableStatus.OCCUPIED);
         table = persist(table);
+        Bill bill = new Bill();
+        bill.setCode("K1-" + UUID.randomUUID().toString().substring(0, 8));
+        bill = persist(bill);
         TableSession session = new TableSession();
+        session.setBill(bill);
         session.setTable(table);
         session.setWaiter(waiter);
         session.setGuestCount(2);
         session.setStartedAt(Instant.now());
         session = persist(session);
+        bill.getSessions().add(session);
         MenuCategory cat = new MenuCategory();
         cat.setName("K1 " + UUID.randomUUID());
         cat = persist(cat);

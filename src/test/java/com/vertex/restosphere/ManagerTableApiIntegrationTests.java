@@ -11,6 +11,7 @@ import com.jayway.jsonpath.JsonPath;
 import com.vertex.restosphere.common.enums.Role;
 import com.vertex.restosphere.common.enums.TableStatus;
 import com.vertex.restosphere.entity.Area;
+import com.vertex.restosphere.entity.Bill;
 import com.vertex.restosphere.entity.Employee;
 import com.vertex.restosphere.entity.Reservation;
 import com.vertex.restosphere.entity.ReservationTable;
@@ -287,7 +288,11 @@ class ManagerTableApiIntegrationTests {
     }
 
     private TableSession openSession(RestaurantTable table, TableSession.Status status) {
+        Bill bill = new Bill();
+        bill.setCode("M3-" + UUID.randomUUID().toString().substring(0, 8));
+        persist(bill);
         TableSession s = new TableSession();
+        s.setBill(bill);
         s.setTable(table);
         s.setGuestCount(2);
         s.setStartedAt(Instant.now());
