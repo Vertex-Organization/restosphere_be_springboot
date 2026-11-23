@@ -15,12 +15,17 @@ spring:
     defer-datasource-initialization: true
     open-in-view: false
     hibernate:
-      # Chi dung "update" khi dev; production nen dung "validate" kem Flyway/Liquibase.
+      # TODO(confirm): doi sang validate khi V1 hoan chinh (giai doan 1, buoc cuoi).
       ddl-auto: ${JPA_DDL_AUTO:update}
     properties:
       hibernate:
         jdbc:
           time_zone: UTC
+
+  flyway:
+    # TODO(confirm): tam tat cho den khi V1 hoan chinh (giai doan 1, buoc cuoi).
+    enabled: ${FLYWAY_ENABLED:false}
+    locations: classpath:db/migration
 
   sql:
     init:
