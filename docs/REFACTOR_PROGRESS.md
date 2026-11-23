@@ -6,7 +6,7 @@
 - Cập nhật lần cuối: 2026-11-23 18:50
 
 ## Đang làm
-- Giai đoạn 1: bắt đầu bước Flyway setup
+- GĐ1: bước "Đổi cột người thực hiện sang FK + bills.approval_request_id"
 
 ## Câu hỏi đang chờ
 - [ ] FE mobile (`restosphere-fe-mobile`, Expo) chứa màn lễ tân + phục vụ – master prompt chỉ nêu FE web. Tạm: Giai đoạn 3 làm FE web trước, mobile chỉ sửa chỗ vỡ API nếu còn thời gian; ghi TODO(confirm). (2026-11-23)
@@ -28,8 +28,8 @@
 - [x] Kiểm tra Bill-TableSession, cascade, enum dùng chung
 - [x] Liệt kê màn hình FE + API bị ảnh hưởng
 ### Giai đoạn 1
-- [ ] Flyway setup
-- [ ] User -> Employee, bỏ role CUSTOMER
+- [x] Flyway setup — commit `5ee8b4c` (dependency thêm, enabled=false tới khi có V1)
+- [x] User -> Employee, bỏ role CUSTOMER — commit `aa8fbbd` (endpoint đổi `/api/v1/admin/users` -> `/api/v1/admin/employees`, FE phải cập nhật ở GĐ3; JSON field không đổi)
 - [ ] Cột người thực hiện -> FK + bills.approval_request_id
 - [ ] Gộp order_drafts vào orders
 - [ ] Phiên-bill: table_sessions.bill_id, ghép/tách
@@ -101,5 +101,7 @@
 - `application.yaml` có thay đổi cục bộ chưa commit của người dùng (`SQL_INIT_MODE` mặc định `always`). Không đụng vào cho tới khi cần sửa file này (khi sửa sẽ giữ nguyên dòng đó).
 
 ## Nhật ký
+- 2026-11-23 19:06 – GĐ1: Flyway dep + rename User->Employee xong, 196/196 test pass. Baseline trước đó fail toàn bộ vì Flyway bật mà DB không rỗng -> đặt flyway.enabled=false tạm.
 - 2026-11-23 18:50 – Tạo nhánh refactor/db-flyway-payos từ develop. Lưu ý: `application.yaml` có thay đổi chưa commit của người dùng (SQL_INIT_MODE mặc định never -> always), giữ nguyên, không đưa vào commit của mình cho tới khi cần.
+
 
