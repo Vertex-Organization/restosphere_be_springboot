@@ -6,7 +6,7 @@
 - Cập nhật lần cuối: 2026-11-23 18:50
 
 ## Đang làm
-- GĐ1: bước "V1 migration + validate" (sinh DDL từ entity -> viết V1 đặt tên constraint rõ ràng -> chuyển seed sang db/seed -> bật validate)
+- GĐ1: bước "chuyển seed dataset.sql -> db/seed (Flyway, profile dev), xóa dataset.sql, tắt spring.sql.init"
 
 ## Câu hỏi đang chờ
 - [x] FE mobile / màn lễ tân + phục vụ -> đã trả lời, xem mục Quyết định
@@ -41,7 +41,7 @@
 - [x] Phiên-bill A2: ghép/tách + luật chặn — commit `ed7c60c` (API mới: `POST /api/v1/table-sessions/{id}/merge` body `{sourceSessionId}`, `POST /api/v1/table-sessions/{id}/split` body `{targetTableId, itemIds[]}`; quyền ADMIN/MANAGER/RECEPTIONIST/WAITER/CASHIER; chặn: giảm giá/đang chờ duyệt giảm giá, có payment COMPLETED hoặc PENDING (payOS), bàn có cọc đã trả, phiên đã yêu cầu thanh toán; mutation-test xác nhận test chặn thật sự bắt luật). TODO(confirm): tách bàn đặt số khách bàn mới = 1
 - [x] Payments: cột mới, method mới, cọc, MANUAL_TRANSFER, chặn đóng ca — commit `34f4c18` (Payment.bill/cashier_shift nullable + reservation_id, payos_order_code, checkout_url, proof_image_url; method CASH/PAYOS/MANUAL_TRANSFER; cọc tra qua payments, bỏ reservations.deposit_paid_at khỏi logic (cột còn trong entity, bỏ ở V1); bỏ lệnh confirm-deposit; không hoàn cọc; cọc tự gắn bill khi handover; endpoint `/payments/transfer`, `/payments/{id}/confirm|cancel` XÓA, thay bằng `POST /cashier/bills/{id}/payments/manual-transfer` (quản lý nhập email+mật khẩu); chặn đóng ca khi còn PENDING giữ nguyên). Còn thiếu: nút/DTO `bank_bin`, giá trị CHECK tiền cọc cho method PAYOS ở GĐ2
 - [x] areas: active + sort_order — commit `fe0fad2` (BE xong; UI quản lý khu ở GĐ3 web). API `/areas` trả thêm `active`, `sortOrder`; `AreaRequest` nhận `active`/`sortOrder` tùy chọn; public settings chỉ trả khu active
-- [ ] V1 migration + validate (kèm chuyển seed dataset.sql -> db/seed, profile dev, xóa dataset.sql)
+- [x] V1 migration + validate — commit `10d7816` (`db/migration/V1__init_schema.sql`: 24 bảng, tên `pk_/uq_/fk_/ck_/idx_`, 3 partial unique index; `DatabaseConstraintsInitializer` đã xóa; `ddl-auto=validate`, `flyway.enabled=true`). Đã chạy app thật trên DB trống `restosphere_v2`: Flyway áp V1 + validate pass; so với schema Hibernate sinh: cột/ràng buộc/index trùng 100% (chỉ khác tên). Còn lại: chuyển seed `dataset.sql` -> `db/seed` (profile dev), bỏ `reservations.deposit_paid_at` (đã không có trong V1)
 ### Giai đoạn 2
 - [ ] Cấu hình SDK payOS
 - [ ] Link payOS cho bill + hủy link
@@ -111,6 +111,7 @@
 - `application.yaml` có thay đổi cục bộ chưa commit của người dùng (`SQL_INIT_MODE` mặc định `always`). Không đụng vào cho tới khi cần sửa file này (khi sửa sẽ giữ nguyên dòng đó).
 
 ## Nhật ký
+- 2026-11-23 21:59 – GĐ1: V1 xong và chạy thật trên restosphere_v2. Phát hiện: `spring.jpa.defer-datasource-initialization: true` làm Hibernate validate chạy TRƯỚC Flyway -> đã bỏ. Test `DatabaseConstraintsTests`/`RestosphereBeSpringbootApplicationTests` không còn `create-drop`, giờ chạy qua Flyway thật (202/202 pass). DB tạm restosphere_gen đã xóa; DB `restosphere` cũ KHÔNG đụng tới.
 - 2026-11-23 21:13 – GĐ1: ghép/tách xong, 201/201 test pass. Tách bàn: bill cũ được tính lại, bill mới chứa món chuyển; ghép: bill của phiên nguồn -> VOIDED và bị ẩn khỏi danh sách.
 - 2026-11-23 20:58 – GĐ1: payments xong, 194/194 test pass (bỏ CashierTransferApiIntegrationTests, thêm CashierManualTransferApiIntegrationTests; sửa test cọc lễ tân theo payments). Bắt đầu push mỗi 2 commit.
 - 2026-11-23 20:21 – GĐ1: A1 phiên-bill xong, 197/197 test pass. dataset.sql tạm sửa (bill chèn trước phiên, cập nhật tổng sau). Nhánh CHƯA push (người dùng hỏi; chờ xác nhận).
@@ -118,6 +119,7 @@
 - 2026-11-23 19:37 – GĐ1: gộp order_drafts vào orders xong, 196/196 test pass. Đã nhận 4 quyết định từ người dùng (mobile bắt buộc, areas active/sort_order, area_id NULL, seed -> Flyway db/seed). Sẽ sửa thẳng V1 khi tạo, drop/tạo lại restosphere_v2 để kiểm tra.
 - 2026-11-23 19:06 – GĐ1: Flyway dep + rename User->Employee xong, 196/196 test pass. Baseline trước đó fail toàn bộ vì Flyway bật mà DB không rỗng -> đặt flyway.enabled=false tạm.
 - 2026-11-23 18:50 – Tạo nhánh refactor/db-flyway-payos từ develop. Lưu ý: `application.yaml` có thay đổi chưa commit của người dùng (SQL_INIT_MODE mặc định never -> always), giữ nguyên, không đưa vào commit của mình cho tới khi cần.
+
 
 
 
