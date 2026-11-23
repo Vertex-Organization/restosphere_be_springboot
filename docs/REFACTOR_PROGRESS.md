@@ -6,7 +6,7 @@
 - Cập nhật lần cuối: 2026-11-23 18:50
 
 ## Đang làm
-- GĐ1: bước "Phiên-bill A2: ghép/tách + luật chặn", rồi "restaurant_settings.bank_bin", rồi "V1 migration + seed"
+- GĐ1: bước "restaurant_settings.bank_bin", rồi "V1 migration + seed"
 
 ## Câu hỏi đang chờ
 - [x] FE mobile / màn lễ tân + phục vụ -> đã trả lời, xem mục Quyết định
@@ -38,7 +38,7 @@
 - [x] Cột người thực hiện -> FK + bills.approval_request_id — commit `e213aa6` (JSON vẫn trả id dạng chuỗi, FE không vỡ)
 - [x] Gộp order_drafts vào orders — commit `fd70c7e` (thêm orders.status/submitted_at, order_items.DRAFT, `OrderItem.NOT_BILLABLE`, partial unique index 1 DRAFT/(session,waiter) trong DatabaseConstraintsInitializer tạm thời; endpoint giữ nguyên)
 - [x] Phiên-bill A1: table_sessions.bill_id, bỏ bills.session_id, bill tạo khi mở phiên — commit `ca4f0d7` (Bill có `sessions`; `bill.tableCodes()`/`guestCount()`/`awaitingPayment()`; bỏ unique reservation_id; response bill: `tableCode` có thể là "T1 + T2")
-- [ ] Phiên-bill A2: ghép/tách + luật chặn (cần payments từ bước kế)
+- [x] Phiên-bill A2: ghép/tách + luật chặn — commit `ed7c60c` (API mới: `POST /api/v1/table-sessions/{id}/merge` body `{sourceSessionId}`, `POST /api/v1/table-sessions/{id}/split` body `{targetTableId, itemIds[]}`; quyền ADMIN/MANAGER/RECEPTIONIST/WAITER/CASHIER; chặn: giảm giá/đang chờ duyệt giảm giá, có payment COMPLETED hoặc PENDING (payOS), bàn có cọc đã trả, phiên đã yêu cầu thanh toán; mutation-test xác nhận test chặn thật sự bắt luật). TODO(confirm): tách bàn đặt số khách bàn mới = 1
 - [x] Payments: cột mới, method mới, cọc, MANUAL_TRANSFER, chặn đóng ca — commit `34f4c18` (Payment.bill/cashier_shift nullable + reservation_id, payos_order_code, checkout_url, proof_image_url; method CASH/PAYOS/MANUAL_TRANSFER; cọc tra qua payments, bỏ reservations.deposit_paid_at khỏi logic (cột còn trong entity, bỏ ở V1); bỏ lệnh confirm-deposit; không hoàn cọc; cọc tự gắn bill khi handover; endpoint `/payments/transfer`, `/payments/{id}/confirm|cancel` XÓA, thay bằng `POST /cashier/bills/{id}/payments/manual-transfer` (quản lý nhập email+mật khẩu); chặn đóng ca khi còn PENDING giữ nguyên). Còn thiếu: nút/DTO `bank_bin`, giá trị CHECK tiền cọc cho method PAYOS ở GĐ2
 - [x] areas: active + sort_order — commit `fe0fad2` (BE xong; UI quản lý khu ở GĐ3 web). API `/areas` trả thêm `active`, `sortOrder`; `AreaRequest` nhận `active`/`sortOrder` tùy chọn; public settings chỉ trả khu active
 - [ ] V1 migration + validate (kèm chuyển seed dataset.sql -> db/seed, profile dev, xóa dataset.sql)
@@ -111,12 +111,14 @@
 - `application.yaml` có thay đổi cục bộ chưa commit của người dùng (`SQL_INIT_MODE` mặc định `always`). Không đụng vào cho tới khi cần sửa file này (khi sửa sẽ giữ nguyên dòng đó).
 
 ## Nhật ký
+- 2026-11-23 21:13 – GĐ1: ghép/tách xong, 201/201 test pass. Tách bàn: bill cũ được tính lại, bill mới chứa món chuyển; ghép: bill của phiên nguồn -> VOIDED và bị ẩn khỏi danh sách.
 - 2026-11-23 20:58 – GĐ1: payments xong, 194/194 test pass (bỏ CashierTransferApiIntegrationTests, thêm CashierManualTransferApiIntegrationTests; sửa test cọc lễ tân theo payments). Bắt đầu push mỗi 2 commit.
 - 2026-11-23 20:21 – GĐ1: A1 phiên-bill xong, 197/197 test pass. dataset.sql tạm sửa (bill chèn trước phiên, cập nhật tổng sau). Nhánh CHƯA push (người dùng hỏi; chờ xác nhận).
 - 2026-11-23 19:55 – GĐ1: areas active/sort_order + area_id NULL xong, 197/197 test pass (thêm 1 test mới). Lưu ý: `reservations.areaName` giờ là "Không yêu cầu khu" khi NULL.
 - 2026-11-23 19:37 – GĐ1: gộp order_drafts vào orders xong, 196/196 test pass. Đã nhận 4 quyết định từ người dùng (mobile bắt buộc, areas active/sort_order, area_id NULL, seed -> Flyway db/seed). Sẽ sửa thẳng V1 khi tạo, drop/tạo lại restosphere_v2 để kiểm tra.
 - 2026-11-23 19:06 – GĐ1: Flyway dep + rename User->Employee xong, 196/196 test pass. Baseline trước đó fail toàn bộ vì Flyway bật mà DB không rỗng -> đặt flyway.enabled=false tạm.
 - 2026-11-23 18:50 – Tạo nhánh refactor/db-flyway-payos từ develop. Lưu ý: `application.yaml` có thay đổi chưa commit của người dùng (SQL_INIT_MODE mặc định never -> always), giữ nguyên, không đưa vào commit của mình cho tới khi cần.
+
 
 
 
