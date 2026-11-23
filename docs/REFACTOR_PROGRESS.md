@@ -6,17 +6,21 @@
 - Cập nhật lần cuối: 2026-11-23 18:50
 
 ## Đang làm
-- GĐ1: bước "Gộp order_drafts vào orders (DRAFT/SUBMITTED)"
+- GĐ1: bước "areas active/sort_order + reservations.area_id NULL"
 
 ## Câu hỏi đang chờ
-- [ ] FE mobile (`restosphere-fe-mobile`, Expo) chứa màn lễ tân + phục vụ – master prompt chỉ nêu FE web. Tạm: Giai đoạn 3 làm FE web trước, mobile chỉ sửa chỗ vỡ API nếu còn thời gian; ghi TODO(confirm). (2026-11-23)
-- [ ] Màn hình lễ tân (tạo đặt bàn quầy/hotline, Thu cọc, copy link) và phục vụ (giỏ DRAFT) hiện nằm ở mobile, FE web chưa có. Tạm: tạo trang lễ tân web mới đồng bộ style manager/billing. (2026-11-23)
-- [ ] areas: thêm cột `active` và `sort_order`? (chưa chốt) – tạm KHÔNG đổi `areas`. (2026-11-23 18:50)
-- [ ] `reservations.area_id` cho phép NULL (khách không chọn khu)? – tạm KHÔNG đổi. (2026-11-23 18:50)
-- [ ] Seed dev: giữ `dataset.sql` (SQL init) hay chuyển sang Flyway `db/seed`? – tạm giữ, chỉnh theo schema mới. (2026-11-23 18:50)
+- [x] FE mobile / màn lễ tân + phục vụ -> đã trả lời, xem mục Quyết định
+- [x] areas `active` + `sort_order` -> đã trả lời
+- [x] `reservations.area_id` NULL -> đã trả lời
+- [x] Seed dev: dataset.sql sang Flyway -> đã trả lời
+- [ ] `orders.submitted_at` (cột thêm ngoài bản chốt, để bếp có giờ gửi thật). Đã làm, TODO(confirm) trong `Order.java`. (2026-11-23)
 
 ## Quyết định đã nhận từ người dùng trong lúc làm
-- (chưa có)
+- 2026-11-23 – FE mobile: KHÔNG tạo trang lễ tân/phục vụ trên web. Mọi tính năng LỄ TÂN + PHỤC VỤ làm trên MOBILE (restosphere-fe-mobile): giỏ DRAFT -> gửi bếp; tạo đặt bàn quầy/hotline; "Thu cọc" QR payOS tự cập nhật; "Copy link thanh toán"; "Chuyển thu ngân thu cọc tiền mặt"; tách/ghép bàn; "Kiểm tra lại". FE web chỉ: quản lý (nhân viên, cài đặt, xác nhận CK thủ công), thu ngân (3 phương thức, in bill QR, "Cọc chờ thu", đóng ca), đặt bàn online public + /payment/result. Mobile là BẮT BUỘC của GĐ3 (làm web xong thì làm mobile). Skill FE chủ yếu cho web; mobile giữ style/component sẵn có.
+- 2026-11-23 – areas: THÊM `active` (boolean NOT NULL DEFAULT true) và `sort_order` (int NOT NULL DEFAULT 0). Khu active=false: không hiện khi đặt online, không cho xếp bàn mới, dữ liệu cũ giữ. Sắp xếp theo sort_order rồi name. Màn quản lý khu (web): thêm bật/tắt + sửa thứ tự.
+- 2026-11-23 – reservations.area_id cho phép NULL: form có "Không yêu cầu khu"; lễ tân tự xếp bàn khu còn chỗ; sửa index/query/kiểm tra chỗ trống xử lý area_id NULL.
+- 2026-11-23 – Seed: chuyển dataset.sql sang Flyway thư mục riêng (classpath:db/seed), CHỈ profile dev (thêm location vào spring.flyway.locations của profile dev), chạy sau migration, nạp 1 lần. Tắt spring.sql.init. Xóa dataset.sql sau khi chuyển.
+- 2026-11-23 – Nếu V1 đã tạo/commit thì SỬA THẲNG V1 cho thay đổi schema (chưa ai chạy V1), rồi drop + tạo lại restosphere_v2 để kiểm tra; ghi vào Nhật ký.
 
 ## Danh sách công việc
 ### Giai đoạn 0
@@ -31,11 +35,11 @@
 - [x] Flyway setup — commit `5ee8b4c` (dependency thêm, enabled=false tới khi có V1)
 - [x] User -> Employee, bỏ role CUSTOMER — commit `aa8fbbd` (endpoint đổi `/api/v1/admin/users` -> `/api/v1/admin/employees`, FE phải cập nhật ở GĐ3; JSON field không đổi)
 - [x] Cột người thực hiện -> FK + bills.approval_request_id — commit `e213aa6` (JSON vẫn trả id dạng chuỗi, FE không vỡ)
-- [ ] Gộp order_drafts vào orders
+- [x] Gộp order_drafts vào orders — commit `fd70c7e` (thêm orders.status/submitted_at, order_items.DRAFT, `OrderItem.NOT_BILLABLE`, partial unique index 1 DRAFT/(session,waiter) trong DatabaseConstraintsInitializer tạm thời; endpoint giữ nguyên)
 - [ ] Phiên-bill: table_sessions.bill_id, ghép/tách
 - [ ] Payments: cột mới, method mới, cọc, MANUAL_TRANSFER, chặn đóng ca
-- [ ] restaurant_settings.bank_bin
-- [ ] V1 migration + validate
+- [ ] areas: active + sort_order (UI quản lý khu ở GĐ3 web)`n- [ ] reservations.area_id NULL (BE logic xếp chỗ + form)`n- [ ] restaurant_settings.bank_bin
+- [ ] V1 migration + validate (kèm chuyển seed dataset.sql -> db/seed, profile dev, xóa dataset.sql)
 ### Giai đoạn 2
 - [ ] Cấu hình SDK payOS
 - [ ] Link payOS cho bill + hủy link
@@ -45,7 +49,11 @@
 - [ ] Webhook + endpoint dev
 - [ ] Endpoint tra trạng thái cho FE
 ### Giai đoạn 3
-- [ ] (xem mục 5 của master prompt)
+- [ ] FE web: quản lý (nhân viên, cài đặt + bank_bin + preview QR, khu active/sort, xác nhận CK thủ công)
+- [ ] FE web: thu ngân (3 phương thức, in bill QR, Cọc chờ thu, biên nhận cọc, đóng ca bị chặn, Kiểm tra lại)
+- [ ] FE web: đặt bàn online (chính sách không hoàn cọc, payOS, /payment/result, hotline khi lỗi, ẩn khu inactive, "Không yêu cầu khu")
+- [ ] FE MOBILE (BẮT BUỘC): phục vụ (giỏ DRAFT -> gửi bếp, tách/ghép bàn)
+- [ ] FE MOBILE (BẮT BUỘC): lễ tân (đặt bàn quầy/hotline, Thu cọc QR, Copy link, chuyển thu ngân, Kiểm tra lại)
 ### Giai đoạn 4
 - [ ] Seed, README, tự kiểm thử, QUY_TRINH_SU_CO.md, tóm tắt payOS
 
@@ -101,8 +109,10 @@
 - `application.yaml` có thay đổi cục bộ chưa commit của người dùng (`SQL_INIT_MODE` mặc định `always`). Không đụng vào cho tới khi cần sửa file này (khi sửa sẽ giữ nguyên dòng đó).
 
 ## Nhật ký
+- 2026-11-23 19:37 – GĐ1: gộp order_drafts vào orders xong, 196/196 test pass. Đã nhận 4 quyết định từ người dùng (mobile bắt buộc, areas active/sort_order, area_id NULL, seed -> Flyway db/seed). Sẽ sửa thẳng V1 khi tạo, drop/tạo lại restosphere_v2 để kiểm tra.
 - 2026-11-23 19:06 – GĐ1: Flyway dep + rename User->Employee xong, 196/196 test pass. Baseline trước đó fail toàn bộ vì Flyway bật mà DB không rỗng -> đặt flyway.enabled=false tạm.
 - 2026-11-23 18:50 – Tạo nhánh refactor/db-flyway-payos từ develop. Lưu ý: `application.yaml` có thay đổi chưa commit của người dùng (SQL_INIT_MODE mặc định never -> always), giữ nguyên, không đưa vào commit của mình cho tới khi cần.
+
 
 
 
