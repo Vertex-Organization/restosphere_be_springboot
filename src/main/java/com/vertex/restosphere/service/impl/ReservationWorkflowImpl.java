@@ -693,10 +693,7 @@ public class ReservationWorkflowImpl implements ReservationWorkflow {
                         a.getTable(),
                         now,
                         now.plus(Duration.between(r.getStartsAt(), r.getEndsAt())));
-                var bill = new Bill();
-                bill.setCode(
-                        "B-" + java.util.UUID.randomUUID().toString().substring(28).toUpperCase());
-                db.save(bill);
+                var bill = billing.open();
                 var session = new TableSession();
                 session.setBill(bill);
                 bill.getSessions().add(session);

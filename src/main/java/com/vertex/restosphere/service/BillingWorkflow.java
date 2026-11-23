@@ -13,6 +13,9 @@ import java.util.UUID;
 /** Hóa đơn, tính tiền và yêu cầu phê duyệt dùng chung giữa các luồng nghiệp vụ. */
 public interface BillingWorkflow {
 
+    /** Tạo hóa đơn rỗng, có mã riêng; luôn tạo trước phiên trỏ tới nó. */
+    Bill open();
+
     Bill bill(TableSession session);
 
     List<OrderItem> items(Bill bill);

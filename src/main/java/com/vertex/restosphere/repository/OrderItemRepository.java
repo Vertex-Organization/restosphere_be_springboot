@@ -10,6 +10,8 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, UUID> {
 
     boolean existsByMenuItemId(UUID menuItemId);
 
+    java.util.List<OrderItem> findByOrderSessionId(UUID sessionId);
+
     @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"menuItem", "chef"})
     java.util.List<OrderItem> findByOrderIdIn(java.util.Collection<UUID> orderIds);
 

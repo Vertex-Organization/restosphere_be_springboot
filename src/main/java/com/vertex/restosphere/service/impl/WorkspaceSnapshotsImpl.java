@@ -287,7 +287,10 @@ public class WorkspaceSnapshotsImpl implements WorkspaceSnapshots {
     }
 
     private List<Map<String, Object>> billList(SnapshotContext ctx) {
-        return ctx.all(Bill.class).stream().map(b -> bills.toMap(b, ctx.audit(b.getId()))).toList();
+        return ctx.all(Bill.class).stream()
+                .filter(b -> !b.getSessions().isEmpty())
+                .map(b -> bills.toMap(b, ctx.audit(b.getId())))
+                .toList();
     }
 
     private List<Map<String, Object>> paymentList(SnapshotContext ctx) {

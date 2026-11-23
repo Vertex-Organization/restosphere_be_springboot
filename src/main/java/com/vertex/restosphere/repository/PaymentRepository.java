@@ -16,6 +16,8 @@ public interface PaymentRepository extends JpaRepository<Payment, UUID> {
 
     boolean existsByBillIdAndStatus(UUID billId, Payment.Status status);
 
+    boolean existsByReservationIdAndStatus(UUID reservationId, Payment.Status status);
+
     boolean existsByCashierShiftIdAndStatus(UUID shiftId, Payment.Status status);
 
     boolean existsByTransactionReference(String transactionReference);

@@ -56,6 +56,7 @@ public class CashierBillServiceImpl implements CashierBillService {
         }
         List<Bill> found =
                 bills.findAllByOrderByCreatedAtAsc().stream()
+                        .filter(b -> !b.getSessions().isEmpty())
                         .filter(
                                 b ->
                                         wanted == null
@@ -91,6 +92,7 @@ public class CashierBillServiceImpl implements CashierBillService {
     @Override
     public CashierBillResponse view(UUID billId) {
         Bill bill = bills.findDetailedById(billId).orElseThrow(() -> ApiException.notFound("Bill"));
+        if (bill.getSessions().isEmpty()) throw ApiException.notFound("Bill");
         List<Payment> billPayments = payments.findByBillIdInOrderByCreatedAtAsc(List.of(billId));
         List<CashierItemResponse> items =
                 orderItems.findSentByBillId(billId).stream()

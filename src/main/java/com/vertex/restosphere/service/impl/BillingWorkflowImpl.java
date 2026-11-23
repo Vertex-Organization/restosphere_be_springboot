@@ -20,6 +20,13 @@ public class BillingWorkflowImpl implements BillingWorkflow {
     private final WorkspaceStore db;
 
     @Override
+    public Bill open() {
+        var bill = new Bill();
+        bill.setCode("B-" + UUID.randomUUID().toString().substring(28).toUpperCase());
+        return db.save(bill);
+    }
+
+    @Override
     public Bill bill(TableSession session) {
         return session.getBill();
     }
