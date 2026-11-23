@@ -1,4 +1,5 @@
-BEGIN;
+-- Dữ liệu mẫu 7 ngày (chỉ nạp ở profile dev; mật khẩu 123456 chỉ dành cho dữ liệu mẫu).
+-- Version 1000+ để không đụng số version của migration schema. Đừng sửa file đã chạy; thêm file mới.
 INSERT INTO employees (id, email, password_hash, full_name, role, enabled, created_at, updated_at)
 SELECT md5('restosphere:demo:' || account)::uuid, account || '@restosphere.test',
        '$2b$10$LTsVxyCfFG2CRk86pJ6HKO9vBqu9FVik7RgWPNgT0jYZPLvPxU54W',
@@ -409,5 +410,3 @@ SELECT md5('restosphere:seed:audit:bill:' || n)::uuid, md5('restosphere:demo:cas
        starts_at + interval '65 minutes'
 FROM demo_cases
 ON CONFLICT DO NOTHING;
-
-COMMIT;

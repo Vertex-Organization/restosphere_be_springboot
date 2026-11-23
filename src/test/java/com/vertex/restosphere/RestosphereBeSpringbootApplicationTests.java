@@ -20,7 +20,6 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 @SpringBootTest(
         properties = {
             "spring.config.import=",
-            "spring.sql.init.mode=never",
             "spring.docker.compose.enabled=false",
             "app.mail.enabled=false",
             "app.security.bootstrap-admin.email=",
@@ -33,11 +32,13 @@ class RestosphereBeSpringbootApplicationTests {
     void contextLoads() {}
 
     @Test
-    void catalogDatasetCanBeAppliedTwice() throws Exception {
+    void devSeedCanBeAppliedTwice() throws Exception {
         try (var connection = dataSource.getConnection()) {
-            var dataset = new ClassPathResource("dataset.sql");
+            var dataset = new ClassPathResource("db/seed/V1000__dev_seed.sql");
             assertTrue(connection.getMetaData().getURL().contains("jdbc:postgresql:"));
+            connection.setAutoCommit(false);
             ScriptUtils.executeSqlScript(connection, dataset);
+            connection.commit();
             var before = snapshot(connection);
             var outsider = UUID.randomUUID();
             try (var statement =
@@ -50,7 +51,9 @@ class RestosphereBeSpringbootApplicationTests {
                 statement.executeUpdate();
             }
             try {
+                connection.setAutoCommit(false);
                 ScriptUtils.executeSqlScript(connection, dataset);
+                connection.commit();
                 assertEquals(
                         "unchanged",
                         scalar(
