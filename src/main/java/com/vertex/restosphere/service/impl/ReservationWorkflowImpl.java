@@ -6,6 +6,7 @@ import com.vertex.restosphere.common.enums.*;
 import com.vertex.restosphere.entity.*;
 import com.vertex.restosphere.exception.ApiException;
 import com.vertex.restosphere.mapper.ReservationMapper;
+import com.vertex.restosphere.service.BillingWorkflow;
 import com.vertex.restosphere.service.ReservationWorkflow;
 import com.vertex.restosphere.service.ServiceWorkflow;
 import com.vertex.restosphere.service.WorkspaceStore;
@@ -24,6 +25,7 @@ public class ReservationWorkflowImpl implements ReservationWorkflow {
     private final ServiceWorkflow service;
     private final ReservationMailer mailer;
     private final ReservationMapper mapper;
+    private final BillingWorkflow billing;
     static final Map<String, String> HISTORY_LABELS =
             Map.ofEntries(
                     Map.entry("edit", "Cập nhật lịch đặt"),
@@ -34,8 +36,7 @@ public class ReservationWorkflowImpl implements ReservationWorkflow {
                     Map.entry("cancel", "Hủy lịch"),
                     Map.entry("no-show", "Không đến"),
                     Map.entry("check-in", "Khách đã đến"),
-                    Map.entry("handover", "Bàn giao cho phục vụ"),
-                    Map.entry("confirm-deposit", "Đã nhận tiền cọc"));
+                    Map.entry("handover", "Bàn giao cho phục vụ"));
     static final int EARLY_CHECK_IN_MINUTES = 60;
     static final BigDecimal DEPOSIT_RATE = new BigDecimal("0.5");
     static final int DEPOSIT_WINDOW_MINUTES = 15;
@@ -432,25 +433,23 @@ public class ReservationWorkflowImpl implements ReservationWorkflow {
         return late.size() + released + unpaid;
     }
 
-    // Restaurant-side cancellations refund the deposit; customer cancellations forfeit it.
-    static String depositNote(Reservation r, boolean refund) {
+    // Policy: a paid deposit is never refunded, whether the booking is cancelled or a no-show.
+    static String depositNote(Reservation r) {
         if (!paidDeposit(r)) return "";
-        String amount = ReservationMailer.money(r.getDepositAmount());
-        return refund
-                ? " Tiền cọc " + amount + " sẽ được hoàn về tài khoản của quý khách."
-                : " Theo chính sách đặt cọc, tiền cọc " + amount + " sẽ không được hoàn lại.";
+        return " Theo chính sách đặt cọc, tiền cọc "
+                + ReservationMailer.money(r.getDepositAmount())
+                + " không được hoàn lại.";
+    }
+
+    // The deposit rides on the first table's bill; later tables of the same booking stay clear.
+    void attachDepositToBill(Reservation r, Bill bill) {
+        for (var p : r.getPayments()) {
+            if (p.getBill() == null && p.getStatus() == Payment.Status.COMPLETED) p.setBill(bill);
+        }
     }
 
     static boolean paidDeposit(Reservation r) {
         return r.getDepositAmount() != null && !r.awaitingDeposit();
-    }
-
-    // Staff must state who caused the cancellation; it decides whether the deposit is returned.
-    static boolean refundDeposit(Reservation r, Map<String, Object> c) {
-        if (!paidDeposit(r)) return false;
-        if (!(c.get("refundDeposit") instanceof Boolean refund))
-            throw invalid("refundDeposit", "Vui lòng chọn có hoàn cọc cho khách hay không.");
-        return refund;
     }
 
     int cancelUnpaidDeposits(Instant now) {
@@ -458,9 +457,11 @@ public class ReservationWorkflowImpl implements ReservationWorkflow {
                 db.query(
                         Reservation.class,
                         "from Reservation r where r.status=?1 and r.depositAmount is not null"
-                                + " and r.depositPaidAt is null and r.depositDueAt<=?2",
+                                + " and r.depositDueAt<=?2 and not exists (select 1 from Payment p"
+                                + " where p.reservation=r and p.status=?3)",
                         Reservation.Status.PENDING,
-                        now);
+                        now,
+                        Payment.Status.COMPLETED);
         for (var r : expired) {
             command(
                     "cancel",
@@ -615,12 +616,6 @@ public class ReservationWorkflowImpl implements ReservationWorkflow {
                             id(session));
                 } else assign(r, tableId);
             }
-            case "confirm-deposit" -> {
-                require(r, Reservation.Status.PENDING);
-                if (!r.awaitingDeposit())
-                    throw ApiException.conflict("Lịch này không có tiền cọc chờ xác nhận.");
-                r.setDepositPaidAt(Instant.now());
-            }
             case "confirm" -> {
                 require(r, Reservation.Status.PENDING);
                 if (r.awaitingDeposit())
@@ -641,12 +636,11 @@ public class ReservationWorkflowImpl implements ReservationWorkflow {
                         "Đặt bàn không thành công",
                         "Rất tiếc, nhà hàng không thể nhận lịch đặt bàn này. Lý do: "
                                 + text(c, "reason")
-                                + depositNote(r, true));
+                                + depositNote(r));
             }
             case "cancel" -> {
                 require(r, Reservation.Status.PENDING, Reservation.Status.CONFIRMED);
                 required(c, "reason", 1000);
-                boolean refund = actor != null && refundDeposit(r, c);
                 r.setStatus(Reservation.Status.CANCELLED);
                 if (actor == null)
                     service.notify(
@@ -660,9 +654,8 @@ public class ReservationWorkflowImpl implements ReservationWorkflow {
                         "Đặt bàn đã bị hủy",
                         "Lịch đặt bàn của bạn đã được hủy. Lý do: "
                                 + text(c, "reason")
-                                + depositNote(r, refund));
-                if (paidDeposit(r))
-                    history(r, actor, "deposit", refund ? "Hoàn cọc" : "Không hoàn cọc");
+                                + depositNote(r));
+                if (paidDeposit(r)) history(r, actor, "deposit", "Không hoàn cọc");
             }
             case "no-show" -> {
                 require(r, Reservation.Status.CONFIRMED);
@@ -713,6 +706,7 @@ public class ReservationWorkflowImpl implements ReservationWorkflow {
                         r.getActualGuests() == null ? r.getGuestCount() : r.getActualGuests());
                 session.setStartedAt(Instant.now());
                 db.save(session);
+                attachDepositToBill(r, bill);
                 a.getTable().setStatus(TableStatus.OCCUPIED);
                 r.setHandedOverAt(Instant.now());
                 r.setStatus(Reservation.Status.SEATED);

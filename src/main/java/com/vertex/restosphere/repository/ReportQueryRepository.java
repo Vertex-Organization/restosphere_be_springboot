@@ -13,7 +13,7 @@ import org.springframework.data.repository.query.Param;
 public interface ReportQueryRepository extends Repository<Payment, UUID> {
 
     @Query(
-            "select p from Payment p join fetch p.bill b "
+            "select p from Payment p left join fetch p.bill b "
                     + "where p.status = :status and coalesce(p.paidAt, p.createdAt) >= :from "
                     + "and coalesce(p.paidAt, p.createdAt) < :to")
     List<Payment> findPaymentsWithBillBetween(

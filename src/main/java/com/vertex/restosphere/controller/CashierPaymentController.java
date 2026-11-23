@@ -1,8 +1,7 @@
 package com.vertex.restosphere.controller;
 
 import com.vertex.restosphere.config.OpenApiConfig;
-import com.vertex.restosphere.dto.request.CashierConfirmTransferRequest;
-import com.vertex.restosphere.dto.request.CashierCreateTransferRequest;
+import com.vertex.restosphere.dto.request.CashierManualTransferRequest;
 import com.vertex.restosphere.dto.request.CashierPayCashRequest;
 import com.vertex.restosphere.dto.response.CashierPaymentResponse;
 import com.vertex.restosphere.entity.Payment;
@@ -58,25 +57,12 @@ public class CashierPaymentController {
         return respond(service.payCash(CurrentUserService.idOf(jwt), id, req));
     }
 
-    @PostMapping("/bills/{id}/payments/transfer")
-    public ResponseEntity<CashierPaymentResponse> transfer(
+    @PostMapping("/bills/{id}/payments/manual-transfer")
+    public ResponseEntity<CashierPaymentResponse> manualTransfer(
             @AuthenticationPrincipal Jwt jwt,
             @PathVariable UUID id,
-            @Valid @RequestBody CashierCreateTransferRequest req) {
-        return respond(service.createTransfer(CurrentUserService.idOf(jwt), id, req));
-    }
-
-    @PostMapping("/payments/{id}/confirm")
-    public CashierPaymentResponse confirm(
-            @AuthenticationPrincipal Jwt jwt,
-            @PathVariable UUID id,
-            @RequestBody CashierConfirmTransferRequest req) {
-        return service.confirmTransfer(CurrentUserService.idOf(jwt), id, req);
-    }
-
-    @PostMapping("/payments/{id}/cancel")
-    public CashierPaymentResponse cancel(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID id) {
-        return service.cancelTransfer(CurrentUserService.idOf(jwt), id);
+            @Valid @RequestBody CashierManualTransferRequest req) {
+        return respond(service.payManualTransfer(CurrentUserService.idOf(jwt), id, req));
     }
 
     private static ResponseEntity<CashierPaymentResponse> respond(

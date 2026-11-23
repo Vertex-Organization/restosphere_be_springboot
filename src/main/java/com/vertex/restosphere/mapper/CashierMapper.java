@@ -66,7 +66,15 @@ public class CashierMapper {
                         "taxRate",
                         s.getVatRate().movePointRight(2),
                         "methods",
-                        map("CASH", true, "TRANSFER", hasBank, "CARD", false),
+                        map(
+                                "CASH",
+                                true,
+                                "PAYOS",
+                                false,
+                                "MANUAL_TRANSFER",
+                                hasBank,
+                                "CARD",
+                                false),
                         "bank",
                         hasBank
                                 ? map(

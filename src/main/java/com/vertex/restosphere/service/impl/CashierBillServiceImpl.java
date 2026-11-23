@@ -197,7 +197,9 @@ public class CashierBillServiceImpl implements CashierBillService {
                 s.getAddress(),
                 s.getServiceChargeRate().movePointRight(2),
                 s.getVatRate().movePointRight(2),
-                Map.of("CASH", true, "TRANSFER", transfer, "CARD", false),
+                // TODO(confirm): PAYOS stays false until the payOS integration (phase 2) flips it
+                // on.
+                Map.of("CASH", true, "PAYOS", false, "MANUAL_TRANSFER", transfer, "CARD", false),
                 bank);
     }
 

@@ -98,7 +98,8 @@ public class CashierShiftServiceImpl implements CashierShiftService {
             throw ApiException.conflict("Shift is not open for this cashier");
         }
         if (payments.existsByCashierShiftIdAndStatus(shift.getId(), Payment.Status.PENDING)) {
-            throw ApiException.conflict("Resolve pending transfers first");
+            throw ApiException.conflict(
+                    "Còn thanh toán payOS đang chờ trong ca này, hãy xử lý trước khi đóng ca.");
         }
         BigDecimal cash = payments.sumCompletedCash(shift.getId());
         shift.setExpectedCash(shift.getOpeningCash().add(cash));

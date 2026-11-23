@@ -17,11 +17,16 @@ import org.hibernate.annotations.Check;
             @Index(name = "idx_payments_shift_status", columnList = "cashier_shift_id, status"),
             @Index(name = "idx_payments_paid_at", columnList = "paid_at")
         })
-@Check(constraints = "amount > 0 and (tendered is null or tendered >= 0)")
+@Check(
+        constraints =
+                "amount > 0 and (tendered is null or tendered >= 0)"
+                        + " and (bill_id is not null or reservation_id is not null)"
+                        + " and (method = 'PAYOS' or cashier_shift_id is not null)")
 public class Payment extends BaseEntity {
     public enum Method {
         CASH,
-        TRANSFER
+        PAYOS,
+        MANUAL_TRANSFER
     }
 
     public enum Status {
@@ -46,12 +51,18 @@ public class Payment extends BaseEntity {
     @JoinColumn(name = "verified_by_id")
     private Employee verifiedBy;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "bill_id", nullable = false)
+    // A deposit has no bill until the guest checks in; it then moves onto the table's bill.
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "bill_id")
     private Bill bill;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "cashier_shift_id", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "reservation_id")
+    private Reservation reservation;
+
+    // Null for online payOS payments, which no cashier handles.
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "cashier_shift_id")
     private CashierShift cashierShift;
 
     @Column(nullable = false, precision = 14, scale = 0)
@@ -67,6 +78,15 @@ public class Payment extends BaseEntity {
 
     @Column(unique = true, length = 150)
     private String transactionReference;
+
+    @Column(unique = true)
+    private Long payosOrderCode;
+
+    @Column(length = 500)
+    private String checkoutUrl;
+
+    @Column(length = 500)
+    private String proofImageUrl;
 
     private Instant paidAt;
 

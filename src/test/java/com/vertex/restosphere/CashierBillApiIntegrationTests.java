@@ -119,7 +119,7 @@ class CashierBillApiIntegrationTests extends CashierApiTestBase {
             String body = ok(call(HttpMethod.GET, "/config", cashierToken, null));
             assertThat(this.<Number>json(body, "$.taxRate").intValue()).isEqualTo(800);
             assertThat(this.<Number>json(body, "$.serviceChargeRate").intValue()).isEqualTo(500);
-            assertThat(this.<Boolean>json(body, "$.methods.TRANSFER")).isTrue();
+            assertThat(this.<Boolean>json(body, "$.methods.MANUAL_TRANSFER")).isTrue();
             assertThat(this.<Boolean>json(body, "$.methods.CASH")).isTrue();
             assertThat(this.<String>json(body, "$.bank.accountNumber")).isEqualTo("123456");
         } finally {

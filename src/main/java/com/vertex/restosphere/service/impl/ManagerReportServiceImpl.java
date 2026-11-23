@@ -88,7 +88,9 @@ public class ManagerReportServiceImpl implements ManagerReportService {
                         .filter(
                                 p ->
                                         shift == null
-                                                || (p.getBill().getStatus() == Bill.Status.PAID
+                                                || (p.getBill() != null
+                                                        && p.getBill().getStatus()
+                                                                == Bill.Status.PAID
                                                         && shift.equals(
                                                                 shiftOf(p.getBill(), zone))))
                         .toList();
@@ -121,7 +123,7 @@ public class ManagerReportServiceImpl implements ManagerReportService {
     private static Collection<Bill> paidBills(List<Payment> payments) {
         return payments.stream()
                 .map(Payment::getBill)
-                .filter(b -> b.getStatus() == Bill.Status.PAID)
+                .filter(b -> b != null && b.getStatus() == Bill.Status.PAID)
                 .collect(
                         Collectors.toMap(
                                 Bill::getId, Function.identity(), (a, b) -> a, LinkedHashMap::new))

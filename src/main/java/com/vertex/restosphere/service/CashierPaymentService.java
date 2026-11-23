@@ -1,7 +1,6 @@
 package com.vertex.restosphere.service;
 
-import com.vertex.restosphere.dto.request.CashierConfirmTransferRequest;
-import com.vertex.restosphere.dto.request.CashierCreateTransferRequest;
+import com.vertex.restosphere.dto.request.CashierManualTransferRequest;
 import com.vertex.restosphere.dto.request.CashierPayCashRequest;
 import com.vertex.restosphere.dto.response.CashierPaymentResponse;
 import com.vertex.restosphere.entity.Payment;
@@ -18,10 +17,6 @@ public interface CashierPaymentService {
 
     Outcome payCash(UUID actorId, UUID billId, CashierPayCashRequest req);
 
-    Outcome createTransfer(UUID actorId, UUID billId, CashierCreateTransferRequest req);
-
-    CashierPaymentResponse confirmTransfer(
-            UUID actorId, UUID paymentId, CashierConfirmTransferRequest req);
-
-    CashierPaymentResponse cancelTransfer(UUID actorId, UUID paymentId);
+    /** Thu thủ công khi payOS lỗi: tạo thẳng COMPLETED, có quản lý xác nhận. */
+    Outcome payManualTransfer(UUID actorId, UUID billId, CashierManualTransferRequest req);
 }

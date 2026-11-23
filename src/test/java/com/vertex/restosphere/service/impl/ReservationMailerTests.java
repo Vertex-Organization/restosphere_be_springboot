@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import com.vertex.restosphere.common.enums.PriceUnit;
 import com.vertex.restosphere.entity.Area;
 import com.vertex.restosphere.entity.MenuItem;
+import com.vertex.restosphere.entity.Payment;
 import com.vertex.restosphere.entity.Reservation;
 import com.vertex.restosphere.entity.ReservationItem;
 import com.vertex.restosphere.entity.RestaurantSettings;
@@ -153,7 +154,11 @@ class ReservationMailerTests {
         assertFalse(unpaid.text().contains("cọc"), "no transfer instructions in emails");
         assertFalse(unpaid.text().contains("0123456789"));
 
-        r.setDepositPaidAt(Instant.now());
+        var deposit = new Payment();
+        deposit.setReservation(r);
+        deposit.setStatus(Payment.Status.COMPLETED);
+        deposit.setPaidAt(Instant.now());
+        r.getPayments().add(deposit);
         var paid = ReservationMailer.render(r, settings, "Đã tiếp nhận", "Hẹn gặp", List.of());
         assertTrue(paid.text().contains("Đã cọc: 300.000đ"));
     }

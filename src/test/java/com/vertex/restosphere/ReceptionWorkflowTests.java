@@ -60,6 +60,17 @@ class ReceptionWorkflowTests {
         return db.save(t);
     }
 
+    void payDeposit(Reservation r) {
+        var p = new Payment();
+        p.setReservation(r);
+        p.setAmount(r.getDepositAmount());
+        p.setMethod(Payment.Method.PAYOS);
+        p.setStatus(Payment.Status.COMPLETED);
+        p.setPaidAt(Instant.now());
+        db.save(p);
+        r.getPayments().add(p);
+    }
+
     Reservation byCode(String code) {
         return db.query(Reservation.class, "from Reservation r where r.code = ?1", code).getFirst();
     }
@@ -763,15 +774,13 @@ class ReceptionWorkflowTests {
         var r = byCode(view.get("code").toString());
         assertTrue(r.awaitingDeposit());
         assertThrows(ApiException.class, () -> run(reception, "type", "confirm", "id", id(r)));
-        run(reception, "type", "confirm-deposit", "id", id(r));
-        assertNotNull(r.getDepositPaidAt());
+        payDeposit(r);
+        assertNotNull(r.depositPaidAt());
         org.mockito.Mockito.verify(mailer, org.mockito.Mockito.never())
                 .send(
                         org.mockito.ArgumentMatchers.any(),
                         org.mockito.ArgumentMatchers.any(),
                         org.mockito.ArgumentMatchers.any());
-        assertThrows(
-                ApiException.class, () -> run(reception, "type", "confirm-deposit", "id", id(r)));
         run(reception, "type", "confirm", "id", id(r));
         assertEquals(Reservation.Status.CONFIRMED, r.getStatus());
         org.mockito.Mockito.verify(mailer)
@@ -788,14 +797,11 @@ class ReceptionWorkflowTests {
     }
 
     @Test
-    void paidDepositIsRefundedOnlyWhenTheRestaurantCancels() throws Exception {
+    void paidDepositIsNeverRefundedWhoeverCancels() throws Exception {
         var reception = user(Role.RECEPTIONIST);
-        var area = area("Deposit refund");
+        var area = area("Deposit policy");
         table(area, 4);
-        table(area, 4);
-        table(area, 4);
-        var crab = dish("200000");
-        var items = List.of(map("dishId", id(crab), "quantity", 1));
+        var items = List.of(map("dishId", id(dish("200000")), "quantity", 1));
         var byGuest =
                 byCode(
                         reservations
@@ -808,59 +814,20 @@ class ReceptionWorkflowTests {
                                 .createPublic(webBooking(area, "0905000005", items))
                                 .get("code")
                                 .toString());
-        var byPhone =
-                byCode(
-                        reservations
-                                .createPublic(webBooking(area, "0905000006", items))
-                                .get("code")
-                                .toString());
-        run(reception, "type", "confirm-deposit", "id", id(byGuest));
-        run(reception, "type", "confirm-deposit", "id", id(byStaff));
-        run(reception, "type", "confirm-deposit", "id", id(byPhone));
-        run(
-                reception,
-                "type",
-                "cancel",
-                "id",
-                id(byPhone),
-                "reason",
-                "Khách gọi hủy",
-                "refundDeposit",
-                false);
-        org.mockito.Mockito.verify(mailer)
-                .send(
-                        org.mockito.ArgumentMatchers.eq(byPhone),
-                        org.mockito.ArgumentMatchers.any(),
-                        org.mockito.ArgumentMatchers.contains("100.000đ sẽ không được hoàn lại"));
+        payDeposit(byGuest);
+        payDeposit(byStaff);
 
         reservations.cancelPublic(
                 map("code", byGuest.getCode(), "phone", "0905000004", "reason", "Bận"));
-        assertFieldError(
-                reception,
-                map("type", "cancel", "id", id(byStaff), "reason", "Bếp sự cố"),
-                "refundDeposit");
-        run(
-                reception,
-                "type",
-                "cancel",
-                "id",
-                id(byStaff),
-                "reason",
-                "Bếp sự cố",
-                "refundDeposit",
-                true);
+        run(reception, "type", "cancel", "id", id(byStaff), "reason", "Bếp sự cố");
 
-        org.mockito.Mockito.verify(mailer)
-                .send(
-                        org.mockito.ArgumentMatchers.eq(byGuest),
-                        org.mockito.ArgumentMatchers.any(),
-                        org.mockito.ArgumentMatchers.contains("100.000đ sẽ không được hoàn lại"));
-        org.mockito.Mockito.verify(mailer)
-                .send(
-                        org.mockito.ArgumentMatchers.eq(byStaff),
-                        org.mockito.ArgumentMatchers.any(),
-                        org.mockito.ArgumentMatchers.contains(
-                                "100.000đ sẽ được hoàn về tài khoản của quý khách"));
+        for (var r : List.of(byGuest, byStaff)) {
+            org.mockito.Mockito.verify(mailer)
+                    .send(
+                            org.mockito.ArgumentMatchers.eq(r),
+                            org.mockito.ArgumentMatchers.any(),
+                            org.mockito.ArgumentMatchers.contains("không được hoàn lại"));
+        }
     }
 
     @Test

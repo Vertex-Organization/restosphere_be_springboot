@@ -36,7 +36,7 @@ public interface ApprovalQueryRepository
     @Query("select s from TableSession s join fetch s.bill where s.id in :sessionIds")
     List<TableSession> findSessionsWithBillByIdIn(Collection<UUID> sessionIds);
 
-    @Query("select p from Payment p join fetch p.bill where p.id in :ids")
+    @Query("select p from Payment p left join fetch p.bill where p.id in :ids")
     List<Payment> findPaymentsWithBillByIdIn(Collection<UUID> ids);
 
     @Query("select m from MenuItem m where m.id in :ids")

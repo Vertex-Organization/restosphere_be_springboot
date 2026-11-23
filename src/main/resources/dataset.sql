@@ -313,7 +313,7 @@ INSERT INTO payments
 SELECT md5('restosphere:seed:payment:' || n || ':' || attempt)::uuid, b.id,
        md5('restosphere:seed:cashier:' || day)::uuid,
        CASE WHEN n IN (23,24) THEN CASE WHEN attempt = 1 THEN floor(b.total / 2) ELSE b.total - floor(b.total / 2) END ELSE b.total END,
-       CASE WHEN n % 2 = 0 OR attempt > 1 THEN 'TRANSFER' ELSE 'CASH' END, state,
+       CASE WHEN n % 2 = 0 OR attempt > 1 THEN 'MANUAL_TRANSFER' ELSE 'CASH' END, state,
        CASE WHEN n % 2 <> 0 AND attempt = 1 THEN ceil(b.total / 100000) * 100000 END,
        md5('restosphere:demo:cashier')::uuid,
        CASE WHEN state = 'COMPLETED' AND (n % 2 = 0 OR attempt > 1) THEN md5('restosphere:demo:cashier')::uuid END,

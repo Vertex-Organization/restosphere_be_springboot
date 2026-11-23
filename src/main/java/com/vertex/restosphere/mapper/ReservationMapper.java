@@ -93,7 +93,7 @@ public class ReservationMapper {
                 "dueAt",
                 r.getDepositDueAt(),
                 "paidAt",
-                r.getDepositPaidAt(),
+                r.depositPaidAt(),
                 "reference",
                 r.depositReference());
     }

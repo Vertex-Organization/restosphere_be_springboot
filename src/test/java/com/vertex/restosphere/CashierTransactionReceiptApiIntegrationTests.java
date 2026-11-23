@@ -3,6 +3,7 @@ package com.vertex.restosphere;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.vertex.restosphere.common.enums.Role;
 import com.vertex.restosphere.entity.Bill;
 import com.vertex.restosphere.entity.RestaurantSettings;
 import java.time.Instant;
@@ -66,15 +67,19 @@ class CashierTransactionReceiptApiIntegrationTests extends CashierApiTestBase {
         Fixture g = billFixture();
         openShift(cashierToken, 0);
         String cash = pay(f, 30000, "c7-cash");
+        saveUser("c7-manager@restosphere.test", Role.MANAGER);
         String transfer =
                 this.<String>json(
                         created(
                                 call(
                                         HttpMethod.POST,
-                                        "/bills/" + g.bill().getId() + "/payments/transfer",
+                                        "/bills/" + g.bill().getId() + "/payments/manual-transfer",
                                         cashierToken,
-                                        "{\"billVersion\":%d,\"amount\":50000,\"idempotencyKey\":\"c7-tr\"}"
-                                                .formatted(version(g)))),
+                                        ("{\"billVersion\":%d,\"amount\":50000,\"idempotencyKey\":\"c7-tr\","
+                                                        + "\"transactionReference\":\"C7-BANK\","
+                                                        + "\"managerEmail\":\"c7-manager@restosphere.test\","
+                                                        + "\"managerPassword\":\"%s\"}")
+                                                .formatted(version(g), PASSWORD))),
                         "$.id");
 
         String all = ok(call(HttpMethod.GET, "/payments", cashierToken, null));
@@ -84,10 +89,13 @@ class CashierTransactionReceiptApiIntegrationTests extends CashierApiTestBase {
         assertThat(this.<List<String>>json(cashOnly, "$[*].id"))
                 .contains(cash)
                 .doesNotContain(transfer);
-        String pending = ok(call(HttpMethod.GET, "/payments?status=PENDING", cashierToken, null));
-        assertThat(this.<List<String>>json(pending, "$[*].id"))
+        String manual =
+                ok(call(HttpMethod.GET, "/payments?method=MANUAL_TRANSFER", cashierToken, null));
+        assertThat(this.<List<String>>json(manual, "$[*].id"))
                 .contains(transfer)
                 .doesNotContain(cash);
+        String pending = ok(call(HttpMethod.GET, "/payments?status=PENDING", cashierToken, null));
+        assertThat(this.<List<String>>json(pending, "$[*].id")).doesNotContain(transfer, cash);
         String succeeded =
                 ok(
                         call(
@@ -102,7 +110,7 @@ class CashierTransactionReceiptApiIntegrationTests extends CashierApiTestBase {
                 ok(
                         call(
                                 HttpMethod.GET,
-                                "/payments?status=SUCCEEDED&method=TRANSFER",
+                                "/payments?status=SUCCEEDED&method=PAYOS",
                                 cashierToken,
                                 null));
         assertThat(this.<List<String>>json(none, "$[?(@.id=='%s')]".formatted(transfer))).isEmpty();

@@ -102,8 +102,10 @@ public class CashierRequestServiceImpl implements CashierRequestService {
         Employee user = currentUser.require(actorId, Role.ADMIN, Role.CASHIER);
         restaurantLock.acquire();
         Payment payment = store.get(Payment.class, paymentId.toString());
-        if (payment.getStatus() != Payment.Status.COMPLETED) {
-            throw ApiException.conflict("Only successful payments may be voided");
+        if (payment.getStatus() != Payment.Status.COMPLETED
+                || payment.getBill() == null
+                || payment.getReservation() != null) {
+            throw ApiException.conflict("Only successful bill payments may be voided");
         }
         ApprovalRequest r =
                 billing.request(

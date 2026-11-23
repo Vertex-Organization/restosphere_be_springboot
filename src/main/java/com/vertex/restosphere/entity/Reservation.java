@@ -3,6 +3,10 @@ package com.vertex.restosphere.entity;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.Comparator;
+import java.util.LinkedHashSet;
+import java.util.Objects;
+import java.util.Set;
 import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.Check;
@@ -91,10 +95,22 @@ public class Reservation extends BaseEntity {
 
     private Instant depositDueAt;
 
-    private Instant depositPaidAt;
+    // Inverse side: deposit state is read from payments, never stored on the reservation.
+    @OneToMany(mappedBy = "reservation")
+    private Set<Payment> payments = new LinkedHashSet<>();
+
+    public Instant depositPaidAt() {
+        return payments.stream()
+                .filter(p -> p.getStatus() == Payment.Status.COMPLETED)
+                .map(Payment::getPaidAt)
+                .filter(Objects::nonNull)
+                .min(Comparator.naturalOrder())
+                .orElse(null);
+    }
 
     public boolean awaitingDeposit() {
-        return depositAmount != null && depositPaidAt == null;
+        return depositAmount != null
+                && payments.stream().noneMatch(p -> p.getStatus() == Payment.Status.COMPLETED);
     }
 
     /** Bank transfer note customers must use so staff can match the deposit. */

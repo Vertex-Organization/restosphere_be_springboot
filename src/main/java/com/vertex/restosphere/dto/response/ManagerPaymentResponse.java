@@ -17,7 +17,7 @@ public record ManagerPaymentResponse(
                 };
         return new ManagerPaymentResponse(
                 p.getId(),
-                p.getBill().getId(),
+                p.getBill() == null ? null : p.getBill().getId(),
                 p.getPaidAt() == null ? p.getCreatedAt() : p.getPaidAt(),
                 p.getMethod(),
                 p.getAmount(),

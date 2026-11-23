@@ -73,7 +73,7 @@ public class BillingWorkflowImpl implements BillingWorkflow {
         if (b.getStatus() != Bill.Status.OPEN
                 || !db.query(
                                 Payment.class,
-                                "from Payment p where p.bill=?1 and p.status in ?2",
+                                "from Payment p where p.bill=?1 and p.reservation is null and p.status in ?2",
                                 b,
                                 List.of(Payment.Status.PENDING, Payment.Status.COMPLETED))
                         .isEmpty()) throw ApiException.conflict("Bill has payments or is closed");
@@ -193,6 +193,9 @@ public class BillingWorkflowImpl implements BillingWorkflow {
                 case PAYMENT_VOID -> {
                     var p = db.get(Payment.class, r.getTargetId().toString());
                     if (p.getStatus() != Payment.Status.COMPLETED
+                            || p.getBill() == null
+                            || p.getReservation() != null
+                            || p.getCashierShift() == null
                             || p.getCashierShift().getClosedAt() != null
                             || p.getBill().guestLeft())
                         throw ApiException.conflict("Payment can no longer be voided");
