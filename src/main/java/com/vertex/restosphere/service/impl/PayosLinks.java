@@ -58,6 +58,27 @@ public class PayosLinks {
         return payments.save(payment);
     }
 
+    /** The live link of a deposit if one exists, otherwise a new one for the amount still due. */
+    public Payment ensureDepositLink(Reservation reservation, Employee createdBy) {
+        Payment live = reservation.livePayosPayment();
+        if (live != null) return live;
+        if (reservation.getStatus() != Reservation.Status.PENDING
+                || !reservation.awaitingDeposit()) {
+            throw ApiException.conflict("Đặt bàn này không còn chờ thu cọc.");
+        }
+        Instant due = reservation.getDepositDueAt();
+        if (due == null || !due.isAfter(Instant.now())) {
+            throw ApiException.conflict("Đã quá hạn thu cọc của đặt bàn này.");
+        }
+        return createForDeposit(reservation, reservation.getDepositAmount(), due, createdBy);
+    }
+
+    /** Cancels the guest-payable link of a reservation that no longer needs a deposit. */
+    public void cancelDepositLink(Reservation reservation, String reason) {
+        Payment live = reservation.livePayosPayment();
+        if (live != null) cancel(live, reason);
+    }
+
     /**
      * Marks the payment CANCELLED first, then asks payOS to drop the link. If payOS cannot be
      * reached the link may still be payable, so a manager is told to cancel it by hand.

@@ -4,10 +4,10 @@ import static com.vertex.restosphere.common.util.Values.id;
 import static com.vertex.restosphere.common.util.Values.map;
 
 import com.vertex.restosphere.entity.AuditLog;
+import com.vertex.restosphere.entity.Payment;
 import com.vertex.restosphere.entity.Reservation;
 import com.vertex.restosphere.entity.ReservationItem;
 import com.vertex.restosphere.entity.ReservationTable;
-import com.vertex.restosphere.entity.RestaurantSettings;
 import java.time.Duration;
 import java.time.ZoneId;
 import java.util.Comparator;
@@ -95,27 +95,34 @@ public class ReservationMapper {
                 "paidAt",
                 r.depositPaidAt(),
                 "reference",
-                r.depositReference());
+                r.depositReference(),
+                "cashRequestedAt",
+                r.getDepositCashRequestedAt(),
+                "payos",
+                payosLink(r.livePayosPayment()));
+    }
+
+    /** Link payOS còn trả được của khoản cọc; null khi chưa tạo hoặc đã trả. */
+    static Map<String, Object> payosLink(Payment p) {
+        if (p == null) return null;
+        return map(
+                "paymentId",
+                id(p),
+                "orderCode",
+                p.getPayosOrderCode(),
+                "checkoutUrl",
+                p.getCheckoutUrl(),
+                "qrCode",
+                p.getQrCode());
     }
 
     /** Bản rút gọn cho khách tra cứu bằng mã và số điện thoại. */
     public Map<String, Object> toPublicMap(
-            Reservation r, List<ReservationItem> items, ZoneId zone, RestaurantSettings s) {
+            Reservation r, List<ReservationItem> items, ZoneId zone) {
         var local = r.getStartsAt().atZone(zone);
-        var deposit = deposit(r);
-        if (deposit != null && r.awaitingDeposit() && s.getBankAccountNumber() != null)
-            deposit.put(
-                    "bank",
-                    map(
-                            "bankName",
-                            s.getBankName(),
-                            "accountNumber",
-                            s.getBankAccountNumber(),
-                            "accountName",
-                            s.getBankAccountName()));
         return map(
                 "deposit",
-                deposit,
+                deposit(r),
                 "code",
                 r.getCode(),
                 "status",

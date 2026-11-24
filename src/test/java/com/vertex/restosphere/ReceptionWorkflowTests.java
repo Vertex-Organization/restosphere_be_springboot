@@ -770,7 +770,11 @@ class ReceptionWorkflowTests {
         assertEquals(new java.math.BigDecimal("300001"), deposit.get("amount"), "50% of 600002");
         assertEquals(
                 "COC " + view.get("code").toString().replace("-", ""), deposit.get("reference"));
-        assertNotNull(deposit.get("bank"), "customer gets transfer details for the QR");
+        assertNull(deposit.get("bank"), "online deposits no longer expose a static account");
+        @SuppressWarnings("unchecked")
+        var link = (Map<String, Object>) deposit.get("payos");
+        assertNotNull(link.get("checkoutUrl"), "customer pays through the payOS link");
+        assertNotNull(link.get("qrCode"));
         var r = byCode(view.get("code").toString());
         assertTrue(r.awaitingDeposit());
         assertThrows(ApiException.class, () -> run(reception, "type", "confirm", "id", id(r)));
@@ -790,7 +794,7 @@ class ReceptionWorkflowTests {
                         org.mockito.ArgumentMatchers.any());
         @SuppressWarnings("unchecked")
         var paid = (Map<String, Object>) reservations.publicView(r).get("deposit");
-        assertNull(paid.get("bank"), "transfer details hidden once paid");
+        assertNull(paid.get("payos"), "payOS link hidden once paid");
 
         var plain = reservations.createPublic(webBooking(area, "0905000002", List.of()));
         assertNull(plain.get("deposit"), "no preorder, no deposit");

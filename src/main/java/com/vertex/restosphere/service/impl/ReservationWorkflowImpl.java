@@ -26,6 +26,7 @@ public class ReservationWorkflowImpl implements ReservationWorkflow {
     private final ReservationMailer mailer;
     private final ReservationMapper mapper;
     private final BillingWorkflow billing;
+    private final PayosLinks links;
     static final Map<String, String> HISTORY_LABELS =
             Map.ofEntries(
                     Map.entry("edit", "Cập nhật lịch đặt"),
@@ -36,7 +37,9 @@ public class ReservationWorkflowImpl implements ReservationWorkflow {
                     Map.entry("cancel", "Hủy lịch"),
                     Map.entry("no-show", "Không đến"),
                     Map.entry("check-in", "Khách đã đến"),
-                    Map.entry("handover", "Bàn giao cho phục vụ"));
+                    Map.entry("handover", "Bàn giao cho phục vụ"),
+                    Map.entry("deposit-link", "Tạo link thu cọc payOS"),
+                    Map.entry("deposit-cash", "Chuyển thu ngân thu cọc tiền mặt"));
     static final int EARLY_CHECK_IN_MINUTES = 60;
     static final BigDecimal DEPOSIT_RATE = new BigDecimal("0.5");
     static final int DEPOSIT_WINDOW_MINUTES = 15;
@@ -92,7 +95,7 @@ public class ReservationWorkflowImpl implements ReservationWorkflow {
         if (!s.isOnlineReservations())
             throw ApiException.conflict("Nhà hàng tạm ngưng nhận đặt bàn trực tuyến.");
         var r = create(input, null, true, false);
-        requireDepositForPreorder(r);
+        openOnlineDepositLink(r, s);
         s.setRevision(s.getRevision() + 1);
         service.notify(
                 Role.RECEPTIONIST,
@@ -108,10 +111,15 @@ public class ReservationWorkflowImpl implements ReservationWorkflow {
     public Reservation create(
             Map<String, Object> input, Employee actor, boolean web, boolean walkIn) {
         var r = new Reservation();
+        // TODO(confirm): a counter booking (guest at the desk, visit on another day) is source
+        // WALK_IN but stays PENDING; input.counter marks it, while walkIn means seated right now.
+        boolean counter = !web && Boolean.TRUE.equals(input.get("counter"));
         r.setSource(
                 web
                         ? Reservation.Source.WEB
-                        : walkIn ? Reservation.Source.WALK_IN : Reservation.Source.PHONE);
+                        : walkIn || counter
+                                ? Reservation.Source.WALK_IN
+                                : Reservation.Source.PHONE);
         fill(r, input, web, walkIn);
         r.setCode(newCode(Instant.now()));
         db.save(r);
@@ -135,7 +143,38 @@ public class ReservationWorkflowImpl implements ReservationWorkflow {
             r.setArrivedAt(Instant.now());
         }
         replaceItems(r, input, web);
+        if (!walkIn) {
+            requireDepositForPreorder(r);
+            // Phone bookings get the link right away to be sent to the guest; counter ones on
+            // demand.
+            if (!web && !Boolean.TRUE.equals(input.get("counter"))) tryOpenDepositLink(r, actor);
+        }
         return r;
+    }
+
+    // Online deposits go through payOS only: if it is down the booking is refused, not left unpaid.
+    private void openOnlineDepositLink(Reservation r, RestaurantSettings settings) {
+        if (r.getDepositAmount() == null) return;
+        try {
+            links.ensureDepositLink(r, null);
+        } catch (ApiException e) {
+            String hotline = settings.getPhone() == null ? "nhà hàng" : settings.getPhone();
+            throw new ApiException(
+                    org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE,
+                    "Hiện chưa thanh toán cọc online được. Vui lòng gọi "
+                            + hotline
+                            + " để đặt bàn.");
+        }
+    }
+
+    // A staff-made booking is kept even if payOS is down: cash at the cashier is still possible.
+    private void tryOpenDepositLink(Reservation r, Employee actor) {
+        if (r.getDepositAmount() == null) return;
+        try {
+            links.ensureDepositLink(r, actor);
+        } catch (ApiException e) {
+            history(r, actor, "deposit-link-failed", "Chưa tạo được link thu cọc payOS.");
+        }
     }
 
     void requireDepositForPreorder(Reservation r) {
@@ -730,6 +769,17 @@ public class ReservationWorkflowImpl implements ReservationWorkflow {
                 r.setStatus(Reservation.Status.ARRIVED);
             }
             case "handover" -> handover(r);
+            case "deposit-link" -> {
+                requireDepositDue(r);
+                links.ensureDepositLink(r, actor);
+            }
+            case "deposit-cash" -> {
+                requireDepositDue(r);
+                // Cash must reach the cashier, never the front desk; the link is dropped so the
+                // guest cannot also pay by transfer and pay twice.
+                links.cancelDepositLink(r, "Chuyển thu ngân thu tiền mặt");
+                r.setDepositCashRequestedAt(Instant.now());
+            }
             default -> throw invalid("Thao tác không được hỗ trợ.");
         }
         String label = HISTORY_LABELS.getOrDefault(type, type);
@@ -796,6 +846,11 @@ public class ReservationWorkflowImpl implements ReservationWorkflow {
         return ids.stream().distinct().toList();
     }
 
+    private void requireDepositDue(Reservation r) {
+        require(r, Reservation.Status.PENDING);
+        if (!r.awaitingDeposit()) throw ApiException.conflict("Đặt bàn này không cần thu cọc.");
+    }
+
     void require(Reservation r, Reservation.Status... statuses) {
         if (!Arrays.asList(statuses).contains(r.getStatus()))
             throw ApiException.conflict(
@@ -834,7 +889,7 @@ public class ReservationWorkflowImpl implements ReservationWorkflow {
         var items =
                 db.query(ReservationItem.class, "from ReservationItem i where i.reservation=?1", r);
         var s = db.lock();
-        return mapper.toPublicMap(r, items, ZoneId.of(s.getTimezone()), s);
+        return mapper.toPublicMap(r, items, ZoneId.of(s.getTimezone()));
     }
 
     /** Bàn đang có phiên phục vụ chưa đóng. */

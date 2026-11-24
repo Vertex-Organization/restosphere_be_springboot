@@ -116,6 +116,18 @@ public class Reservation extends BaseEntity {
                 && payments.stream().noneMatch(p -> p.getStatus() == Payment.Status.COMPLETED);
     }
 
+    /** The payOS link a guest can still pay, or null once the deposit is paid or no link exists. */
+    public Payment livePayosPayment() {
+        if (!awaitingDeposit()) return null;
+        return payments.stream()
+                .filter(
+                        p ->
+                                p.getMethod() == Payment.Method.PAYOS
+                                        && p.getStatus() == Payment.Status.PENDING)
+                .findFirst()
+                .orElse(null);
+    }
+
     /** Bank transfer note customers must use so staff can match the deposit. */
     public String depositReference() {
         return "COC " + code.replace("-", "");
