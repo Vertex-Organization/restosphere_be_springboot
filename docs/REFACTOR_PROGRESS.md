@@ -2,23 +2,25 @@
 
 ## Trạng thái
 - Nhánh: refactor/db-flyway-payos (BE: restosphere-be-springboot; FE web: restophere-fe-web, nhánh develop)
-- Giai đoạn hiện tại: 1
-- Cập nhật lần cuối: 2026-11-23 18:50
+- Giai đoạn hiện tại: 2 (sau khi xử lý xong 8 mục phản hồi báo cáo GĐ1)
+- Cập nhật lần cuối: 2026-11-24
 
 ## Đang làm
-- Đã tạo docs/BAO_CAO_GIAI_DOAN_1.md, liệt kê rõ phần còn thiếu, không coi toàn bộ nghiệp vụ đã nghiệm thu.
-- Seed chuyển sang db/seed/V1000__dev_seed.sql và application-dev.yaml, chưa commit; đã chạy lại formatter/test sau khi sửa transaction của test seed, cần đối chiếu Surefire.
-- Bắt đầu GĐ2: đã xác minh POM SDK vn.payos:payos-java:2.0.1 từ Maven Central; tiếp theo đọc source/API v2 trước khi thêm bean và xử lý thanh toán.
-- Trước khi tiếp tục: kiểm tra git status/diff, sửa rủi ro version V1000 bỏ qua V2 và cấu hình dev trỏ restosphere_v2.
+- GĐ2 bắt đầu: cấu hình SDK payOS (PayosProperties + PayosGateway + bean, key đọc từ env) cùng pom.xml (payos-java 2.0.1, đã xác nhận là dependency của đợt refactor, commit cùng bước này). Chưa viết dòng code GĐ2 nào.
 
 ## Câu hỏi đang chờ
 - [x] FE mobile / màn lễ tân + phục vụ -> đã trả lời, xem mục Quyết định
 - [x] areas `active` + `sort_order` -> đã trả lời
 - [x] `reservations.area_id` NULL -> đã trả lời
 - [x] Seed dev: dataset.sql sang Flyway -> đã trả lời
-- [ ] `orders.submitted_at` (cột thêm ngoài bản chốt, để bếp có giờ gửi thật). Đã làm, TODO(confirm) trong `Order.java`. (2026-11-23)
+- [ ] `BillingWorkflowImpl.closeSessions` (TODO(confirm)): thanh toán xong bill thì phiên đóng + bàn về AVAILABLE ngay, không còn bước `guest-left`/`clean` của phục vụ. Endpoint `guest-left`/`clean` còn trong code nhưng không còn dùng được sau khi bill PAID (phiên đã CLOSED). Phương án an toàn đã chọn; mobile `finish-screen` cần sửa ở GĐ3. (2026-11-24)
+- [ ] Đặt bàn nhiều bàn: số khách chia cho các bàn theo sức chứa, mỗi bàn tối thiểu 1; lễ tân/quản lý nhận `tableIds` (mảng) hoặc `tableId`. Đổi bàn khi đã SEATED chỉ cho đặt bàn 1 bàn. TODO(confirm) cách chia khách. (2026-11-24)
+
 
 ## Quyết định đã nhận từ người dùng trong lúc làm
+- 2026-11-24 – `orders.submitted_at`: ĐỒNG Ý giữ (bếp cần giờ gửi thật); đã bỏ TODO(confirm) trong `Order.java`.
+- 2026-11-24 – Phản hồi báo cáo GĐ1 (8 mục, xử lý trước payOS): (1) thử sai xác nhận CK thủ công như login + audit_logs mọi lần; (2) tách bàn bắt buộc `guestCount`; (3) WAITER chỉ ghép/tách phiên mình phụ trách; (4) nhiều phiên cho reservation nhiều bàn + bill PAID đóng mọi phiên; (5) seed đổi `V1_1__dev_seed.sql`, MANUAL_TRANSFER phải COMPLETED + verified_by_id; (6) DB dev mặc định `restosphere_v2`; (7) giữ `submitted_at`; (8) tắt `spring.sql.init`.
+- 2026-11-24 – Xung đột AGENTS.md vs master prompt -> trong đợt refactor (nhánh refactor/db-flyway-payos) master prompt được ưu tiên ở 2 điểm: (1) được tạo/sửa Flyway migration (V1, seed); (2) chỗ chưa rõ KHÔNG dừng hỏi: ghi câu hỏi + chọn phương án an toàn + TODO(confirm) rồi làm tiếp. Mọi quy tắc khác của AGENTS.md giữ nguyên. Việc thêm: ở GĐ4 cập nhật AGENTS.md (bỏ cấm migration, thay bằng quy tắc Flyway: mỗi thay đổi schema = 1 file migration mới, không sửa migration đã chạy, không trùng version; giữ quy tắc hỏi khi chưa rõ cho việc thường ngày sau đợt này). pom.xml chưa commit: là dependency payos-java 2.0.1 của đợt refactor -> commit cùng tính năng cấu hình SDK.
 - 2026-11-23 – Git: cứ 2 commit thì push 1 lần (`git push -u origin refactor/db-flyway-payos`, không force). Lần push đầu đẩy toàn bộ commit tồn đọng.
 - 2026-11-23 – FE mobile: KHÔNG tạo trang lễ tân/phục vụ trên web. Mọi tính năng LỄ TÂN + PHỤC VỤ làm trên MOBILE (restosphere-fe-mobile): giỏ DRAFT -> gửi bếp; tạo đặt bàn quầy/hotline; "Thu cọc" QR payOS tự cập nhật; "Copy link thanh toán"; "Chuyển thu ngân thu cọc tiền mặt"; tách/ghép bàn; "Kiểm tra lại". FE web chỉ: quản lý (nhân viên, cài đặt, xác nhận CK thủ công), thu ngân (3 phương thức, in bill QR, "Cọc chờ thu", đóng ca), đặt bàn online public + /payment/result. Mobile là BẮT BUỘC của GĐ3 (làm web xong thì làm mobile). Skill FE chủ yếu cho web; mobile giữ style/component sẵn có.
 - 2026-11-23 – areas: THÊM `active` (boolean NOT NULL DEFAULT true) và `sort_order` (int NOT NULL DEFAULT 0). Khu active=false: không hiện khi đặt online, không cho xếp bàn mới, dữ liệu cũ giữ. Sắp xếp theo sort_order rồi name. Màn quản lý khu (web): thêm bật/tắt + sửa thứ tự.
@@ -27,6 +29,17 @@
 - 2026-11-23 – Nếu V1 đã tạo/commit thì SỬA THẲNG V1 cho thay đổi schema (chưa ai chạy V1), rồi drop + tạo lại restosphere_v2 để kiểm tra; ghi vào Nhật ký.
 
 ## Danh sách công việc
+### Phản hồi báo cáo GĐ1 (làm trước GĐ2)
+- [x] 1 Xác nhận CK thủ công: giới hạn thử sai + audit — commit `8c46c13` (`FailureLimiter` dùng chung với login; 10 lần sai/15 phút theo email quản lý -> 429; audit `manual-transfer-denied/-blocked/-confirmed` ghi bằng `AuditRecorder` transaction riêng nên không mất khi rollback)
+- [x] 2 Tách bàn bắt buộc số khách — commit `9b242d4` (`guestCount` 1 <= n < số khách hiện tại; trừ ở bàn cũ; bỏ TODO(confirm); API `split` đổi: thêm field bắt buộc `guestCount`, FE phải cập nhật ở GĐ3)
+- [x] 3 Quyền ghép/tách: WAITER chỉ phiên mình — commit `5fe0843`
+- [x] 4 Nhiều phiên cho reservation nhiều bàn + đóng mọi phiên khi PAID — commit `09c43b6` (`MultiTableReservationTests` 4 test; `ReservationWorkflow.assign(r, List)`; `handover` mở mỗi bàn 1 phiên + 1 bill, cọc gắn bill phiên đầu; `settle` đóng mọi phiên + trả bàn + COMPLETED reservation khi hết phiên mở; void thanh toán mở lại phiên nếu bàn chưa bị lấy)
+- [x] 5 Seed `V1_1__dev_seed.sql` — commit `c489bb4` (CK thủ công luôn COMPLETED + verified_by manager + mã GD; payment chưa xác nhận là PAYOS; thêm kiểm tra vào `RestosphereBeSpringbootApplicationTests`)
+- [x] 6 DB dev mặc định `restosphere_v2` — commit `5bdee77` (application.yaml, .env.example, compose.yaml, README; `JPA_DDL_AUTO=validate`)
+- [x] 7 `orders.submitted_at` giữ — commit `88d5501`
+- [x] 8 Tắt `spring.sql.init`, bỏ `SQL_INIT_MODE` — commit `ea3cbca`
+- Kết quả test sau 8 mục: `./mvnw -o test` 211/211 pass (Testcontainers qua Flyway).
+
 ### Giai đoạn 0
 - [x] Tạo nhánh + file tiến độ
 - [x] Đọc 2 skill FE (tại restophere-fe-web/.agents/skills)
