@@ -792,6 +792,7 @@ public class ReservationWorkflowImpl implements ReservationWorkflow {
                 r.setActualGuests(integer(c, "actualGuests", 1, 200));
                 r.setArrivedAt(Instant.now());
                 r.setStatus(Reservation.Status.ARRIVED);
+                handover(r);
             }
             case "handover" -> handover(r);
             case "deposit-link" -> {
@@ -818,6 +819,7 @@ public class ReservationWorkflowImpl implements ReservationWorkflow {
     // One session per table, all pointing at the reservation and sharing ONE bill; the deposit
     // rides on that bill. Guests are split by capacity, at least one per table.
     private void handover(Reservation r) {
+        if (r.getStatus() == Reservation.Status.SEATED) return;
         require(r, Reservation.Status.ARRIVED);
         var assigned = assignments(r);
         var tables = assigned.stream().map(ReservationTable::getTable).toList();

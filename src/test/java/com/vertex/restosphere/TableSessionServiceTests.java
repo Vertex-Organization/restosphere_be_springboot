@@ -173,6 +173,24 @@ class TableSessionServiceTests {
     }
 
     @Test
+    void waiterCannotMergeASharedBillContainingAnotherWaitersSession() {
+        var target = session(table(TableStatus.AVAILABLE));
+        var source = session(table(TableStatus.AVAILABLE));
+        var foreign = session(table(TableStatus.AVAILABLE));
+        foreign.setWaiter(user(Role.WAITER));
+        foreign.getBill().getSessions().remove(foreign);
+        foreign.setBill(source.getBill());
+        source.getBill().getSessions().add(foreign);
+
+        var error =
+                assertThrows(
+                        ApiException.class,
+                        () -> service.merge(waiter.getId(), target.getId(), source.getId()));
+        assertEquals(HttpStatus.FORBIDDEN, error.getStatus());
+        assertNotEquals(target.getBill().getId(), source.getBill().getId());
+    }
+
+    @Test
     void otherRolesAreNotLimitedToTheirOwnSessions() {
         for (var role : List.of(Role.RECEPTIONIST, Role.CASHIER, Role.MANAGER, Role.ADMIN)) {
             var a = session(table(TableStatus.AVAILABLE));

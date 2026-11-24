@@ -119,6 +119,11 @@ class CashierManualTransferApiIntegrationTests extends CashierApiTestBase {
                                 cashierToken,
                                 json(0, 100000, "c4-ok", "BANK-001")));
         assertThat(this.<String>json(replay, "$.id")).isEqualTo(this.<String>json(body, "$.id"));
+        assertThat(
+                        count(
+                                "select count(a) from AuditLog a where a.action = :p0",
+                                "manual-transfer-authorized"))
+                .isEqualTo(2);
     }
 
     @Test
@@ -195,6 +200,11 @@ class CashierManualTransferApiIntegrationTests extends CashierApiTestBase {
                 t -> settings.findBySingletonKey(1).orElseThrow().setBankAccountNumber(""));
         call(HttpMethod.POST, path(f), cashierToken, json(version(f), 1000, "c4-nobank", "B-6"))
                 .andExpect(status().isConflict());
+        assertThat(
+                        count(
+                                "select count(a) from AuditLog a where a.action = :p0",
+                                "manual-transfer-authorized"))
+                .isEqualTo(6);
     }
 
     @Test

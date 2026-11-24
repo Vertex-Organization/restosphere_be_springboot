@@ -88,7 +88,6 @@ class MultiTableReservationTests {
                         .get("reservationId")
                         .toString();
         run("type", "confirm", "id", reservationId);
-        run("type", "check-in", "id", reservationId, "actualGuests", guests);
         return db.get(Reservation.class, reservationId);
     }
 
@@ -130,10 +129,15 @@ class MultiTableReservationTests {
         var r = seatedBooking(6);
         var deposit = deposit(r);
 
-        run("type", "handover", "id", id(r));
+        run("type", "check-in", "id", id(r), "actualGuests", r.getGuestCount());
 
         var sessions = sessionsOf(r);
         assertEquals(2, sessions.size());
+        run("type", "handover", "id", id(r));
+        run("type", "handover", "id", id(r));
+        assertEquals(
+                sessions.stream().map(TableSession::getId).toList(),
+                sessionsOf(r).stream().map(TableSession::getId).toList());
         assertEquals(Reservation.Status.SEATED, r.getStatus());
         assertEquals(
                 List.of(first.getId(), second.getId()),
@@ -151,7 +155,7 @@ class MultiTableReservationTests {
     void guestsAreSplitByCapacityWithAtLeastOnePerTable() {
         var r = seatedBooking(5);
 
-        run("type", "handover", "id", id(r));
+        run("type", "check-in", "id", id(r), "actualGuests", r.getGuestCount());
 
         var counts = sessionsOf(r).stream().map(TableSession::getGuestCount).toList();
         assertEquals(List.of(4, 1), counts);
@@ -162,17 +166,17 @@ class MultiTableReservationTests {
         var r = seatedBooking(6);
         second.setStatus(TableStatus.CLEANING);
 
-        assertThrows(ApiException.class, () -> run("type", "handover", "id", id(r)));
+        assertThrows(
+                ApiException.class, () -> run("type", "check-in", "id", id(r), "actualGuests", 6));
 
         assertTrue(sessionsOf(r).isEmpty());
-        assertEquals(Reservation.Status.ARRIVED, r.getStatus());
         assertEquals(TableStatus.AVAILABLE, first.getStatus());
     }
 
     @Test
     void receptionCannotSeatGuestsAtATableThatIsStillBeingCleaned() {
         var r = seatedBooking(6);
-        run("type", "handover", "id", id(r));
+        run("type", "check-in", "id", id(r), "actualGuests", r.getGuestCount());
         pay(sessionsOf(r).get(0).getBill(), "100000");
         assertEquals(TableStatus.CLEANING, first.getStatus());
 
@@ -198,7 +202,7 @@ class MultiTableReservationTests {
     @Test
     void payingTheSharedBillClosesEverySessionOfTheBooking() {
         var r = seatedBooking(6);
-        run("type", "handover", "id", id(r));
+        run("type", "check-in", "id", id(r), "actualGuests", r.getGuestCount());
         var sessions = sessionsOf(r);
         var bill = sessions.get(0).getBill();
 

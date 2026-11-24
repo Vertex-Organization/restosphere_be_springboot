@@ -262,7 +262,16 @@ public class WaiterServiceImpl implements WaiterService {
         TableSession session = ownedSession(sessionId, waiter);
         if (!confirmed
                 || session.getStatus() != TableSession.Status.CLOSED
-                || session.getTable().getStatus() != TableStatus.CLEANING) {
+                || session.getTable().getStatus() != TableStatus.CLEANING
+                || !db.query(
+                                TableSession.class,
+                                "from TableSession s where s.table=?1 and s.id<>?2"
+                                        + " and (s.status<>?3 or s.startedAt>=?4)",
+                                session.getTable(),
+                                session.getId(),
+                                TableSession.Status.CLOSED,
+                                session.getStartedAt())
+                        .isEmpty()) {
             throw ApiException.conflict("Table is not waiting to be cleaned");
         }
         session.getTable().setStatus(TableStatus.AVAILABLE);

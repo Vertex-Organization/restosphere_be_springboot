@@ -180,6 +180,12 @@ public class CashierPaymentServiceImpl implements CashierPaymentService {
                     HttpStatus.FORBIDDEN, "Thông tin xác nhận của quản lý không đúng.");
         }
         approvalFailures.clear(key);
+        auditRecorder.record(
+                cashier,
+                "manual-transfer-authorized",
+                targetType,
+                targetId,
+                "Quản lý đã xác thực yêu cầu xác nhận chuyển khoản thủ công: " + key);
         return manager;
     }
 

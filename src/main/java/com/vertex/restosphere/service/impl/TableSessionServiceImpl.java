@@ -71,6 +71,8 @@ public class TableSessionServiceImpl implements TableSessionService {
         requireMergeable(voided);
 
         List<TableSession> moving = List.copyOf(voided.getSessions());
+        moving.forEach(s -> requireOwnSession(user, s));
+        keep.getSessions().forEach(s -> requireOwnSession(user, s));
         moving.forEach(s -> s.setBill(keep));
         keep.getSessions().addAll(moving);
         voided.getSessions().clear();

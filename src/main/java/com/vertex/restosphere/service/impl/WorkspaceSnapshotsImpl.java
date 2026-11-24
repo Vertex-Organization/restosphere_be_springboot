@@ -289,7 +289,38 @@ public class WorkspaceSnapshotsImpl implements WorkspaceSnapshots {
     private List<Map<String, Object>> billList(SnapshotContext ctx) {
         return ctx.all(Bill.class).stream()
                 .filter(b -> !b.getSessions().isEmpty())
-                .map(b -> bills.toMap(b, ctx.audit(b.getId())))
+                .map(
+                        b -> {
+                            var result = bills.toMap(b, ctx.audit(b.getId()));
+                            result.put(
+                                    "payos",
+                                    ctx.all(Payment.class).stream()
+                                            .filter(
+                                                    p ->
+                                                            p.getBill() != null
+                                                                    && p.getBill()
+                                                                            .getId()
+                                                                            .equals(b.getId())
+                                                                    && p.getMethod()
+                                                                            == Payment.Method.PAYOS
+                                                                    && p.getStatus()
+                                                                            == Payment.Status
+                                                                                    .PENDING)
+                                            .findFirst()
+                                            .map(
+                                                    p ->
+                                                            map(
+                                                                    "paymentId",
+                                                                    id(p),
+                                                                    "qrCode",
+                                                                    p.getQrCode(),
+                                                                    "checkoutUrl",
+                                                                    p.getCheckoutUrl(),
+                                                                    "orderCode",
+                                                                    p.getPayosOrderCode()))
+                                            .orElse(null));
+                            return result;
+                        })
                 .toList();
     }
 

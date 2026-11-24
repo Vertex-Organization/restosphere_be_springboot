@@ -29,7 +29,9 @@ import org.springframework.context.annotation.Import;
 import org.springframework.transaction.annotation.Transactional;
 
 /** Whole flows through the services, paying with the payOS simulator instead of real money. */
-@SpringBootTest
+@SpringBootTest(properties = "spring.flyway.locations=classpath:db/migration")
+@org.springframework.test.context.ActiveProfiles("dev")
+@org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
 @Import(TestcontainersConfiguration.class)
 @Transactional
 class EndToEndPaymentFlowTests {
@@ -38,7 +40,20 @@ class EndToEndPaymentFlowTests {
     @Autowired KitchenService kitchen;
     @Autowired CashierShiftService shifts;
     @Autowired CashierPaymentService payments;
-    @Autowired PayosPayments payos;
+    @Autowired org.springframework.test.web.servlet.MockMvc mockMvc;
+
+    void fakePaid(long code, PayosPayments.Outcome outcome) throws Exception {
+        mockMvc.perform(
+                        org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post(
+                                "/api/dev/payos/fake-paid/{orderCode}", code))
+                .andExpect(
+                        org.springframework.test.web.servlet.result.MockMvcResultMatchers.status()
+                                .isOk())
+                .andExpect(
+                        org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                                        "$.result")
+                                .value(outcome.name()));
+    }
 
     Employee user(Role role) {
         var u = new Employee();
@@ -86,7 +101,7 @@ class EndToEndPaymentFlowTests {
     }
 
     @Test
-    void draftOrderToKitchenToBillToPayosPaymentLeavesTheTableToBeCleaned() {
+    void draftOrderToKitchenToBillToPayosPaymentLeavesTheTableToBeCleaned() throws Exception {
         var reception = user(Role.RECEPTIONIST);
         var waiter = user(Role.WAITER);
         var cook = user(Role.KITCHEN);
@@ -159,15 +174,32 @@ class EndToEndPaymentFlowTests {
         assertTrue(link.created());
         assertEquals(Bill.Status.OPEN, bill.getStatus(), "a link alone does not pay the bill");
 
+        var snapshot = workspace.load("staff", id(waiter));
+        var snapshotBills = (List<Map<String, Object>>) snapshot.get("bills");
+        var snapshotBill =
+                snapshotBills.stream()
+                        .filter(b -> id(bill).equals(b.get("id")))
+                        .findFirst()
+                        .orElseThrow();
+        assertEquals(
+                link.payment().qrCode(), ((Map<?, ?>) snapshotBill.get("payos")).get("qrCode"));
+        var snapshotSessions = (List<Map<String, Object>>) snapshot.get("tableSessions");
+        assertEquals(
+                id(bill),
+                snapshotSessions.stream()
+                        .filter(s -> id(session).equals(s.get("id")))
+                        .findFirst()
+                        .orElseThrow()
+                        .get("billId"));
         var code = link.payment().orderCode();
-        assertEquals(PayosPayments.Outcome.COMPLETED, payos.simulatePaid(code));
+        fakePaid(code, PayosPayments.Outcome.COMPLETED);
 
         assertEquals(Bill.Status.PAID, bill.getStatus());
         assertEquals(TableSession.Status.CLOSED, session.getStatus());
         assertEquals(TableStatus.CLEANING, table.getStatus());
         assertEquals(
                 Reservation.Status.COMPLETED, db.get(Reservation.class, reservation).getStatus());
-        assertEquals(PayosPayments.Outcome.ALREADY_COMPLETED, payos.simulatePaid(code));
+        fakePaid(code, PayosPayments.Outcome.ALREADY_COMPLETED);
 
         var walkIn =
                 map(
@@ -188,10 +220,26 @@ class EndToEndPaymentFlowTests {
 
         run(waiter, "type", "clean", "sessionId", id(session), "confirmed", true);
         assertEquals(TableStatus.AVAILABLE, table.getStatus());
+        var later = new TableSession();
+        later.setTable(table);
+        later.setBill(session.getBill());
+        later.setWaiter(waiter);
+        later.setGuestCount(2);
+        later.setStartedAt(Instant.now().plusSeconds(1));
+        later.setEndedAt(Instant.now().plusSeconds(2));
+        later.setStatus(TableSession.Status.CLOSED);
+        db.save(later);
+        table.setStatus(TableStatus.CLEANING);
+        assertThrows(
+                ApiException.class,
+                () -> run(waiter, "type", "clean", "sessionId", id(session), "confirmed", true));
+        assertEquals(TableStatus.CLEANING, table.getStatus());
+        run(waiter, "type", "clean", "sessionId", id(later), "confirmed", true);
+        assertEquals(TableStatus.AVAILABLE, table.getStatus());
     }
 
     @Test
-    void depositThenMultiTableCheckInGivesOneSharedBillThatCarriesTheDeposit() {
+    void depositThenMultiTableCheckInGivesOneSharedBillThatCarriesTheDeposit() throws Exception {
         var reception = user(Role.RECEPTIONIST);
         var area = area();
         var first = table(area, 4);
@@ -224,7 +272,7 @@ class EndToEndPaymentFlowTests {
         var link = reservation.livePayosPayment();
         assertNotNull(link, "a hotline booking gets its payOS link at once");
 
-        assertEquals(PayosPayments.Outcome.COMPLETED, payos.simulatePaid(link.getPayosOrderCode()));
+        fakePaid(link.getPayosOrderCode(), PayosPayments.Outcome.COMPLETED);
         assertEquals(Reservation.Status.CONFIRMED, reservation.getStatus());
         assertNull(link.getBill(), "until check-in the deposit belongs to the reservation");
 

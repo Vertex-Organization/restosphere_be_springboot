@@ -429,8 +429,9 @@ class ReceptionWorkflowTests {
                 ApiException.class,
                 () -> run(reception, "type", "create", "walkIn", true, "input", walkIn));
         run(reception, "type", "handover", "id", walkId);
-        run(reception, "type", "check-in", "id", id(web), "actualGuests", 5);
-        assertThrows(ApiException.class, () -> run(reception, "type", "handover", "id", id(web)));
+        assertThrows(
+                ApiException.class,
+                () -> run(reception, "type", "check-in", "id", id(web), "actualGuests", 5));
         run(reception, "type", "assign", "id", id(web), "tableId", id(table(other, 6)));
         run(reception, "type", "handover", "id", id(web));
         assertTrue(hasKind(waiter, "staff", "waiterNotifications", "HANDOVER"));
@@ -596,10 +597,9 @@ class ReceptionWorkflowTests {
         run(reception, "type", "confirm", "id", id(blocker));
         var early = staffBooking(reception, area, t2, 3000, 60, "0902000003");
         run(reception, "type", "confirm", "id", id(early));
-        run(reception, "type", "check-in", "id", id(early), "actualGuests", 2);
         assertThrows(
                 ApiException.class,
-                () -> run(reception, "type", "handover", "id", id(early)),
+                () -> run(reception, "type", "check-in", "id", id(early), "actualGuests", 2),
                 "seating now would overlap the next booking on this table");
     }
 

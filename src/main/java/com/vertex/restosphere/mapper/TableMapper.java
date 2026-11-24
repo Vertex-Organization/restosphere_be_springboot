@@ -54,6 +54,8 @@ public class TableMapper {
                 id(t.getTable()),
                 "reservationId",
                 id(t.getReservation()),
+                "billId",
+                id(t.getBill()),
                 "waiterId",
                 id(t.getWaiter()),
                 "guests",
