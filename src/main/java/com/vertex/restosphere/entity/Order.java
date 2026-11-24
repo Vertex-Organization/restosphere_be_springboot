@@ -36,8 +36,7 @@ public class Order extends BaseEntity {
 
     private Integer roundNumber;
 
-    // TODO(confirm): column outside the agreed design; kitchen needs the real send time, not cart
-    // creation.
+    // Kitchen needs the real send time, not the cart creation time.
     private Instant submittedAt;
 
     private Instant priorityAt;
