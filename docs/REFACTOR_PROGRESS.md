@@ -8,8 +8,8 @@
 
 ### Đã chạy thật (không chỉ phân tích)
 - BE: `./mvnw -o spotless:check` sạch, `./mvnw -o test` **256/256 pass** (Testcontainers, Flyway thật).
-- Web: `npm run lint` sạch, `npm run build` pass, 8/9 file `node --test scripts/*.test.mjs` exit 0. `workspace-api.test.mjs` exit 1 và đã lỗi từ TRƯỚC đợt này (kiểm bằng `git stash`): nó cấm `localStorage` trong mọi file nguồn nhưng `hooks/kitchen/useKitchenStation.ts` (commit `da16ab8` của người khác) đang dùng; tôi chỉ sửa kỳ vọng `admin/users` -> `admin/employees` (`b011594`), chưa sửa lỗi cũ này.
-- Mobile: `npm test` **83/83 pass**, `npm run typecheck` và `npm run lint` sạch.
+- Web: `npm run lint` sạch, `npm run build` pass, 9/10 file `node --test scripts/*.test.mjs` exit 0 (có `vietqr.test.mjs`: 6 test, gồm vector CRC chuẩn `123456789 -> 29B1`, CRC của payload, bố cục NAPAS 247, QR tĩnh/động, BIN/TK/số tiền sai trả null). `workspace-api.test.mjs` exit 1 và đã lỗi từ TRƯỚC đợt này (kiểm bằng `git stash`): nó cấm `localStorage` trong mọi file nguồn nhưng `hooks/kitchen/useKitchenStation.ts` (commit `da16ab8` của người khác) đang dùng; tôi chỉ sửa kỳ vọng `admin/users` -> `admin/employees` (`b011594`), chưa sửa lỗi cũ này.
+- Mobile: `npm test` **83/83 pass**, `npm run typecheck` và `npm run lint` sạch, `npx expo-doctor` **20/20** (đã cài `expo-font ~58.0.12`, `e3f7742`).
 - KHÔNG làm: kiểm thử giao diện trên trình duyệt/thiết bị thật, gọi payOS thật (chưa có key), chạy trên DB `restosphere`.
 
 ### Commit theo hạng mục
@@ -25,6 +25,8 @@
 | A8 | Tắt `spring.sql.init`, bỏ `SQL_INIT_MODE` | BE `ea3cbca` |
 | B | PAID -> phiên CLOSED ngay, bàn CLEANING (mọi bàn của bill); `clean` chạy được với phiên CLOSED -> AVAILABLE; `guest-left` chỉ ghi dấu tùy chọn; lễ tân không xếp được bàn CLEANING; chỉ phiên mới nhất của bàn mới cho dọn; mobile finish-screen | BE `1c14da5`, `f21aaa1`; mobile `a8c953e` |
 | C | QR vẽ cục bộ: web `qrcode.react`, mobile `react-native-qrcode-svg` + `react-native-svg 15.16.0` (qua `expo install`); gỡ hoàn toàn `api.qrserver.com`; mobile hiện QR cọc và QR hóa đơn trong app, vẫn giữ nút mở link/gửi link | web `4af3f1a`; mobile `a9ce859`, `292cfd3` |
+| C+ | QR tĩnh VietQR: tự tạo chuỗi EMVCo/NAPAS 247 (`src/api/billing/vietqr.ts`: bin + số TK + số tiền + nội dung, CRC-16/CCITT-FALSE), vẽ bằng `qrcode.react`; gỡ hoàn toàn `img.vietqr.io`; dùng ở xem trước cài đặt (không số tiền) và CK thủ công của thu ngân (kèm số tiền + mã hóa đơn làm nội dung). Tên tài khoản không đưa vào chuỗi vì chuẩn NAPAS 247 chỉ định danh bằng BIN + số TK | web `2e6d694` |
+| C++ | Mobile `expo-font` + `expo-doctor` 20/20 | mobile `e3f7742` |
 | D | Mobile: fixture/test theo luật mới (không hoàn cọc, CLEANING, DRAFT, ghép/tách, chặn khi có cọc/QR/đã yêu cầu thanh toán); BE: `EndToEndPaymentFlowTests` gọi HTTP thật `POST /api/dev/payos/fake-paid/{orderCode}` cho 2 luồng (DRAFT -> bếp -> bill -> payOS -> PAID -> CLEANING; cọc -> check-in nhiều bàn -> bill chung có cọc) | BE `4e04849`, `f21aaa1`; mobile `292cfd3` |
 
 Các commit trước đó của đợt: BE GĐ2 payOS (`aed3298`...`e16b051`), web `ff79893`, `e27d9ad`, `4bd423d`, `9b9f06a`, `bbd96b3`, `2dbbb5a`, mobile `5504ea4`, `fbca6d2`.
@@ -43,8 +45,7 @@ Các commit trước đó của đợt: BE GĐ2 payOS (`aed3298`...`e16b051`), w
 - Chưa thử payOS thật; webhook thật chỉ kiểm bằng chữ ký SDK + bản giả. Cần key payOS và URL công khai (ngrok) để thử.
 - Chưa kiểm thử giao diện: màn thu ngân, Cọc chờ thu, đặt bàn online, `/payment/result`, và toàn bộ màn mobile chỉ qua type-check/lint/test logic.
 - Fixture mobile là bản mô phỏng của server; test mobile không chạm BE thật. Tách/ghép/nháp trên mobile chưa chạy với BE thật.
-- Web: ảnh QR tĩnh VietQR vẫn lấy từ `img.vietqr.io` (dịch vụ ảnh công khai, không phải QR thanh toán payOS).
-- Mobile: `expo-doctor` báo thiếu peer `expo-font` (có từ trước, không do đợt này).
+- QR tĩnh VietQR (web) đã tự tạo chuỗi EMVCo/NAPAS 247 ở FE và đã được kiểm CRC bằng test, nhưng CHƯA quét thử bằng app ngân hàng thật (bạn sẽ tự làm): xem bước thử bên dưới. Ở phía thu ngân chỉ web có QR tĩnh; mobile chưa có QR tĩnh vì CK thủ công chỉ làm ở web.
 - Bộ đếm thử sai nằm trong bộ nhớ (1 instance); `/payment/result` nhớ đơn trong sessionStorage (thiết bị khác phải tra cứu bằng mã + SĐT).
 - Remote web báo repo đã đổi sang `Vertex-Organization/restosphere_fe_web`; vẫn push được qua origin cũ.
 - Ghi chú git: BE đã push `c803cd4`, `7533a56` trước khi có quyền push, đã báo; chưa sửa lịch sử.
@@ -54,7 +55,7 @@ Các commit trước đó của đợt: BE GĐ2 payOS (`aed3298`...`e16b051`), w
 2. BE: copy `.env.example` thành `.env`, điền `JWT_SECRET` (>= 32 ký tự), `ADMIN_EMAIL`, `ADMIN_PASSWORD`; để trống `PAYOS_*`. Chạy `SPRING_PROFILES_ACTIVE=dev ./mvnw spring-boot:run` (dev bật payOS giả và nạp seed `V1_1`, mật khẩu demo `123456`).
 3. Web: `npm install && npm run dev` (trong `restophere-fe-web`), mở `/vi/catering` để đặt bàn có món (tick đồng ý không hoàn cọc), `/staff/login` cho thu ngân/quản lý.
 4. Mobile: `npm install && npx expo start` (trong `restosphere-fe-mobile`), đăng nhập lễ tân/phục vụ (`receptionist@restosphere.test`, `waiter@restosphere.test`).
-5. Luồng nên thử: (a) đặt bàn online có món -> lấy `orderCode` -> `curl -X POST http://localhost:8080/api/dev/payos/fake-paid/<orderCode>` -> đặt bàn tự CONFIRMED; (b) lễ tân tạo đặt bàn nhiều bàn -> check-in -> kiểm tra các phiên dùng chung 1 hóa đơn và cọc nằm trên đó; (c) phục vụ gọi món (giỏ nháp -> gửi bếp) -> bếp làm -> phục vụ yêu cầu thanh toán -> thu ngân tạo QR payOS -> `fake-paid` -> bill PAID, mọi bàn CLEANING -> phục vụ bấm "Đã dọn"; (d) thử xếp khách vào bàn CLEANING (phải bị từ chối); (e) thử tách bàn thiếu/thừa số khách, ghép/tách bàn có cọc hoặc đã có QR (phải bị chặn), CK thủ công nhập sai mật khẩu quản lý 10 lần (bị khóa 15 phút, có audit).
+5. Luồng nên thử: (a) đặt bàn online có món -> lấy `orderCode` -> `curl -X POST http://localhost:8080/api/dev/payos/fake-paid/<orderCode>` -> đặt bàn tự CONFIRMED; (b) lễ tân tạo đặt bàn nhiều bàn -> check-in -> kiểm tra các phiên dùng chung 1 hóa đơn và cọc nằm trên đó; (c) phục vụ gọi món (giỏ nháp -> gửi bếp) -> bếp làm -> phục vụ yêu cầu thanh toán -> thu ngân tạo QR payOS -> `fake-paid` -> bill PAID, mọi bàn CLEANING -> phục vụ bấm "Đã dọn"; (d) thử xếp khách vào bàn CLEANING (phải bị từ chối); (e) thử tách bàn thiếu/thừa số khách, ghép/tách bàn có cọc hoặc đã có QR (phải bị chặn), CK thủ công nhập sai mật khẩu quản lý 10 lần (bị khóa 15 phút, có audit); (f) QR tĩnh: vào web Admin > Cài đặt, nhập mã BIN (6 số) + số tài khoản thật của nhà hàng, quét QR xem trước bằng app ngân hàng: app phải hiện đúng ngân hàng và số tài khoản; ở màn thu ngân > Chuyển khoản thủ công quét QR phải có sẵn số tiền và nội dung là mã hóa đơn (nội dung tối đa 25 ký tự, không dấu).
 
 ## Câu hỏi đang chờ (lịch sử)
 - [x] FE mobile / màn lễ tân + phục vụ -> đã trả lời, xem mục Quyết định
