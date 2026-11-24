@@ -1,24 +1,28 @@
 # RestoSphere Refactor – Tiến độ
 
 ## Trạng thái
-- Nhánh: refactor/db-flyway-payos (BE và FE web; mobile đang triển khai trên nhánh cùng tên)
-- Giai đoạn hiện tại: 3 — CHƯA hoàn tất; Giai đoạn 4 chưa triển khai
+- Nhánh: `refactor/db-flyway-payos` ở cả 3 repo (BE, web `restophere-fe-web`, mobile `restosphere-fe-mobile`), đều đã có trên GitHub
+- Giai đoạn hiện tại: GĐ3 gần xong (web xong, mobile xong một phần), GĐ4 làm một phần. CHƯA nghiệm thu toàn bộ.
 - Cập nhật lần cuối: 2026-11-24
 
-## Cập nhật gần nhất — push FE web theo yêu cầu
-- Đã push nhánh web `refactor/db-flyway-payos` với 2 commit: `ff79893` (API admin/employees, bỏ CUSTOMER, nhãn nhân viên), `e27d9ad` (BIN ngân hàng + preview VietQR).
-- Remote GitHub thông báo repo web chuyển sang `Vertex-Organization/restosphere_fe_web`; push qua origin hiện tại đã thành công, không tự đổi cấu hình remote.
-- Đã chạy lại thực tế `npm run lint` và `npm run build`: PASS (build gồm `tsc -b`); chỉ có cảnh báo thời gian plugin Babel. Working tree web sạch trước push.
-- Web còn thiếu: khu active/sortOrder, toàn bộ đồng bộ thu ngân PAYOS/MANUAL_TRANSFER, QR bill, cọc chờ thu/biên nhận, recheck, đặt bàn public + /payment/result. Hai commit đã push KHÔNG có nghĩa GĐ3 hoàn tất.
-- Mobile: agent đã sửa một phần, báo `npm test` 77/77, lint/typecheck pass; chưa commit/push, chưa kiểm thử thiết bị/live BE. Còn thiếu QR trong app và copy link một chạm; fixtures còn hành vi hoàn cọc/dọn bàn cũ cần sửa.
-- GĐ4 còn thiếu: tài liệu sự cố, README payOS/Flyway hoàn chỉnh, cập nhật AGENTS.md, kiểm thử xuyên BE/web/mobile và Kết quả cuối.
-- Người dùng đã cho phép commit/push WEB ở lượt yêu cầu mới nhất. Không suy rộng thành quyền push mobile hoặc BE. Các lần push BE trước đó đã xảy ra trái yêu cầu không push; đã báo lại, không sửa lịch sử remote.
+## Tóm tắt để nắm tiến trình (đọc mục này trước)
+| Phần | Trạng thái | Commit mới nhất |
+|---|---|---|
+| BE GĐ1 (schema, Flyway, ghép/tách...) | Xong, 252/252 test | `c803cd4` |
+| BE GĐ2 (payOS) | Xong với payOS GIẢ; chưa thử payOS thật (chưa có key) | `7533a56`, `e05f7ed` |
+| Web: nhân viên, BIN + QR tĩnh, khu active/thứ tự | Xong | `ff79893`, `e27d9ad`, `4bd423d` |
+| Web: thu ngân (CASH / payOS / CK thủ công, in bill QR, Kiểm tra lại, Cọc chờ thu, biên nhận cọc, chặn đóng ca) | Xong, lint+build+test script pass | `9b9f06a`, `bbd96b3` |
+| Web: đặt bàn online (đồng ý không hoàn cọc, payOS, `/payment/result`, hotline khi lỗi, "Không yêu cầu khu") | Xong, lint+build pass | `2dbbb5a` |
+| Mobile: lễ tân + phục vụ | MỘT PHẦN: có nhiều bàn, đặt bàn quầy, mở link payOS, chuyển thu ngân, Kiểm tra lại; THIẾU QR hiển thị trong app và nút copy một chạm; fixture cũ còn hành vi hoàn cọc/dọn bàn | `5504ea4` |
+| GĐ4: AGENTS.md (quy tắc Flyway), README, QUY_TRINH_SU_CO.md, tóm tắt payOS | Xong phần tài liệu | `21fb95a` |
+| GĐ4: seed, tự kiểm thử xuyên BE+web+mobile trên môi trường chạy thật | CHƯA làm | - |
+
+Đã chạy thật: BE `./mvnw -o test` 252/252; web `npm run lint`, `npm run build`, `node --test` (billing-rules, billing-notifications, sea-crown-links); mobile `npm test` 77/77, lint, typecheck. KHÔNG có kiểm thử giao diện trên trình duyệt/thiết bị, không gọi payOS thật, không dùng DB `restosphere`.
 
 ## Đang làm
-- Bước tài liệu độc lập GĐ4: sửa quy tắc Flyway trong AGENTS, bổ sung README và quy trình sự cố/payOS. GĐ3 chưa hoàn tất; làm tài liệu không đánh dấu hoàn tất giai đoạn.
-- 2026-11-24: đã đọc master, cả ba AGENTS, toàn bộ hai skill FE và các reference nền tảng/inspection. BE/web sạch lúc bắt đầu; mobile có 16 file sửa và 1 file mới, giữ nguyên. Đang triển khai quản lý khu active/sortOrder trên web (type, API, dialog, fixture và test). Giữ nguyên công việc mobile chưa commit; không đọc .env, không gọi payOS thật, không dùng DB restosphere.
-- Người dùng hiện đã cho phép tạo nhánh, commit từng tính năng và push cả BE/web/mobile sau mỗi 2 commit hoàn thành, cuối phiên push phần còn lại. Quyền này thay thế giới hạn push chỉ web ghi ở trên.
-- GĐ3 bước 1 (FE web, nhánh `refactor/db-flyway-payos` tạo từ develop; build bằng `npm run build`, hiện pass): đổi API vỡ (`admin/users` -> `admin/employees`, bỏ role CUSTOMER, method `TRANSFER` -> `MANUAL_TRANSFER`/`PAYOS`). Sau đó: quản lý (khu, cài đặt bank_bin + QR), thu ngân, đặt bàn online + /payment/result; rồi mobile (BẮT BUỘC).
+- Hoàn thiện mobile (QR trong app, copy link một chạm, sửa fixture hoàn cọc/dọn bàn) rồi tự kiểm thử xuyên hệ thống và ghi "Kết quả cuối".
+- Quyền git hiện tại: người dùng cho phép tạo nhánh, commit từng tính năng và push cả BE/web/mobile sau mỗi 2 commit, cuối phiên push phần còn lại. Lưu ý: BE push trước đó (`c803cd4`, `7533a56`) xảy ra trước khi có quyền này, đã báo lại.
+- Remote web báo repo đã chuyển sang `Vertex-Organization/restosphere_fe_web`; vẫn push được qua origin cũ, chưa đổi cấu hình remote.
 
 ## Câu hỏi đang chờ
 - [x] FE mobile / màn lễ tân + phục vụ -> đã trả lời, xem mục Quyết định
@@ -79,13 +83,14 @@
 - [x] Webhook + endpoint dev — commit `73624cf` (`POST /api/payments/payos-webhook` permitAll, xác thực chữ ký, sai -> 400; `POST /api/dev/payos/fake-paid/{orderCode}` chỉ `@Profile("dev")`, gọi chung `PayosPayments.markPaid`; idempotent, khớp số tiền, mã lạ -> 200; tiền về link đã hủy -> thông báo MANAGER, không khôi phục)
 - [x] Endpoint tra trạng thái cho FE — commit `e16b051` (`POST /api/v1/reservations/payment-status` công khai, body `{orderCode, code, phone}`, trả `{status, paid, reservationStatus}`; chỉ đúng mã đặt bàn + SĐT mới đọc được; hỏi payOS nếu còn PENDING; có rate limit; TODO(confirm) endpoint công khai mới)
 ### Giai đoạn 3
-- [ ] FE web: quản lý (nhân viên, cài đặt + bank_bin + preview QR, khu active/sort, xác nhận CK thủ công)
-- [ ] FE web: thu ngân (3 phương thức, in bill QR, Cọc chờ thu, biên nhận cọc, đóng ca bị chặn, Kiểm tra lại)
-- [ ] FE web: đặt bàn online (chính sách không hoàn cọc, payOS, /payment/result, hotline khi lỗi, ẩn khu inactive, "Không yêu cầu khu")
-- [ ] FE MOBILE (BẮT BUỘC): phục vụ (giỏ DRAFT -> gửi bếp, tách/ghép bàn)
-- [ ] FE MOBILE (BẮT BUỘC): lễ tân (đặt bàn quầy/hotline, Thu cọc QR, Copy link, chuyển thu ngân, Kiểm tra lại)
+- [x] FE web: quản lý (nhân viên `ff79893`, cài đặt + bank_bin + preview QR `e27d9ad`, khu active/sort `4bd423d`; xác nhận CK thủ công nằm ở màn thu ngân vì quản lý nhập email+mật khẩu tại quầy)
+- [x] FE web: thu ngân — `9b9f06a` (CASH / payOS / CK thủ công có quản lý xác nhận, in bill có QR, Kiểm tra lại, đóng ca bị chặn), `bbd96b3` (Cọc chờ thu, thu cọc tiền mặt/CK thủ công, biên nhận cọc ghi rõ không hoàn). TODO(confirm): ảnh QR payOS vẽ bằng dịch vụ ảnh công khai `api.qrserver.com` vì chưa có thư viện QR (thêm cần được duyệt); QR tĩnh dùng `img.vietqr.io` như trước. BE thêm `qrCode`, `orderCode` vào `CashierPaymentResponse` (`e05f7ed`)
+- [x] FE web: đặt bàn online — `2dbbb5a` (tick đồng ý không hoàn cọc, thanh toán qua link payOS, trang `/payment/result` chỉ tin `POST /reservations/payment-status`, payOS lỗi hiện hotline do BE trả, ẩn khu inactive do BE, "Không yêu cầu khu"). Hạn chế: `/payment/result` nhớ đơn trong sessionStorage; mở trên thiết bị khác sẽ báo không thấy và gợi ý tra cứu bằng mã + SĐT
+- [ ] FE MOBILE (BẮT BUỘC): phục vụ (giỏ DRAFT -> gửi bếp, tách/ghép bàn) — tách/ghép đã có sẵn từ trước, chưa kiểm thử với BE thật; màn kết thúc bàn cần sửa vì thanh toán xong bàn đã tự trả
+- [ ] FE MOBILE (BẮT BUỘC): lễ tân — `5504ea4` (nhiều bàn, đặt bàn quầy, mở link payOS, chuyển thu ngân, Kiểm tra lại); THIẾU: hiển thị QR trong app, copy link một chạm
 ### Giai đoạn 4
-- [ ] Seed, README, tự kiểm thử, QUY_TRINH_SU_CO.md, tóm tắt payOS
+- [x] AGENTS.md (quy tắc Flyway: mỗi thay đổi schema một migration mới, không sửa migration đã chạy, version duy nhất; giữ quy tắc hỏi khi chưa rõ), README (Flyway, payOS, ngrok), `docs/QUY_TRINH_SU_CO.md`, tóm tắt luồng payOS trong README — `21fb95a`
+- [ ] Seed theo schema mới đã có (`V1_1__dev_seed.sql`); CHƯA có tự kiểm thử xuyên BE+web+mobile chạy thật
 
 ### Báo cáo Giai đoạn 2 (Backend payOS)
 - Đã làm: SDK v2 + gateway (thật/giả), link bill + hủy khi bill đổi, link cọc 3 kênh, Cọc chờ thu (tiền mặt/CK thủ công), webhook + dev simulator, `Kiểm tra lại`, job hết hạn cọc hỏi payOS trước, endpoint trạng thái công khai. `./mvnw -o test` 252/252 pass.
