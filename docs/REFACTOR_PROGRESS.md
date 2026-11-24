@@ -13,14 +13,14 @@
 | Web: nhân viên, BIN + QR tĩnh, khu active/thứ tự | Xong | `ff79893`, `e27d9ad`, `4bd423d` |
 | Web: thu ngân (CASH / payOS / CK thủ công, in bill QR, Kiểm tra lại, Cọc chờ thu, biên nhận cọc, chặn đóng ca) | Xong, lint+build+test script pass | `9b9f06a`, `bbd96b3` |
 | Web: đặt bàn online (đồng ý không hoàn cọc, payOS, `/payment/result`, hotline khi lỗi, "Không yêu cầu khu") | Xong, lint+build pass | `2dbbb5a` |
-| Mobile: lễ tân + phục vụ | MỘT PHẦN: có nhiều bàn, đặt bàn quầy, mở link payOS, chuyển thu ngân, Kiểm tra lại; THIẾU QR hiển thị trong app và nút copy một chạm; fixture cũ còn hành vi hoàn cọc/dọn bàn | `5504ea4` |
+| Mobile: lễ tân + phục vụ | MỘT PHẦN: có nhiều bàn, đặt bàn quầy, mở link payOS, nút "Gửi link cho khách" (Zalo/SMS qua share sheet của hệ điều hành), chuyển thu ngân, Kiểm tra lại, màn kết thúc bàn không còn bước dọn. THIẾU: ảnh QR hiển thị ngay trong app (không có thư viện QR, thêm cần duyệt; hiện mở trang payOS để quét); fixture/test giả lập vẫn mô phỏng luật CŨ (hoàn cọc, guest-left/clean) nên test mobile 77/77 chưa chứng minh luật mới | `5504ea4`, `fbca6d2` |
 | GĐ4: AGENTS.md (quy tắc Flyway), README, QUY_TRINH_SU_CO.md, tóm tắt payOS | Xong phần tài liệu | `21fb95a` |
 | GĐ4: seed, tự kiểm thử xuyên BE+web+mobile trên môi trường chạy thật | CHƯA làm | - |
 
 Đã chạy thật: BE `./mvnw -o test` 252/252; web `npm run lint`, `npm run build`, `node --test` (billing-rules, billing-notifications, sea-crown-links); mobile `npm test` 77/77, lint, typecheck. KHÔNG có kiểm thử giao diện trên trình duyệt/thiết bị, không gọi payOS thật, không dùng DB `restosphere`.
 
 ## Đang làm
-- Hoàn thiện mobile (QR trong app, copy link một chạm, sửa fixture hoàn cọc/dọn bàn) rồi tự kiểm thử xuyên hệ thống và ghi "Kết quả cuối".
+- Việc còn lại (chưa làm): sửa fixture/test mobile theo luật mới (không hoàn cọc, thanh toán tự đóng phiên), QR hiển thị trong app (cần duyệt thư viện), tự kiểm thử xuyên BE+web+mobile chạy thật, rồi ghi "Kết quả cuối".
 - Quyền git hiện tại: người dùng cho phép tạo nhánh, commit từng tính năng và push cả BE/web/mobile sau mỗi 2 commit, cuối phiên push phần còn lại. Lưu ý: BE push trước đó (`c803cd4`, `7533a56`) xảy ra trước khi có quyền này, đã báo lại.
 - Remote web báo repo đã chuyển sang `Vertex-Organization/restosphere_fe_web`; vẫn push được qua origin cũ, chưa đổi cấu hình remote.
 
