@@ -6,7 +6,10 @@
 - Cập nhật lần cuối: 2026-11-23 18:50
 
 ## Đang làm
-- GĐ1: bước "chuyển seed dataset.sql -> db/seed (Flyway, profile dev), xóa dataset.sql, tắt spring.sql.init"
+- Đã tạo docs/BAO_CAO_GIAI_DOAN_1.md, liệt kê rõ phần còn thiếu, không coi toàn bộ nghiệp vụ đã nghiệm thu.
+- Seed chuyển sang db/seed/V1000__dev_seed.sql và application-dev.yaml, chưa commit; đã chạy lại formatter/test sau khi sửa transaction của test seed, cần đối chiếu Surefire.
+- Bắt đầu GĐ2: đã xác minh POM SDK vn.payos:payos-java:2.0.1 từ Maven Central; tiếp theo đọc source/API v2 trước khi thêm bean và xử lý thanh toán.
+- Trước khi tiếp tục: kiểm tra git status/diff, sửa rủi ro version V1000 bỏ qua V2 và cấu hình dev trỏ restosphere_v2.
 
 ## Câu hỏi đang chờ
 - [x] FE mobile / màn lễ tân + phục vụ -> đã trả lời, xem mục Quyết định
