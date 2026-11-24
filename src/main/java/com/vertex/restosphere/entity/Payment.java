@@ -85,6 +85,10 @@ public class Payment extends BaseEntity {
     @Column(length = 500)
     private String checkoutUrl;
 
+    // VietQR content payOS returns, drawn as a QR that any banking app can scan.
+    @Column(length = 1000)
+    private String qrCode;
+
     @Column(length = 500)
     private String proofImageUrl;
 

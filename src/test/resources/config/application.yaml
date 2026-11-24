@@ -5,6 +5,8 @@ app:
     bootstrap-admin:
       email: ""
       password: ""
+  payos:
+    fake: true
 spring:
   sql:
     init:

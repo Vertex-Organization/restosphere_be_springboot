@@ -2,3 +2,8 @@
 spring:
   flyway:
     locations: classpath:db/migration,classpath:db/seed
+
+app:
+  payos:
+    # Dev khong goi payOS that: link gia + POST /api/dev/payos/fake-paid/{orderCode}. Dat PAYOS_FAKE=false khi da co key.
+    fake: ${PAYOS_FAKE:true}

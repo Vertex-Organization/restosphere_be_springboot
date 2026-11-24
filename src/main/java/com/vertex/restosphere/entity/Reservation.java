@@ -95,6 +95,9 @@ public class Reservation extends BaseEntity {
 
     private Instant depositDueAt;
 
+    // Set when reception hands the guest to the cashier to pay the deposit in cash.
+    private Instant depositCashRequestedAt;
+
     // Inverse side: deposit state is read from payments, never stored on the reservation.
     @OneToMany(mappedBy = "reservation")
     private Set<Payment> payments = new LinkedHashSet<>();
