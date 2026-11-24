@@ -3,25 +3,31 @@ package com.vertex.restosphere.service.impl;
 import com.vertex.restosphere.common.enums.Role;
 import com.vertex.restosphere.common.util.EmailUtils;
 import com.vertex.restosphere.common.util.Values;
+import com.vertex.restosphere.dto.request.CashierDepositCashRequest;
+import com.vertex.restosphere.dto.request.CashierDepositTransferRequest;
 import com.vertex.restosphere.dto.request.CashierManualTransferRequest;
 import com.vertex.restosphere.dto.request.CashierPayCashRequest;
 import com.vertex.restosphere.dto.request.CashierPayosLinkRequest;
 import com.vertex.restosphere.dto.response.CashierPaymentResponse;
+import com.vertex.restosphere.dto.response.CashierPendingDepositResponse;
 import com.vertex.restosphere.entity.Bill;
 import com.vertex.restosphere.entity.CashierShift;
 import com.vertex.restosphere.entity.Employee;
 import com.vertex.restosphere.entity.OrderItem;
 import com.vertex.restosphere.entity.Payment;
+import com.vertex.restosphere.entity.Reservation;
 import com.vertex.restosphere.entity.RestaurantSettings;
 import com.vertex.restosphere.exception.ApiException;
 import com.vertex.restosphere.repository.CashierShiftRepository;
 import com.vertex.restosphere.repository.EmployeeRepository;
 import com.vertex.restosphere.repository.PaymentRepository;
+import com.vertex.restosphere.repository.ReservationRepository;
 import com.vertex.restosphere.repository.RestaurantSettingsRepository;
 import com.vertex.restosphere.security.CurrentUserService;
 import com.vertex.restosphere.security.FailureLimiter;
 import com.vertex.restosphere.service.BillingWorkflow;
 import com.vertex.restosphere.service.CashierPaymentService;
+import com.vertex.restosphere.service.ReservationWorkflow;
 import com.vertex.restosphere.service.RestaurantLock;
 import com.vertex.restosphere.service.ServiceWorkflow;
 import com.vertex.restosphere.service.WorkspaceCommit;
@@ -61,6 +67,8 @@ public class CashierPaymentServiceImpl implements CashierPaymentService {
     private final PasswordEncoder passwordEncoder;
     private final AuditRecorder auditRecorder;
     private final PayosLinks payosLinks;
+    private final ReservationRepository reservationRepo;
+    private final ReservationWorkflow reservations;
     private final FailureLimiter approvalFailures = new FailureLimiter(10, 15 * 60_000L);
 
     @Transactional(readOnly = true)
@@ -105,7 +113,9 @@ public class CashierPaymentServiceImpl implements CashierPaymentService {
     @Override
     public Outcome payManualTransfer(UUID actorId, UUID billId, CashierManualTransferRequest req) {
         Employee cashier = currentUser.require(actorId, Role.ADMIN, Role.CASHIER);
-        Employee manager = manualTransferApprover(cashier, billId, req);
+        Employee manager =
+                manualTransferApprover(
+                        cashier, "BILL", billId, req.managerEmail(), req.managerPassword());
         String ref = req.transactionReference().trim();
         if (ref.isEmpty())
             throw Values.invalid("transactionReference", "Nhập mã giao dịch ngân hàng.");
@@ -144,10 +154,14 @@ public class CashierPaymentServiceImpl implements CashierPaymentService {
 
     // The manager types their own credentials at the counter; the cashier never sees them.
     private Employee manualTransferApprover(
-            Employee cashier, UUID billId, CashierManualTransferRequest req) {
-        String key = EmailUtils.normalize(req.managerEmail());
+            Employee cashier,
+            String targetType,
+            UUID targetId,
+            String managerEmail,
+            String managerPassword) {
+        String key = EmailUtils.normalize(managerEmail);
         if (approvalFailures.blocked(key)) {
-            auditApproval(cashier, billId, "manual-transfer-blocked", key);
+            auditApproval(cashier, targetType, targetId, "manual-transfer-blocked", key);
             throw new ApiException(
                     HttpStatus.TOO_MANY_REQUESTS,
                     "Nhập sai quá nhiều lần. Vui lòng thử lại sau 15 phút.");
@@ -157,14 +171,11 @@ public class CashierPaymentServiceImpl implements CashierPaymentService {
                         .findByEmail(key)
                         .filter(Employee::isEnabled)
                         .filter(e -> e.getRole() == Role.MANAGER || e.getRole() == Role.ADMIN)
-                        .filter(
-                                e ->
-                                        passwordEncoder.matches(
-                                                req.managerPassword(), e.getPasswordHash()))
+                        .filter(e -> passwordEncoder.matches(managerPassword, e.getPasswordHash()))
                         .orElse(null);
         if (manager == null) {
             approvalFailures.fail(key);
-            auditApproval(cashier, billId, "manual-transfer-denied", key);
+            auditApproval(cashier, targetType, targetId, "manual-transfer-denied", key);
             throw new ApiException(
                     HttpStatus.FORBIDDEN, "Thông tin xác nhận của quản lý không đúng.");
         }
@@ -172,18 +183,155 @@ public class CashierPaymentServiceImpl implements CashierPaymentService {
         return manager;
     }
 
-    private void auditApproval(Employee cashier, UUID billId, String action, String managerEmail) {
+    private void auditApproval(
+            Employee cashier,
+            String targetType,
+            UUID targetId,
+            String action,
+            String managerEmail) {
         auditRecorder.record(
                 cashier,
                 action,
-                "BILL",
-                billId,
+                targetType,
+                targetId,
                 "Xác nhận chuyển khoản thủ công không thành công với tài khoản quản lý "
                         + managerEmail);
     }
 
     private static String blankToNull(String value) {
         return value == null || value.isBlank() ? null : value.trim();
+    }
+
+    @Transactional(readOnly = true)
+    @Override
+    public List<CashierPendingDepositResponse> pendingDeposits(UUID actorId) {
+        currentUser.require(actorId, Role.ADMIN, Role.CASHIER);
+        return reservationRepo.findAwaitingCashDeposit(Instant.now()).stream()
+                .map(CashierPendingDepositResponse::from)
+                .toList();
+    }
+
+    @Transactional
+    @Override
+    public Outcome depositCash(UUID actorId, UUID reservationId, CashierDepositCashRequest req) {
+        return createDeposit(
+                actorId,
+                reservationId,
+                Payment.Method.CASH,
+                req.tendered(),
+                req.idempotencyKey(),
+                null);
+    }
+
+    @Transactional
+    @Override
+    public Outcome depositManualTransfer(
+            UUID actorId, UUID reservationId, CashierDepositTransferRequest req) {
+        Employee cashier = currentUser.require(actorId, Role.ADMIN, Role.CASHIER);
+        Employee manager =
+                manualTransferApprover(
+                        cashier,
+                        "RESERVATION",
+                        reservationId,
+                        req.managerEmail(),
+                        req.managerPassword());
+        String ref = req.transactionReference().trim();
+        if (ref.isEmpty())
+            throw Values.invalid("transactionReference", "Nhập mã giao dịch ngân hàng.");
+        boolean replay = payments.findByIdempotencyKey(req.idempotencyKey().trim()).isPresent();
+        if (!replay && payments.existsByTransactionReference(ref)) {
+            throw ApiException.conflict("Mã giao dịch ngân hàng đã được dùng cho khoản khác.");
+        }
+        Outcome outcome =
+                createDeposit(
+                        actorId,
+                        reservationId,
+                        Payment.Method.MANUAL_TRANSFER,
+                        null,
+                        req.idempotencyKey(),
+                        p -> {
+                            p.setTransactionReference(ref);
+                            p.setProofImageUrl(blankToNull(req.proofImageUrl()));
+                            p.setVerifiedBy(manager);
+                        });
+        if (outcome.created()) {
+            workflow.audit(
+                    manager,
+                    "manual-transfer-confirmed",
+                    reservationId,
+                    "RESERVATION",
+                    "Quản lý xác nhận cọc chuyển khoản thủ công, mã giao dịch " + ref);
+        }
+        return outcome;
+    }
+
+    // A deposit is whatever the reservation asks for, never the client's number: the cashier only
+    // says how it was paid. It lands on the reservation, not on a bill, until the guest checks in.
+    private Outcome createDeposit(
+            UUID actorId,
+            UUID reservationId,
+            Payment.Method method,
+            BigDecimal rawTendered,
+            String rawKey,
+            Consumer<Payment> extra) {
+        Employee user = currentUser.require(actorId, Role.ADMIN, Role.CASHIER);
+        restaurantLock.acquire();
+        String key = rawKey.trim();
+        if (key.isEmpty() || key.length() > 150) {
+            throw Values.invalid("idempotencyKey is required (max 150)");
+        }
+        var old = payments.findByIdempotencyKey(key);
+        if (old.isPresent()) {
+            Payment p = old.get();
+            if (p.getReservation() == null
+                    || !p.getReservation().getId().equals(reservationId)
+                    || p.getMethod() != method
+                    || p.getCreatedBy() == null
+                    || !user.getId().equals(p.getCreatedBy().getId())) {
+                throw ApiException.conflict("Idempotency key reused with different payment");
+            }
+            return new Outcome(CashierPaymentResponse.from(p), false);
+        }
+        Reservation reservation = store.get(Reservation.class, reservationId.toString());
+        if (reservation.getStatus() != Reservation.Status.PENDING
+                || !reservation.awaitingDeposit()) {
+            throw ApiException.conflict("Đặt bàn này không còn chờ thu cọc.");
+        }
+        if (method == Payment.Method.CASH && reservation.getDepositCashRequestedAt() == null) {
+            // Cash only arrives through reception handing the guest over; keeps one clear queue.
+            throw ApiException.conflict("Lễ tân chưa chuyển đặt bàn này sang thu ngân.");
+        }
+        CashierShift shift =
+                shifts.findFirstByCashierIdAndClosedAtIsNull(user.getId())
+                        .orElseThrow(() -> ApiException.conflict("Open a cashier shift first"));
+        BigDecimal amount = reservation.getDepositAmount();
+        // The guest may not also pay the old QR: drop it before taking the money.
+        payosLinks.cancelDepositLink(reservation, "Đã thu cọc tại quầy");
+        Payment payment = new Payment();
+        payment.setReservation(reservation);
+        payment.setCashierShift(shift);
+        payment.setAmount(amount);
+        payment.setCreatedBy(user);
+        payment.setIdempotencyKey(key);
+        payment.setMethod(method);
+        payment.setStatus(Payment.Status.COMPLETED);
+        payment.setPaidAt(Instant.now());
+        if (method == Payment.Method.CASH) {
+            BigDecimal tendered = Values.money(rawTendered, "tendered");
+            if (tendered.compareTo(amount) < 0) {
+                throw Values.invalid("Insufficient cash tendered");
+            }
+            payment.setTendered(tendered);
+        }
+        if (extra != null) extra.accept(payment);
+        store.save(payment);
+        reservation.getPayments().add(payment);
+        store.flush();
+        reservations.confirmAfterDeposit(reservation);
+        writes.commit(
+                user, method == Payment.Method.CASH ? "deposit-cash" : "deposit-manual-transfer");
+        store.flush();
+        return new Outcome(CashierPaymentResponse.from(payment), true);
     }
 
     private Outcome create(

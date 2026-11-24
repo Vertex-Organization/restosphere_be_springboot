@@ -1,9 +1,12 @@
 package com.vertex.restosphere.service;
 
+import com.vertex.restosphere.dto.request.CashierDepositCashRequest;
+import com.vertex.restosphere.dto.request.CashierDepositTransferRequest;
 import com.vertex.restosphere.dto.request.CashierManualTransferRequest;
 import com.vertex.restosphere.dto.request.CashierPayCashRequest;
 import com.vertex.restosphere.dto.request.CashierPayosLinkRequest;
 import com.vertex.restosphere.dto.response.CashierPaymentResponse;
+import com.vertex.restosphere.dto.response.CashierPendingDepositResponse;
 import com.vertex.restosphere.entity.Payment;
 import java.time.Instant;
 import java.util.List;
@@ -23,4 +26,14 @@ public interface CashierPaymentService {
 
     /** Thu thủ công khi payOS lỗi: tạo thẳng COMPLETED, có quản lý xác nhận. */
     Outcome payManualTransfer(UUID actorId, UUID billId, CashierManualTransferRequest req);
+
+    /** Danh sách "Cọc chờ thu": đặt bàn lễ tân đã chuyển sang thu ngân thu cọc tiền mặt. */
+    List<CashierPendingDepositResponse> pendingDeposits(UUID actorId);
+
+    /** Thu cọc tiền mặt vào ca của thu ngân; không hoàn cọc dù hủy hay không đến. */
+    Outcome depositCash(UUID actorId, UUID reservationId, CashierDepositCashRequest req);
+
+    /** Thu cọc chuyển khoản thủ công khi payOS lỗi; quản lý xác nhận ngay tại quầy. */
+    Outcome depositManualTransfer(
+            UUID actorId, UUID reservationId, CashierDepositTransferRequest req);
 }

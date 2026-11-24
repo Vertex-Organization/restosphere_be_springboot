@@ -1,10 +1,13 @@
 package com.vertex.restosphere.controller;
 
 import com.vertex.restosphere.config.OpenApiConfig;
+import com.vertex.restosphere.dto.request.CashierDepositCashRequest;
+import com.vertex.restosphere.dto.request.CashierDepositTransferRequest;
 import com.vertex.restosphere.dto.request.CashierManualTransferRequest;
 import com.vertex.restosphere.dto.request.CashierPayCashRequest;
 import com.vertex.restosphere.dto.request.CashierPayosLinkRequest;
 import com.vertex.restosphere.dto.response.CashierPaymentResponse;
+import com.vertex.restosphere.dto.response.CashierPendingDepositResponse;
 import com.vertex.restosphere.entity.Payment;
 import com.vertex.restosphere.security.CurrentUserService;
 import com.vertex.restosphere.service.CashierPaymentService;
@@ -72,6 +75,27 @@ public class CashierPaymentController {
             @PathVariable UUID id,
             @Valid @RequestBody CashierPayosLinkRequest req) {
         return respond(service.createPayosLink(CurrentUserService.idOf(jwt), id, req));
+    }
+
+    @GetMapping("/deposits/pending")
+    public List<CashierPendingDepositResponse> pendingDeposits(@AuthenticationPrincipal Jwt jwt) {
+        return service.pendingDeposits(CurrentUserService.idOf(jwt));
+    }
+
+    @PostMapping("/reservations/{id}/deposit/cash")
+    public ResponseEntity<CashierPaymentResponse> depositCash(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable UUID id,
+            @Valid @RequestBody CashierDepositCashRequest req) {
+        return respond(service.depositCash(CurrentUserService.idOf(jwt), id, req));
+    }
+
+    @PostMapping("/reservations/{id}/deposit/manual-transfer")
+    public ResponseEntity<CashierPaymentResponse> depositManualTransfer(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable UUID id,
+            @Valid @RequestBody CashierDepositTransferRequest req) {
+        return respond(service.depositManualTransfer(CurrentUserService.idOf(jwt), id, req));
     }
 
     private static ResponseEntity<CashierPaymentResponse> respond(

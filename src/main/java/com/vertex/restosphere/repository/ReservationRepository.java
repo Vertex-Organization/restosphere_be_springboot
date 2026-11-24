@@ -20,6 +20,15 @@ public interface ReservationRepository
     @EntityGraph(attributePaths = "area")
     List<Reservation> findAll(Specification<Reservation> spec, Sort sort);
 
+    /** Reservations reception handed to the cashier for a cash deposit that is still unpaid. */
+    @Query(
+            "select r from Reservation r where r.status = com.vertex.restosphere.entity.Reservation.Status.PENDING"
+                    + " and r.depositAmount is not null and r.depositCashRequestedAt is not null"
+                    + " and r.depositDueAt > :now and not exists (select 1 from Payment p where"
+                    + " p.reservation = r and p.status = com.vertex.restosphere.entity.Payment.Status.COMPLETED)"
+                    + " order by r.depositCashRequestedAt")
+    List<Reservation> findAwaitingCashDeposit(java.time.Instant now);
+
     /** Rows of [phone, reservation count, latest arrivedAt] for the given phone numbers. */
     @Query(
             "select r.phone, count(r), max(r.arrivedAt) from Reservation r"
