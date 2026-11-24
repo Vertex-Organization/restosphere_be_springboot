@@ -6,7 +6,7 @@
 - Cập nhật lần cuối: 2026-11-24
 
 ## Đang làm
-- GĐ2 bắt đầu: cấu hình SDK payOS (PayosProperties + PayosGateway + bean, key đọc từ env) cùng pom.xml (payos-java 2.0.1, đã xác nhận là dependency của đợt refactor, commit cùng bước này). Chưa viết dòng code GĐ2 nào.
+- GĐ2 xong phần BE. Tiếp: báo cáo GĐ2 rồi GĐ3 (FE web: quản lý, thu ngân, đặt bàn online public; FE mobile: lễ tân + phục vụ).
 
 ## Câu hỏi đang chờ
 - [x] FE mobile / màn lễ tân + phục vụ -> đã trả lời, xem mục Quyết định
@@ -59,13 +59,13 @@
 - [x] areas: active + sort_order — commit `fe0fad2` (BE xong; UI quản lý khu ở GĐ3 web). API `/areas` trả thêm `active`, `sortOrder`; `AreaRequest` nhận `active`/`sortOrder` tùy chọn; public settings chỉ trả khu active
 - [x] V1 migration + validate — commit `10d7816` (`db/migration/V1__init_schema.sql`: 24 bảng, tên `pk_/uq_/fk_/ck_/idx_`, 3 partial unique index; `DatabaseConstraintsInitializer` đã xóa; `ddl-auto=validate`, `flyway.enabled=true`). Đã chạy app thật trên DB trống `restosphere_v2`: Flyway áp V1 + validate pass; so với schema Hibernate sinh: cột/ràng buộc/index trùng 100% (chỉ khác tên). Còn lại: chuyển seed `dataset.sql` -> `db/seed` (profile dev), bỏ `reservations.deposit_paid_at` (đã không có trong V1)
 ### Giai đoạn 2
-- [ ] Cấu hình SDK payOS
-- [ ] Link payOS cho bill + hủy link
-- [ ] Link cọc (online, hotline, quầy)
-- [ ] Cọc tiền mặt / MANUAL_TRANSFER (Cọc chờ thu)
-- [ ] Kiểm tra lại + job hết hạn cọc
-- [ ] Webhook + endpoint dev
-- [ ] Endpoint tra trạng thái cho FE
+- [x] Cấu hình SDK payOS — commit `aed3298` (`PayosGateway` + `PayosGatewayImpl` SDK v2 + `FakePayosGateway`; key từ env `PAYOS_*`, mặc định giả `not-configured`; thiếu key -> 503; profile dev mặc định `PAYOS_FAKE=true`; thêm `payments.qr_code` và `reservations.deposit_cash_requested_at` vào V1; `.env.example` có mục PAYOS)
+- [x] Link payOS cho bill + hủy link
+- [x] Link cọc (online, hotline, quầy) — commit `4749e07` (online public: payOS lỗi -> 503 + hotline, không để lại đặt bàn; hotline: tạo link ngay, lễ tân copy `deposit.payos.checkoutUrl`; quầy: tạo đặt bàn với `input.counter=true` rồi lệnh `deposit-link` hiện QR (`deposit.payos.qrCode`), bấm lại dùng lại link cũ; cọc online xong tự CONFIRMED + tự xếp bàn; `toPublicMap` bỏ `deposit.bank` thay bằng `deposit.payos`; staff booking vẫn lưu nếu payOS lỗi). TODO(confirm): đặt bàn quầy dùng `counter` (source WALK_IN, PENDING), còn `walkIn` là ngồi ngay
+- [x] Cọc tiền mặt / MANUAL_TRANSFER (Cọc chờ thu) — commit `e8e3c3b` (lệnh `deposit-cash` của lễ tân hủy link payOS + đặt `deposit_cash_requested_at`; thu ngân: `GET /cashier/deposits/pending`, `POST /cashier/reservations/{id}/deposit/cash` và `/deposit/manual-transfer`; số tiền cọc lấy từ đặt bàn, không nhận từ client; payment `reservation_id`, `bill_id` NULL, gắn ca; CK thủ công dùng chung giới hạn thử sai + audit; cọc xong tự CONFIRMED)
+- [x] Kiểm tra lại + job hết hạn cọc — commit `e16b051` (`POST /api/v1/payments/{id}/refresh` cho ADMIN/MANAGER/CASHIER/RECEPTIONIST/WAITER, dùng chung `PayosPayments.refresh` với webhook; job `expireNoShows` hỏi payOS trước: đã trả -> CONFIRMED, chưa trả -> hủy đặt bàn + hủy link payOS, payOS không gọi được -> giữ lại chạy lần sau; tiền về sau khi hủy -> `LATE_PAYMENT` thông báo MANAGER, không khôi phục)
+- [x] Webhook + endpoint dev — commit `73624cf` (`POST /api/payments/payos-webhook` permitAll, xác thực chữ ký, sai -> 400; `POST /api/dev/payos/fake-paid/{orderCode}` chỉ `@Profile("dev")`, gọi chung `PayosPayments.markPaid`; idempotent, khớp số tiền, mã lạ -> 200; tiền về link đã hủy -> thông báo MANAGER, không khôi phục)
+- [x] Endpoint tra trạng thái cho FE — commit `e16b051` (`POST /api/v1/reservations/payment-status` công khai, body `{orderCode, code, phone}`, trả `{status, paid, reservationStatus}`; chỉ đúng mã đặt bàn + SĐT mới đọc được; hỏi payOS nếu còn PENDING; có rate limit; TODO(confirm) endpoint công khai mới)
 ### Giai đoạn 3
 - [ ] FE web: quản lý (nhân viên, cài đặt + bank_bin + preview QR, khu active/sort, xác nhận CK thủ công)
 - [ ] FE web: thu ngân (3 phương thức, in bill QR, Cọc chờ thu, biên nhận cọc, đóng ca bị chặn, Kiểm tra lại)
@@ -74,6 +74,14 @@
 - [ ] FE MOBILE (BẮT BUỘC): lễ tân (đặt bàn quầy/hotline, Thu cọc QR, Copy link, chuyển thu ngân, Kiểm tra lại)
 ### Giai đoạn 4
 - [ ] Seed, README, tự kiểm thử, QUY_TRINH_SU_CO.md, tóm tắt payOS
+
+### Báo cáo Giai đoạn 2 (Backend payOS)
+- Đã làm: SDK v2 + gateway (thật/giả), link bill + hủy khi bill đổi, link cọc 3 kênh, Cọc chờ thu (tiền mặt/CK thủ công), webhook + dev simulator, `Kiểm tra lại`, job hết hạn cọc hỏi payOS trước, endpoint trạng thái công khai. `./mvnw -o test` 252/252 pass.
+- Commit: `aed3298` SDK, `e9492df` link bill, `73624cf` webhook, `4749e07` link cọc, `e8e3c3b` Cọc chờ thu, `e16b051` kiểm tra lại + hết hạn + trạng thái.
+- Thay đổi API cho FE: `POST /cashier/bills/{id}/payos-link`; `GET /cashier/deposits/pending`; `POST /cashier/reservations/{id}/deposit/{cash|manual-transfer}`; `POST /payments/{id}/refresh`; `POST /reservations/payment-status` (công khai); lệnh workspace `deposit-link`/`deposit-cash`; `create` nhận `input.counter`; `deposit.bank` BỊ BỎ khỏi response công khai, thay bằng `deposit.payos {checkoutUrl, qrCode, orderCode, paymentId}` + `deposit.cashRequestedAt`; `/cashier/config` `methods.PAYOS` giờ bật theo cấu hình; split yêu cầu `guestCount`.
+- Đổi schema (sửa thẳng V1): `payments.qr_code`, `reservations.deposit_cash_requested_at`.
+- Chưa kiểm tra bằng payOS thật (chưa có key): chỉ test với `FakePayosGateway` và chữ ký webhook thật bằng crypto của SDK.
+- Còn mở: sau khi thanh toán xong bàn về AVAILABLE ngay (bỏ bước guest-left/clean); mobile cần sửa `finish-screen`. Hạn chế đã biết: bộ đếm thử sai nằm trong bộ nhớ (1 instance).
 
 ## Kết quả rà soát (Giai đoạn 0)
 ### Tổng quan
