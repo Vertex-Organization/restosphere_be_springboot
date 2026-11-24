@@ -172,10 +172,39 @@ class WorkspaceIntegrationTests {
                         payment.idempotencyKey());
         assertThrows(
                 ApiException.class, () -> payments.payCash(cashier.getId(), billId, different));
-        assertEquals(TableStatus.AVAILABLE, table.getStatus(), "payment frees the table");
+        assertEquals(TableStatus.CLEANING, table.getStatus(), "payment leaves the table to clean");
         assertEquals(TableSession.Status.CLOSED, db.get(TableSession.class, session).getStatus());
         assertEquals(
                 Reservation.Status.COMPLETED, db.get(Reservation.class, reservation).getStatus());
+        assertThrows(
+                ApiException.class,
+                () ->
+                        run(
+                                "staff",
+                                waiter,
+                                "type",
+                                "clean",
+                                "sessionId",
+                                session,
+                                "confirmed",
+                                false));
+        run("staff", waiter, "type", "guest-left", "sessionId", session, "confirmed", true);
+        assertNotNull(db.get(TableSession.class, session).getGuestLeftAt());
+        assertEquals(TableStatus.CLEANING, table.getStatus(), "guest-left alone frees nothing");
+        run("staff", waiter, "type", "clean", "sessionId", session, "confirmed", true);
+        assertEquals(TableStatus.AVAILABLE, table.getStatus());
+        assertThrows(
+                ApiException.class,
+                () ->
+                        run(
+                                "staff",
+                                waiter,
+                                "type",
+                                "clean",
+                                "sessionId",
+                                session,
+                                "confirmed",
+                                true));
     }
 
     @Test

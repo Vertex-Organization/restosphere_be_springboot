@@ -156,16 +156,14 @@ public class BillingWorkflowImpl implements BillingWorkflow {
         }
     }
 
-    // TODO(confirm): tables go straight to AVAILABLE on payment; the old guest-left/clean steps no
-    // longer apply (mobile finish screen to be updated in phase 3).
+    // Payment closes every session of the bill at once; each table then waits to be cleaned.
     private void closeSessions(Bill b) {
         var now = Instant.now();
         for (var s : b.getSessions()) {
             if (s.getStatus() == TableSession.Status.CLOSED) continue;
             s.setStatus(TableSession.Status.CLOSED);
-            s.setGuestLeftAt(now);
             s.setEndedAt(now.isBefore(s.getStartedAt()) ? s.getStartedAt() : now);
-            s.getTable().setStatus(TableStatus.AVAILABLE);
+            s.getTable().setStatus(TableStatus.CLEANING);
             completeReservationIfDone(s.getReservation());
         }
     }
@@ -189,7 +187,7 @@ public class BillingWorkflowImpl implements BillingWorkflow {
             if (s.getStatus() != TableSession.Status.CLOSED) continue;
             var table = s.getTable();
             boolean taken =
-                    table.getStatus() != TableStatus.AVAILABLE
+                    table.getStatus() != TableStatus.CLEANING
                             || !db.query(
                                             TableSession.class,
                                             "from TableSession o where o.table=?1 and o.status<>?2",

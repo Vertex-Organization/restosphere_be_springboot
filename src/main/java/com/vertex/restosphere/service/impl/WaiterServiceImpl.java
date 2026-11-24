@@ -245,31 +245,27 @@ public class WaiterServiceImpl implements WaiterService {
                 id(bill));
     }
 
+    // Optional bookkeeping: payment already closed the session and put the table in CLEANING.
     @Override
     public void guestLeft(UUID sessionId, boolean confirmed, Employee waiter) {
-        TableSession session = ownSession(sessionId, waiter);
+        TableSession session = ownedSession(sessionId, waiter);
         if (!confirmed
                 || session.getGuestLeftAt() != null
                 || billing.bill(session).getStatus() != Bill.Status.PAID) {
             throw ApiException.conflict("Confirm departure after payment");
         }
         session.setGuestLeftAt(Instant.now());
-        session.getTable().setStatus(TableStatus.CLEANING);
     }
 
     @Override
     public void clean(UUID sessionId, boolean confirmed, Employee waiter) {
-        TableSession session = ownSession(sessionId, waiter);
+        TableSession session = ownedSession(sessionId, waiter);
         if (!confirmed
-                || session.getGuestLeftAt() == null
+                || session.getStatus() != TableSession.Status.CLOSED
                 || session.getTable().getStatus() != TableStatus.CLEANING) {
-            throw ApiException.conflict("Guests must leave before cleaning");
+            throw ApiException.conflict("Table is not waiting to be cleaned");
         }
-        session.setEndedAt(Instant.now());
-        session.setStatus(TableSession.Status.CLOSED);
         session.getTable().setStatus(TableStatus.AVAILABLE);
-        if (session.getReservation() != null)
-            session.getReservation().setStatus(Reservation.Status.COMPLETED);
         events.notify(
                 Role.RECEPTIONIST,
                 "TABLE_READY",
@@ -278,11 +274,16 @@ public class WaiterServiceImpl implements WaiterService {
                 id(session.getTable()));
     }
 
-    private TableSession ownSession(UUID sessionId, Employee waiter) {
+    private TableSession ownedSession(UUID sessionId, Employee waiter) {
         TableSession session = db.get(TableSession.class, sessionId.toString());
         if (!same(session.getWaiter(), waiter)) {
             throw new ApiException(HttpStatus.FORBIDDEN, "Session belongs to another waiter");
         }
+        return session;
+    }
+
+    private TableSession ownSession(UUID sessionId, Employee waiter) {
+        TableSession session = ownedSession(sessionId, waiter);
         if (session.getStatus() == TableSession.Status.CLOSED)
             throw ApiException.conflict("Session is closed");
         return session;
