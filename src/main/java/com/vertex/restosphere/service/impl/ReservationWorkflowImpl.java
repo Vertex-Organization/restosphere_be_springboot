@@ -815,8 +815,8 @@ public class ReservationWorkflowImpl implements ReservationWorkflow {
                 text(c, "reason").isEmpty() ? label : label + ": " + text(c, "reason"));
     }
 
-    // One session per table, all pointing at the reservation; the deposit rides on the first
-    // session's bill.
+    // One session per table, all pointing at the reservation and sharing ONE bill; the deposit
+    // rides on that bill. Guests are split by capacity, at least one per table.
     private void handover(Reservation r) {
         require(r, Reservation.Status.ARRIVED);
         var assigned = assignments(r);
@@ -834,20 +834,17 @@ public class ReservationWorkflowImpl implements ReservationWorkflow {
             ensureFree(r, table, now, now.plus(Duration.between(r.getStartsAt(), r.getEndsAt())));
         }
         int remaining = guests;
-        Bill firstBill = null;
+        var bill = billing.open();
         for (int i = 0; i < tables.size(); i++) {
             var table = tables.get(i);
             int seated = Math.min(table.getCapacity(), remaining - (tables.size() - i - 1));
             remaining -= seated;
-            var bill = billing.open();
-            if (firstBill == null) firstBill = bill;
             var session = new TableSession();
             session.setBill(bill);
             bill.getSessions().add(session);
             session.setTable(table);
             session.setReservation(r);
             session.setGuestCount(seated);
-            // Spaced by a millisecond so "the first session" is well defined for bill and preorder.
             session.setStartedAt(now.plusMillis(i));
             db.save(session);
             table.setStatus(TableStatus.OCCUPIED);
@@ -858,7 +855,7 @@ public class ReservationWorkflowImpl implements ReservationWorkflow {
                     r.getCode() + " · " + seated + " khách",
                     id(session));
         }
-        attachDepositToBill(r, firstBill);
+        attachDepositToBill(r, bill);
         r.setHandedOverAt(now);
         r.setStatus(Reservation.Status.SEATED);
     }

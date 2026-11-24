@@ -126,7 +126,7 @@ class MultiTableReservationTests {
     }
 
     @Test
-    void handoverOpensOneSessionPerTableAndTheDepositFollowsTheFirstBill() {
+    void handoverOpensOneSessionPerTableAllSharingOneBillThatCarriesTheDeposit() {
         var r = seatedBooking(6);
         var deposit = deposit(r);
 
@@ -140,10 +140,21 @@ class MultiTableReservationTests {
                 sessions.stream().map(s -> s.getTable().getId()).toList());
         assertEquals(6, sessions.stream().mapToInt(TableSession::getGuestCount).sum());
         assertTrue(sessions.stream().allMatch(s -> s.getGuestCount() >= 1));
-        assertNotEquals(sessions.get(0).getBill().getId(), sessions.get(1).getBill().getId());
+        assertEquals(sessions.get(0).getBill().getId(), sessions.get(1).getBill().getId());
+        assertEquals(2, sessions.get(0).getBill().getSessions().size());
         assertEquals(sessions.get(0).getBill().getId(), deposit.getBill().getId());
         assertEquals(TableStatus.OCCUPIED, first.getStatus());
         assertEquals(TableStatus.OCCUPIED, second.getStatus());
+    }
+
+    @Test
+    void guestsAreSplitByCapacityWithAtLeastOnePerTable() {
+        var r = seatedBooking(5);
+
+        run("type", "handover", "id", id(r));
+
+        var counts = sessionsOf(r).stream().map(TableSession::getGuestCount).toList();
+        assertEquals(List.of(4, 1), counts);
     }
 
     @Test
@@ -159,13 +170,11 @@ class MultiTableReservationTests {
     }
 
     @Test
-    void payingAMergedBillClosesEverySessionAndFreesEveryTable() {
+    void payingTheSharedBillClosesEverySessionOfTheBooking() {
         var r = seatedBooking(6);
         run("type", "handover", "id", id(r));
         var sessions = sessionsOf(r);
-        sessionService.merge(reception.getId(), sessions.get(0).getId(), sessions.get(1).getId());
         var bill = sessions.get(0).getBill();
-        assertEquals(2, bill.getSessions().size());
 
         pay(bill, "100000");
 
@@ -176,25 +185,5 @@ class MultiTableReservationTests {
             assertEquals(TableStatus.AVAILABLE, s.getTable().getStatus());
         }
         assertEquals(Reservation.Status.COMPLETED, r.getStatus());
-    }
-
-    @Test
-    void payingOneOfTwoSeparateBillsKeepsTheOtherTableAndTheBookingOpen() {
-        var r = seatedBooking(6);
-        run("type", "handover", "id", id(r));
-        var sessions = sessionsOf(r);
-
-        pay(sessions.get(0).getBill(), "100000");
-
-        assertEquals(TableSession.Status.CLOSED, sessions.get(0).getStatus());
-        assertEquals(TableStatus.AVAILABLE, sessions.get(0).getTable().getStatus());
-        assertEquals(TableSession.Status.OPEN, sessions.get(1).getStatus());
-        assertEquals(TableStatus.OCCUPIED, sessions.get(1).getTable().getStatus());
-        assertEquals(Reservation.Status.SEATED, r.getStatus());
-
-        pay(sessions.get(1).getBill(), "80000");
-
-        assertEquals(Reservation.Status.COMPLETED, r.getStatus());
-        assertEquals(TableStatus.AVAILABLE, sessions.get(1).getTable().getStatus());
     }
 }
