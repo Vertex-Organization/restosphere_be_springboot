@@ -11,6 +11,11 @@ spring:
     username: ${DB_USERNAME:restosphere}
     password: ${DB_PASSWORD:restosphere}
 
+  sql:
+    init:
+      # Seed di qua Flyway (db/seed, chi profile dev); khong dung dataset.sql nua.
+      mode: never
+
   jpa:
     open-in-view: false
     hibernate:

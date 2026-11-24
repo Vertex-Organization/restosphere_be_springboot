@@ -55,8 +55,7 @@ App chạy ở `http://localhost:8080`. PostgreSQL được khởi động cùng
 | `DB_NAME` | `restosphere` | Tên database |
 | `DB_USERNAME` | `restosphere` | User database |
 | `DB_PASSWORD` | `restosphere` | Mật khẩu database, chỉ dùng mặc định khi dev |
-| `JPA_DDL_AUTO` | `update` | Chế độ `ddl-auto` của Hibernate, production nên dùng `validate` |
-| `SQL_INIT_MODE` | `always` | `always` chạy `dataset.sql` (dữ liệu demo 7 ngày, tài khoản mật khẩu `123456`) cùng lúc khởi động app, chạy lặp không ghi đè dữ liệu; đặt `never` để tắt, nhất là ở production |
+| `JPA_DDL_AUTO` | `validate` | Chế độ `ddl-auto` của Hibernate; schema do Flyway quản lý nên giữ `validate` |
 | `SWAGGER_ENABLED` | `false` | `true` để bật Swagger UI và `/v3/api-docs` |
 | `FORWARD_HEADERS_STRATEGY` | `none` | Đặt `framework` khi chạy sau reverse proxy để giới hạn tốc độ nhận đúng IP khách |
 
@@ -64,8 +63,7 @@ Tài khoản admin chỉ được tạo khi email chưa tồn tại, nên khởi
 
 ### Tài khoản demo web và mobile
 
-Mặc định `dataset.sql` chạy tự động sau khi Hibernate tạo schema (đặt `SQL_INIT_MODE=never` để tắt). Chạy tay nếu cần:
-Ví dụ với PostgreSQL CLI: `psql -h localhost -U restosphere -d restosphere -v ON_ERROR_STOP=1 -f src/main/resources/dataset.sql`.
+Dữ liệu demo nằm ở `src/main/resources/db/seed/V1_1__dev_seed.sql`, chỉ được nạp (một lần, sau migration schema) khi chạy với `SPRING_PROFILES_ACTIVE=dev`.
 
 Mật khẩu chung: `123456`, lưu dưới dạng BCrypt. Chỉ dùng dữ liệu này cho môi trường phát triển.
 
