@@ -107,8 +107,4 @@ public class Bill extends BaseEntity {
                 && sessions.stream()
                         .allMatch(s -> s.getStatus() == TableSession.Status.PAYMENT_REQUESTED);
     }
-
-    public boolean guestLeft() {
-        return sessions.stream().anyMatch(s -> s.getGuestLeftAt() != null);
-    }
 }

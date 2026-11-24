@@ -120,14 +120,16 @@ public class ReservationWorkflowImpl implements ReservationWorkflow {
                 actor,
                 "CREATED",
                 walkIn ? "Khách trực tiếp đã đến" : web ? "Khách đặt bàn qua web" : "Tạo lịch đặt");
-        String tableId = text(input, "tableId");
-        if (walkIn && tableId.isEmpty())
+        var tableIds = tableIds(input);
+        if (walkIn && tableIds.isEmpty())
             throw invalid("tableId", "Chọn bàn trống cho khách trực tiếp.");
-        if (!web && !tableId.isEmpty()) assign(r, tableId);
+        if (!web && !tableIds.isEmpty()) assign(r, tableIds);
         if (walkIn) {
-            var table = assignment(r).getTable();
-            if (table.getStatus() != TableStatus.AVAILABLE || hasOpenSession(table))
-                throw ApiException.conflict("Bàn đang có khách hoặc chưa sẵn sàng.");
+            for (var a : assignments(r)) {
+                if (a.getTable().getStatus() != TableStatus.AVAILABLE
+                        || hasOpenSession(a.getTable()))
+                    throw ApiException.conflict("Bàn đang có khách hoặc chưa sẵn sàng.");
+            }
             r.setStatus(Reservation.Status.ARRIVED);
             r.setActualGuests(r.getGuestCount());
             r.setArrivedAt(Instant.now());
@@ -483,23 +485,47 @@ public class ReservationWorkflowImpl implements ReservationWorkflow {
 
     @Override
     public void assign(Reservation r, String tableId) {
-        var table = db.get(RestaurantTable.class, tableId);
+        assign(r, List.of(tableId));
+    }
+
+    @Override
+    public void assign(Reservation r, List<String> tableIds) {
+        var tables =
+                tableIds.stream()
+                        .distinct()
+                        .map(tableId -> db.get(RestaurantTable.class, tableId))
+                        .toList();
         int guests = r.getActualGuests() == null ? r.getGuestCount() : r.getActualGuests();
-        if ((r.getArea() != null && !id(table.getArea()).equals(id(r.getArea())))
-                || !table.getArea().isActive()
-                || table.getCapacity() < guests
-                || table.getStatus() == TableStatus.OUT_OF_SERVICE)
+        for (var table : tables) {
+            if ((r.getArea() != null && !id(table.getArea()).equals(id(r.getArea())))
+                    || !table.getArea().isActive()
+                    || table.getStatus() == TableStatus.OUT_OF_SERVICE)
+                throw ApiException.conflict(
+                        "Bàn không phù hợp: khác khu vực, không đủ chỗ hoặc đang tạm ngưng.");
+        }
+        if (!fits(tables, guests))
             throw ApiException.conflict(
                     "Bàn không phù hợp: khác khu vực, không đủ chỗ hoặc đang tạm ngưng.");
-        ensureFree(r, table, r.getStartsAt(), r.getEndsAt());
+        for (var table : tables) ensureFree(r, table, r.getStartsAt(), r.getEndsAt());
         if (r.getId() != null)
             db.query(ReservationTable.class, "from ReservationTable a where a.reservation=?1", r)
                     .forEach(db::remove);
         db.flush();
-        var a = new ReservationTable();
-        a.setReservation(r);
-        a.setTable(table);
-        db.save(a);
+        for (var table : tables) {
+            var a = new ReservationTable();
+            a.setReservation(r);
+            a.setTable(table);
+            db.save(a);
+        }
+    }
+
+    // One table must seat everyone; several tables must together seat everyone, one guest each at
+    // least.
+    static boolean fits(List<RestaurantTable> tables, int guests) {
+        int capacity = tables.stream().mapToInt(RestaurantTable::getCapacity).sum();
+        return tables.size() == 1
+                ? capacity >= guests
+                : !tables.isEmpty() && capacity >= guests && guests >= tables.size();
     }
 
     void ensureFree(Reservation r, RestaurantTable table, Instant start, Instant end) {
@@ -565,8 +591,8 @@ public class ReservationWorkflowImpl implements ReservationWorkflow {
                 var input = object(c, "input");
                 fill(r, input, false, false);
                 replaceItems(r, input, false);
-                String tableId = text(input, "tableId");
-                if (!tableId.isEmpty()) assign(r, tableId);
+                var tableIds = tableIds(input);
+                if (!tableIds.isEmpty()) assign(r, tableIds);
                 else if (r.getStatus() == Reservation.Status.CONFIRMED)
                     throw ApiException.conflict("Lịch đã xác nhận phải giữ một bàn. Hãy chọn bàn.");
                 else
@@ -584,8 +610,14 @@ public class ReservationWorkflowImpl implements ReservationWorkflow {
                         Reservation.Status.ARRIVED,
                         Reservation.Status.SEATED);
                 var previous = assignment(r);
-                String tableId = required(c, "tableId", 100);
+                var tableIds = tableIds(c);
+                if (tableIds.isEmpty()) throw invalid("tableId", "Chọn bàn cho lịch đặt.");
                 if (r.getStatus() == Reservation.Status.SEATED) {
+                    String tableId = tableIds.getFirst();
+                    if (tableIds.size() > 1 || assignments(r).size() > 1)
+                        throw ApiException.conflict(
+                                "Lịch có nhiều bàn đã nhận khách, hãy ghép hoặc tách phiên thay vì"
+                                        + " đổi bàn.");
                     var session =
                             db
                                     .query(
@@ -614,7 +646,7 @@ public class ReservationWorkflowImpl implements ReservationWorkflow {
                             "Đổi bàn " + previous.getTable().getCode() + " → " + table.getCode(),
                             r.getCode() + " · " + r.getCustomerName(),
                             id(session));
-                } else assign(r, tableId);
+                } else assign(r, tableIds);
             }
             case "confirm" -> {
                 require(r, Reservation.Status.PENDING);
@@ -677,43 +709,7 @@ public class ReservationWorkflowImpl implements ReservationWorkflow {
                 r.setArrivedAt(Instant.now());
                 r.setStatus(Reservation.Status.ARRIVED);
             }
-            case "handover" -> {
-                require(r, Reservation.Status.ARRIVED);
-                var a = assignment(r);
-                if (a == null || a.getTable().getCapacity() < r.getActualGuests())
-                    throw ApiException.conflict(
-                            "Bàn hiện tại không đủ chỗ cho số khách thực tế. Hãy đổi bàn trước.");
-                if (a.getTable().getStatus() != TableStatus.AVAILABLE)
-                    throw ApiException.conflict("Bàn đang có khách hoặc chưa sẵn sàng.");
-                if (hasOpenSession(a.getTable()))
-                    throw ApiException.conflict("Bàn đang có khách khác sử dụng.");
-                var now = Instant.now();
-                ensureFree(
-                        r,
-                        a.getTable(),
-                        now,
-                        now.plus(Duration.between(r.getStartsAt(), r.getEndsAt())));
-                var bill = billing.open();
-                var session = new TableSession();
-                session.setBill(bill);
-                bill.getSessions().add(session);
-                session.setTable(a.getTable());
-                session.setReservation(r);
-                session.setGuestCount(
-                        r.getActualGuests() == null ? r.getGuestCount() : r.getActualGuests());
-                session.setStartedAt(Instant.now());
-                db.save(session);
-                attachDepositToBill(r, bill);
-                a.getTable().setStatus(TableStatus.OCCUPIED);
-                r.setHandedOverAt(Instant.now());
-                r.setStatus(Reservation.Status.SEATED);
-                service.notify(
-                        Role.WAITER,
-                        "HANDOVER",
-                        "Bàn " + a.getTable().getCode() + " chờ tiếp nhận",
-                        r.getCode() + " · " + r.getActualGuests() + " khách",
-                        id(session));
-            }
+            case "handover" -> handover(r);
             default -> throw invalid("Thao tác không được hỗ trợ.");
         }
         String label = HISTORY_LABELS.getOrDefault(type, type);
@@ -724,6 +720,62 @@ public class ReservationWorkflowImpl implements ReservationWorkflow {
                 text(c, "reason").isEmpty() ? label : label + ": " + text(c, "reason"));
     }
 
+    // One session per table, all pointing at the reservation; the deposit rides on the first
+    // session's bill.
+    private void handover(Reservation r) {
+        require(r, Reservation.Status.ARRIVED);
+        var assigned = assignments(r);
+        var tables = assigned.stream().map(ReservationTable::getTable).toList();
+        int guests = r.getActualGuests() == null ? r.getGuestCount() : r.getActualGuests();
+        if (tables.isEmpty() || !fits(tables, guests))
+            throw ApiException.conflict(
+                    "Bàn hiện tại không đủ chỗ cho số khách thực tế. Hãy đổi bàn trước.");
+        var now = Instant.now();
+        for (var table : tables) {
+            if (table.getStatus() != TableStatus.AVAILABLE)
+                throw ApiException.conflict("Bàn đang có khách hoặc chưa sẵn sàng.");
+            if (hasOpenSession(table))
+                throw ApiException.conflict("Bàn đang có khách khác sử dụng.");
+            ensureFree(r, table, now, now.plus(Duration.between(r.getStartsAt(), r.getEndsAt())));
+        }
+        int remaining = guests;
+        Bill firstBill = null;
+        for (int i = 0; i < tables.size(); i++) {
+            var table = tables.get(i);
+            int seated = Math.min(table.getCapacity(), remaining - (tables.size() - i - 1));
+            remaining -= seated;
+            var bill = billing.open();
+            if (firstBill == null) firstBill = bill;
+            var session = new TableSession();
+            session.setBill(bill);
+            bill.getSessions().add(session);
+            session.setTable(table);
+            session.setReservation(r);
+            session.setGuestCount(seated);
+            // Spaced by a millisecond so "the first session" is well defined for bill and preorder.
+            session.setStartedAt(now.plusMillis(i));
+            db.save(session);
+            table.setStatus(TableStatus.OCCUPIED);
+            service.notify(
+                    Role.WAITER,
+                    "HANDOVER",
+                    "Bàn " + table.getCode() + " chờ tiếp nhận",
+                    r.getCode() + " · " + seated + " khách",
+                    id(session));
+        }
+        attachDepositToBill(r, firstBill);
+        r.setHandedOverAt(now);
+        r.setStatus(Reservation.Status.SEATED);
+    }
+
+    private static List<String> tableIds(Map<String, Object> input) {
+        var ids = new ArrayList<String>();
+        if (input.get("tableIds") instanceof List<?> list) list.forEach(x -> ids.add(x.toString()));
+        String one = text(input, "tableId");
+        if (!one.isEmpty()) ids.add(one);
+        return ids.stream().distinct().toList();
+    }
+
     void require(Reservation r, Reservation.Status... statuses) {
         if (!Arrays.asList(statuses).contains(r.getStatus()))
             throw ApiException.conflict(
@@ -732,16 +784,18 @@ public class ReservationWorkflowImpl implements ReservationWorkflow {
 
     @Override
     public ReservationTable assignment(Reservation r) {
+        return assignments(r).stream().findFirst().orElse(null);
+    }
+
+    @Override
+    public List<ReservationTable> assignments(Reservation r) {
         return r.getId() == null
-                ? null
-                : db
-                        .query(
-                                ReservationTable.class,
-                                "from ReservationTable a where a.reservation=?1",
-                                r)
-                        .stream()
-                        .findFirst()
-                        .orElse(null);
+                ? List.of()
+                : db.query(
+                        ReservationTable.class,
+                        "from ReservationTable a where a.reservation=?1 order by a.createdAt,"
+                                + " a.id",
+                        r);
     }
 
     @Override

@@ -4,6 +4,7 @@ import static com.vertex.restosphere.common.util.Values.whole;
 
 import com.vertex.restosphere.common.enums.DiscountMode;
 import com.vertex.restosphere.common.enums.Role;
+import com.vertex.restosphere.common.enums.TableStatus;
 import com.vertex.restosphere.entity.*;
 import com.vertex.restosphere.exception.ApiException;
 import com.vertex.restosphere.service.BillingWorkflow;
@@ -108,9 +109,65 @@ public class BillingWorkflowImpl implements BillingWorkflow {
         if (received(b).compareTo(b.getTotal()) >= 0) {
             b.setStatus(Bill.Status.PAID);
             b.setPaidAt(Instant.now());
+            closeSessions(b);
         } else {
             b.setStatus(Bill.Status.OPEN);
             b.setPaidAt(null);
+        }
+    }
+
+    // TODO(confirm): tables go straight to AVAILABLE on payment; the old guest-left/clean steps no
+    // longer apply (mobile finish screen to be updated in phase 3).
+    private void closeSessions(Bill b) {
+        var now = Instant.now();
+        for (var s : b.getSessions()) {
+            if (s.getStatus() == TableSession.Status.CLOSED) continue;
+            s.setStatus(TableSession.Status.CLOSED);
+            s.setGuestLeftAt(now);
+            s.setEndedAt(now.isBefore(s.getStartedAt()) ? s.getStartedAt() : now);
+            s.getTable().setStatus(TableStatus.AVAILABLE);
+            completeReservationIfDone(s.getReservation());
+        }
+    }
+
+    private void completeReservationIfDone(Reservation r) {
+        if (r == null || r.getStatus() != Reservation.Status.SEATED) return;
+        db.flush();
+        boolean stillOpen =
+                !db.query(
+                                TableSession.class,
+                                "from TableSession s where s.reservation=?1 and s.status<>?2",
+                                r,
+                                TableSession.Status.CLOSED)
+                        .isEmpty();
+        if (!stillOpen) r.setStatus(Reservation.Status.COMPLETED);
+    }
+
+    // Undo closeSessions after a voided payment; only possible while no one else took the tables.
+    private void reopenSessions(Bill b) {
+        for (var s : b.getSessions()) {
+            if (s.getStatus() != TableSession.Status.CLOSED) continue;
+            var table = s.getTable();
+            boolean taken =
+                    table.getStatus() != TableStatus.AVAILABLE
+                            || !db.query(
+                                            TableSession.class,
+                                            "from TableSession o where o.table=?1 and o.status<>?2",
+                                            table,
+                                            TableSession.Status.CLOSED)
+                                    .isEmpty();
+            if (taken) throw ApiException.conflict("Payment can no longer be voided");
+        }
+        for (var s : b.getSessions()) {
+            if (s.getStatus() != TableSession.Status.CLOSED) continue;
+            s.setStatus(TableSession.Status.PAYMENT_REQUESTED);
+            s.setEndedAt(null);
+            s.setGuestLeftAt(null);
+            s.getTable().setStatus(TableStatus.OCCUPIED);
+            if (s.getReservation() != null
+                    && s.getReservation().getStatus() == Reservation.Status.COMPLETED) {
+                s.getReservation().setStatus(Reservation.Status.SEATED);
+            }
         }
     }
 
@@ -203,9 +260,9 @@ public class BillingWorkflowImpl implements BillingWorkflow {
                             || p.getBill() == null
                             || p.getReservation() != null
                             || p.getCashierShift() == null
-                            || p.getCashierShift().getClosedAt() != null
-                            || p.getBill().guestLeft())
+                            || p.getCashierShift().getClosedAt() != null)
                         throw ApiException.conflict("Payment can no longer be voided");
+                    reopenSessions(p.getBill());
                     p.setStatus(Payment.Status.VOIDED);
                     p.getBill().setStatus(Bill.Status.OPEN);
                     p.getBill().setPaidAt(null);

@@ -3,6 +3,7 @@ package com.vertex.restosphere.service;
 import com.vertex.restosphere.entity.Employee;
 import com.vertex.restosphere.entity.Reservation;
 import com.vertex.restosphere.entity.ReservationTable;
+import java.util.List;
 import java.util.Map;
 
 /** Đặt bàn: tạo, tra cứu, gán bàn, đổi trạng thái và lịch sử. */
@@ -21,6 +22,11 @@ public interface ReservationWorkflow {
     int expireNoShows();
 
     void assign(Reservation r, String tableId);
+
+    /** Gán một hoặc nhiều bàn (đặt bàn đông người); thay toàn bộ bàn đang giữ. */
+    void assign(Reservation r, List<String> tableIds);
+
+    List<ReservationTable> assignments(Reservation r);
 
     boolean active(Reservation r);
 

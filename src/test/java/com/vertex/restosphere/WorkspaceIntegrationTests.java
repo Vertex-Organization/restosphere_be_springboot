@@ -163,7 +163,6 @@ class WorkspaceIntegrationTests {
         assertTrue(paid.created());
         assertFalse(replay.created());
         assertEquals(paid.payment().id(), replay.payment().id());
-        assertEquals(TableStatus.OCCUPIED, table.getStatus());
         assertEquals(1, db.all(Payment.class).size());
         var different =
                 new CashierPayCashRequest(
@@ -173,10 +172,10 @@ class WorkspaceIntegrationTests {
                         payment.idempotencyKey());
         assertThrows(
                 ApiException.class, () -> payments.payCash(cashier.getId(), billId, different));
-        run("staff", waiter, "type", "guest-left", "sessionId", session, "confirmed", true);
-        assertEquals(TableStatus.CLEANING, table.getStatus());
-        run("staff", waiter, "type", "clean", "sessionId", session, "confirmed", true);
-        assertEquals(TableStatus.AVAILABLE, table.getStatus());
+        assertEquals(TableStatus.AVAILABLE, table.getStatus(), "payment frees the table");
+        assertEquals(TableSession.Status.CLOSED, db.get(TableSession.class, session).getStatus());
+        assertEquals(
+                Reservation.Status.COMPLETED, db.get(Reservation.class, reservation).getStatus());
     }
 
     @Test
