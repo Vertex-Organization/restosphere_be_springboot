@@ -1,8 +1,12 @@
 package com.vertex.restosphere.controller;
 
+import com.vertex.restosphere.dto.request.PaymentStatusRequest;
+import com.vertex.restosphere.dto.response.PaymentStatusResponse;
 import com.vertex.restosphere.security.PublicRateLimiter;
+import com.vertex.restosphere.service.PayosPaymentQueries;
 import com.vertex.restosphere.service.ReservationWorkflow;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -14,6 +18,7 @@ import org.springframework.web.bind.annotation.*;
 public class ReservationController {
     private final ReservationWorkflow service;
     private final PublicRateLimiter limiter;
+    private final PayosPaymentQueries queries;
 
     @GetMapping("/settings")
     public Map<String, Object> settings() {
@@ -33,6 +38,15 @@ public class ReservationController {
             @RequestBody Map<String, Object> input, HttpServletRequest req) {
         limiter.check(req);
         return service.lookup(input);
+    }
+
+    // TODO(confirm): new public endpoint, required by the master prompt for /payment/result. POST
+    // because it carries the guest's code and phone; rate limited like the other public calls.
+    @PostMapping("/payment-status")
+    public PaymentStatusResponse paymentStatus(
+            @Valid @RequestBody PaymentStatusRequest input, HttpServletRequest req) {
+        limiter.check(req);
+        return queries.publicStatus(input.orderCode(), input.code(), input.phone());
     }
 
     @PostMapping("/cancel")

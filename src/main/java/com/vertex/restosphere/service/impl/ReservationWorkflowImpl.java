@@ -7,6 +7,7 @@ import com.vertex.restosphere.entity.*;
 import com.vertex.restosphere.exception.ApiException;
 import com.vertex.restosphere.mapper.ReservationMapper;
 import com.vertex.restosphere.service.BillingWorkflow;
+import com.vertex.restosphere.service.PayosPayments;
 import com.vertex.restosphere.service.ReservationWorkflow;
 import com.vertex.restosphere.service.ServiceWorkflow;
 import com.vertex.restosphere.service.WorkspaceStore;
@@ -27,6 +28,8 @@ public class ReservationWorkflowImpl implements ReservationWorkflow {
     private final ReservationMapper mapper;
     private final BillingWorkflow billing;
     private final PayosLinks links;
+    // Lazy: PayosPayments confirms reservations through this class, so a direct reference loops.
+    private final org.springframework.beans.factory.ObjectProvider<PayosPayments> payosPayments;
     static final Map<String, String> HISTORY_LABELS =
             Map.ofEntries(
                     Map.entry("edit", "Cập nhật lịch đặt"),
@@ -523,7 +526,11 @@ public class ReservationWorkflowImpl implements ReservationWorkflow {
                         Reservation.Status.PENDING,
                         now,
                         Payment.Status.COMPLETED);
+        int cancelled = 0;
         for (var r : expired) {
+            if (paidAccordingToPayos(r)) continue;
+            // Cancel the link first so the guest cannot pay a booking that is already gone.
+            links.cancelDepositLink(r, "Quá hạn thu cọc");
             command(
                     "cancel",
                     map(
@@ -538,8 +545,26 @@ public class ReservationWorkflowImpl implements ReservationWorkflow {
                     "Hủy lịch do chưa nhận cọc",
                     r.getCode() + " · " + r.getCustomerName(),
                     id(r));
+            cancelled++;
         }
-        return expired.size();
+        return cancelled;
+    }
+
+    // The webhook may have been lost: ask payOS before cancelling, and if it was paid, confirm.
+    // If payOS cannot be reached the booking is kept for the next run rather than cancelled blind.
+    private boolean paidAccordingToPayos(Reservation r) {
+        for (var p : List.copyOf(r.getPayments())) {
+            if (p.getMethod() != Payment.Method.PAYOS || p.getStatus() != Payment.Status.PENDING)
+                continue;
+            try {
+                var outcome = payosPayments.getObject().refresh(p);
+                if (outcome == PayosPayments.Outcome.COMPLETED
+                        || outcome == PayosPayments.Outcome.ALREADY_COMPLETED) return true;
+            } catch (ApiException e) {
+                return true;
+            }
+        }
+        return false;
     }
 
     @Override

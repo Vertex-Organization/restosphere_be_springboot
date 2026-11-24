@@ -64,6 +64,7 @@ public class SecurityConfig {
                                                 "/api/v1/reservations",
                                                 "/api/v1/reservations/lookup",
                                                 "/api/v1/reservations/cancel",
+                                                "/api/v1/reservations/payment-status",
                                                 "/api/v1/customers/register")
                                         .permitAll()
                                         .requestMatchers(HttpMethod.POST, PAYOS_WEBHOOK)
