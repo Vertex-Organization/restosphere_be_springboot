@@ -38,6 +38,9 @@ public interface BillingWorkflow {
     /** Chuyển hóa đơn sang PAID khi đã thu đủ, ngược lại mở lại. */
     void settle(Bill b);
 
+    /** Báo phục vụ khi hóa đơn vừa được thanh toán đủ (không làm gì nếu chưa PAID). */
+    void notifyPaid(Bill b);
+
     void applyDiscount(Bill b, DiscountMode mode, BigDecimal value, String reason, Employee user);
 
     ApprovalRequest request(

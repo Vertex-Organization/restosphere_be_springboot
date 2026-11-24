@@ -21,6 +21,12 @@ public interface ReservationWorkflow {
 
     int expireNoShows();
 
+    /**
+     * Xác nhận đặt bàn ngay khi cọc đã trả đủ (PENDING -> CONFIRMED), tự xếp bàn nếu chưa có. Không
+     * ném lỗi khi hết bàn: đặt bàn giữ PENDING và lễ tân được báo xếp tay.
+     */
+    boolean confirmAfterDeposit(Reservation r);
+
     void assign(Reservation r, String tableId);
 
     /** Gán một hoặc nhiều bàn (đặt bàn đông người); thay toàn bộ bàn đang giữ. */

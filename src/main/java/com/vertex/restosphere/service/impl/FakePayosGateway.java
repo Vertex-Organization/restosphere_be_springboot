@@ -1,5 +1,6 @@
 package com.vertex.restosphere.service.impl;
 
+import com.vertex.restosphere.exception.ApiException;
 import com.vertex.restosphere.service.PayosGateway;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -38,10 +39,10 @@ public class FakePayosGateway implements PayosGateway {
         return links.getOrDefault(orderCode, new LinkInfo(LinkStatus.PENDING, 0));
     }
 
-    /** Chữ ký không được kiểm tra: webhook giả luôn đi qua endpoint dev, không qua payOS. */
+    /** Bản giả không có khóa nên không xác thực được chữ ký: mọi webhook ký bị từ chối. */
     @Override
     public PaidEvent verifyWebhook(Object body) {
-        throw new UnsupportedOperationException("Fake gateway has no signed webhooks");
+        throw ApiException.badRequest("Chữ ký webhook không hợp lệ.");
     }
 
     /** Đánh dấu link đã trả đủ số tiền đã tạo, như payOS khi khách quét QR. */

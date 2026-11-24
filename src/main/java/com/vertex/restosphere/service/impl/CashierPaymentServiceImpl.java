@@ -261,7 +261,7 @@ public class CashierPaymentServiceImpl implements CashierPaymentService {
         store.flush();
         billing.settle(bill);
         writes.commit(user, cash ? "pay-cash" : "pay-manual-transfer");
-        notifyIfPaid(payment);
+        billing.notifyPaid(payment.getBill());
         store.flush();
         return new Outcome(CashierPaymentResponse.from(payment), true);
     }
@@ -305,17 +305,5 @@ public class CashierPaymentServiceImpl implements CashierPaymentService {
         writes.commit(user, "create-payos-link");
         store.flush();
         return new Outcome(CashierPaymentResponse.from(payment), true);
-    }
-
-    private void notifyIfPaid(Payment payment) {
-        Bill bill = payment.getBill();
-        if (bill.getStatus() == Bill.Status.PAID) {
-            workflow.notify(
-                    Role.WAITER,
-                    "PAYMENT",
-                    "Payment received",
-                    bill.getCode(),
-                    bill.primarySession().getId().toString());
-        }
     }
 }

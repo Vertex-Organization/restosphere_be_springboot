@@ -8,6 +8,7 @@ import com.vertex.restosphere.common.enums.TableStatus;
 import com.vertex.restosphere.entity.*;
 import com.vertex.restosphere.exception.ApiException;
 import com.vertex.restosphere.service.BillingWorkflow;
+import com.vertex.restosphere.service.ServiceWorkflow;
 import com.vertex.restosphere.service.WorkspaceStore;
 import java.math.*;
 import java.time.Instant;
@@ -20,6 +21,7 @@ import org.springframework.stereotype.Service;
 public class BillingWorkflowImpl implements BillingWorkflow {
     private final WorkspaceStore db;
     private final PayosLinks links;
+    private final ServiceWorkflow events;
 
     @Override
     public Bill open() {
@@ -118,6 +120,17 @@ public class BillingWorkflowImpl implements BillingWorkflow {
     public void requireVersion(Bill b, long version) {
         if (version != b.getVersion())
             throw ApiException.conflict("Bill changed; refresh before retrying");
+    }
+
+    @Override
+    public void notifyPaid(Bill b) {
+        if (b.getStatus() != Bill.Status.PAID) return;
+        events.notify(
+                Role.WAITER,
+                "PAYMENT",
+                "Payment received",
+                b.getCode(),
+                b.primarySession().getId().toString());
     }
 
     @Override

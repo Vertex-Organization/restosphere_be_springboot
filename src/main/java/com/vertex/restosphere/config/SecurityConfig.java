@@ -2,6 +2,8 @@ package com.vertex.restosphere.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.Environment;
+import org.springframework.core.env.Profiles;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.Customizer;
@@ -26,8 +28,15 @@ public class SecurityConfig {
             PathPatternRequestMatcher.withDefaults()
                     .matcher(HttpMethod.POST, "/api/v1/auth/{action:login|refresh|logout}");
 
+    // payOS posts here without a token; the handler verifies the signature itself.
+    private static final String PAYOS_WEBHOOK = "/api/payments/payos-webhook";
+    // Dev-only simulator; the controller itself only exists under the dev profile.
+    private static final String DEV_PAYOS = "/api/dev/payos/**";
+
     @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    SecurityFilterChain securityFilterChain(HttpSecurity http, Environment environment)
+            throws Exception {
+        boolean dev = environment.acceptsProfiles(Profiles.of("dev"));
         return http.cors(Customizer.withDefaults())
                 .csrf(AbstractHttpConfigurer::disable)
                 .httpBasic(AbstractHttpConfigurer::disable)
@@ -56,6 +65,17 @@ public class SecurityConfig {
                                                 "/api/v1/reservations/lookup",
                                                 "/api/v1/reservations/cancel",
                                                 "/api/v1/customers/register")
+                                        .permitAll()
+                                        .requestMatchers(HttpMethod.POST, PAYOS_WEBHOOK)
+                                        .permitAll()
+                                        .requestMatchers(
+                                                request ->
+                                                        dev
+                                                                ? PathPatternRequestMatcher
+                                                                        .withDefaults()
+                                                                        .matcher(DEV_PAYOS)
+                                                                        .matches(request)
+                                                                : false)
                                         .permitAll()
                                         .requestMatchers("/error")
                                         .permitAll()

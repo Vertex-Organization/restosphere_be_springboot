@@ -435,6 +435,26 @@ public class ReservationWorkflowImpl implements ReservationWorkflow {
         return late.size() + released + unpaid;
     }
 
+    @Override
+    public boolean confirmAfterDeposit(Reservation r) {
+        if (r.getStatus() != Reservation.Status.PENDING || r.awaitingDeposit()) return false;
+        if (assignment(r) == null) {
+            try {
+                autoAssign(r);
+            } catch (ApiException e) {
+                service.notify(
+                        Role.RECEPTIONIST,
+                        "DEPOSIT_PAID_NO_TABLE",
+                        "Đã nhận cọc nhưng chưa xếp được bàn",
+                        r.getCode() + " · " + r.getCustomerName(),
+                        id(r));
+                return false;
+            }
+        }
+        command("confirm", map("id", id(r)), null);
+        return true;
+    }
+
     // Policy: a paid deposit is never refunded, whether the booking is cancelled or a no-show.
     static String depositNote(Reservation r) {
         if (!paidDeposit(r)) return "";

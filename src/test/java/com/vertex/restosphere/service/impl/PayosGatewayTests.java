@@ -80,6 +80,66 @@ class PayosGatewayTests {
         }
     }
 
+    // Signs a webhook the way payOS does: HMAC over the data object, with the SDK's own crypto.
+    private static java.util.Map<String, Object> signedWebhook(String checksumKey, long amount) {
+        var data =
+                vn.payos.model.webhooks.WebhookData.builder()
+                        .orderCode(123L)
+                        .amount(amount)
+                        .description("VQRIO123")
+                        .accountNumber("12345678")
+                        .reference("TF230204212323")
+                        .transactionDateTime("2023-02-04 18:25:00")
+                        .currency("VND")
+                        .paymentLinkId("124c33293c43417ab7879e14c8d9eb18")
+                        .code("00")
+                        .desc("Thành công")
+                        .build();
+        String signature =
+                new vn.payos.crypto.CryptoProviderImpl().createSignatureFromObj(data, checksumKey);
+        var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        @SuppressWarnings("unchecked")
+        java.util.Map<String, Object> dataMap = mapper.convertValue(data, java.util.Map.class);
+        return java.util.Map.of(
+                "code",
+                "00",
+                "desc",
+                "success",
+                "success",
+                true,
+                "data",
+                dataMap,
+                "signature",
+                signature);
+    }
+
+    @Test
+    void webhookWithAValidSignatureIsAcceptedAndATamperedOneIsRejectedWith400() {
+        var gateway = new PayosGatewayImpl(props("id", "api", "checksum-secret"));
+        var body = signedWebhook("checksum-secret", 50000);
+
+        var event = gateway.verifyWebhook(body);
+        assertTrue(event.success());
+        assertEquals(123L, event.orderCode());
+        assertEquals(50000L, event.amount());
+
+        var tampered = new java.util.HashMap<>(body);
+        tampered.put("data", signedWebhook("checksum-secret", 50000).get("data"));
+        @SuppressWarnings("unchecked")
+        var data =
+                new java.util.LinkedHashMap<>((java.util.Map<String, Object>) tampered.get("data"));
+        data.put("amount", 1L);
+        tampered.put("data", data);
+        var e = assertThrows(ApiException.class, () -> gateway.verifyWebhook(tampered));
+        assertEquals(HttpStatus.BAD_REQUEST, e.getStatus());
+
+        var wrongKey = signedWebhook("another-key", 50000);
+        assertEquals(
+                HttpStatus.BAD_REQUEST,
+                assertThrows(ApiException.class, () -> gateway.verifyWebhook(wrongKey))
+                        .getStatus());
+    }
+
     @Test
     void fakeGatewayRemembersLinksAndNeverUnpaysAPaidOne() {
         var fake = new FakePayosGateway();
