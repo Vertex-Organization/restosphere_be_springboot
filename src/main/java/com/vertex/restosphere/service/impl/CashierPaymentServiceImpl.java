@@ -18,6 +18,7 @@ import com.vertex.restosphere.repository.EmployeeRepository;
 import com.vertex.restosphere.repository.PaymentRepository;
 import com.vertex.restosphere.repository.RestaurantSettingsRepository;
 import com.vertex.restosphere.security.CurrentUserService;
+import com.vertex.restosphere.security.FailureLimiter;
 import com.vertex.restosphere.service.BillingWorkflow;
 import com.vertex.restosphere.service.CashierPaymentService;
 import com.vertex.restosphere.service.RestaurantLock;
@@ -50,6 +51,8 @@ public class CashierPaymentServiceImpl implements CashierPaymentService {
     private final RestaurantSettingsRepository settings;
     private final EmployeeRepository employees;
     private final PasswordEncoder passwordEncoder;
+    private final AuditRecorder auditRecorder;
+    private final FailureLimiter approvalFailures = new FailureLimiter(10, 15 * 60_000L);
 
     @Transactional(readOnly = true)
     @Override
@@ -92,7 +95,8 @@ public class CashierPaymentServiceImpl implements CashierPaymentService {
     @Transactional
     @Override
     public Outcome payManualTransfer(UUID actorId, UUID billId, CashierManualTransferRequest req) {
-        Employee manager = manualTransferApprover(req.managerEmail(), req.managerPassword());
+        Employee cashier = currentUser.require(actorId, Role.ADMIN, Role.CASHIER);
+        Employee manager = manualTransferApprover(cashier, billId, req);
         String ref = req.transactionReference().trim();
         if (ref.isEmpty())
             throw Values.invalid("transactionReference", "Nhập mã giao dịch ngân hàng.");
@@ -104,37 +108,69 @@ public class CashierPaymentServiceImpl implements CashierPaymentService {
         if (cfg.getBankAccountNumber() == null || cfg.getBankAccountNumber().isBlank()) {
             throw ApiException.conflict("Nhà hàng chưa cấu hình tài khoản ngân hàng.");
         }
-        return create(
-                actorId,
-                billId,
-                Payment.Method.MANUAL_TRANSFER,
-                req.billVersion(),
-                req.amount(),
-                null,
-                req.idempotencyKey(),
-                p -> {
-                    p.setTransactionReference(ref);
-                    p.setProofImageUrl(blankToNull(req.proofImageUrl()));
-                    p.setVerifiedBy(manager);
-                });
+        Outcome outcome =
+                create(
+                        actorId,
+                        billId,
+                        Payment.Method.MANUAL_TRANSFER,
+                        req.billVersion(),
+                        req.amount(),
+                        null,
+                        req.idempotencyKey(),
+                        p -> {
+                            p.setTransactionReference(ref);
+                            p.setProofImageUrl(blankToNull(req.proofImageUrl()));
+                            p.setVerifiedBy(manager);
+                        });
+        if (outcome.created()) {
+            workflow.audit(
+                    manager,
+                    "manual-transfer-confirmed",
+                    billId,
+                    "BILL",
+                    "Quản lý xác nhận chuyển khoản thủ công tại quầy, mã giao dịch " + ref);
+        }
+        return outcome;
     }
 
     // The manager types their own credentials at the counter; the cashier never sees them.
-    private Employee manualTransferApprover(String email, String password) {
-        String key = EmailUtils.normalize(email);
+    private Employee manualTransferApprover(
+            Employee cashier, UUID billId, CashierManualTransferRequest req) {
+        String key = EmailUtils.normalize(req.managerEmail());
+        if (approvalFailures.blocked(key)) {
+            auditApproval(cashier, billId, "manual-transfer-blocked", key);
+            throw new ApiException(
+                    HttpStatus.TOO_MANY_REQUESTS,
+                    "Nhập sai quá nhiều lần. Vui lòng thử lại sau 15 phút.");
+        }
         Employee manager =
                 employees
                         .findByEmail(key)
                         .filter(Employee::isEnabled)
                         .filter(e -> e.getRole() == Role.MANAGER || e.getRole() == Role.ADMIN)
-                        .filter(e -> passwordEncoder.matches(password, e.getPasswordHash()))
+                        .filter(
+                                e ->
+                                        passwordEncoder.matches(
+                                                req.managerPassword(), e.getPasswordHash()))
                         .orElse(null);
-        // shortcut: no lockout here (login has one); add the same counter if this is abused.
         if (manager == null) {
+            approvalFailures.fail(key);
+            auditApproval(cashier, billId, "manual-transfer-denied", key);
             throw new ApiException(
                     HttpStatus.FORBIDDEN, "Thông tin xác nhận của quản lý không đúng.");
         }
+        approvalFailures.clear(key);
         return manager;
+    }
+
+    private void auditApproval(Employee cashier, UUID billId, String action, String managerEmail) {
+        auditRecorder.record(
+                cashier,
+                action,
+                "BILL",
+                billId,
+                "Xác nhận chuyển khoản thủ công không thành công với tài khoản quản lý "
+                        + managerEmail);
     }
 
     private static String blankToNull(String value) {

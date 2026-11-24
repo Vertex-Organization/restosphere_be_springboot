@@ -104,6 +104,12 @@ class CashierManualTransferApiIntegrationTests extends CashierApiTestBase {
         assertThat(billStatus(f)).isEqualTo(Bill.Status.PAID);
         assertThat(revision()).isEqualTo(before + 1);
         assertThat(auditCount("pay-manual-transfer")).isEqualTo(1);
+        assertThat(
+                        count(
+                                "select count(a) from AuditLog a where a.action = :p0 and a.actor.id = :p1",
+                                "manual-transfer-confirmed",
+                                manager.getId()))
+                .isEqualTo(1);
 
         String replay =
                 ok(
@@ -128,6 +134,40 @@ class CashierManualTransferApiIntegrationTests extends CashierApiTestBase {
         String asCashier =
                 json(version(f), 1000, "c4-cash", "B-2").replace(MANAGER_EMAIL, cashier.getEmail());
         call(HttpMethod.POST, path(f), cashierToken, asCashier).andExpect(status().isForbidden());
+        assertThat(count("select count(p) from Payment p where p.bill.id = :p0", f.bill().getId()))
+                .isZero();
+        assertThat(
+                        count(
+                                "select count(a) from AuditLog a where a.action = :p0",
+                                "manual-transfer-denied"))
+                .isEqualTo(2);
+    }
+
+    @Test
+    void tooManyWrongManagerPasswordsLockTheManagerAccountAndAreAudited() throws Exception {
+        String email = "c4-locked@restosphere.test";
+        saveUser(email, Role.MANAGER);
+        Fixture f = billFixture();
+        openShift(cashierToken, 0);
+        String body =
+                json(version(f), 1000, "c4-lock", "B-L", "nope").replace(MANAGER_EMAIL, email);
+        for (int i = 0; i < 10; i++) {
+            call(HttpMethod.POST, path(f), cashierToken, body).andExpect(status().isForbidden());
+        }
+        call(HttpMethod.POST, path(f), cashierToken, body).andExpect(status().isTooManyRequests());
+        String correct = body.replace("nope", PASSWORD);
+        call(HttpMethod.POST, path(f), cashierToken, correct)
+                .andExpect(status().isTooManyRequests());
+        assertThat(
+                        count(
+                                "select count(a) from AuditLog a where a.action = :p0",
+                                "manual-transfer-denied"))
+                .isEqualTo(10);
+        assertThat(
+                        count(
+                                "select count(a) from AuditLog a where a.action = :p0",
+                                "manual-transfer-blocked"))
+                .isEqualTo(2);
         assertThat(count("select count(p) from Payment p where p.bill.id = :p0", f.bill().getId()))
                 .isZero();
     }
