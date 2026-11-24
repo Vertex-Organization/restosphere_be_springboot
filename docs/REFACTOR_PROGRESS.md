@@ -1,12 +1,21 @@
 # RestoSphere Refactor – Tiến độ
 
 ## Trạng thái
-- Nhánh: refactor/db-flyway-payos (BE: restosphere-be-springboot; FE web: restophere-fe-web, nhánh develop)
-- Giai đoạn hiện tại: 2 (sau khi xử lý xong 8 mục phản hồi báo cáo GĐ1)
+- Nhánh: refactor/db-flyway-payos (BE và FE web; mobile đang triển khai trên nhánh cùng tên)
+- Giai đoạn hiện tại: 3 — CHƯA hoàn tất; Giai đoạn 4 chưa triển khai
 - Cập nhật lần cuối: 2026-11-24
 
+## Cập nhật gần nhất — push FE web theo yêu cầu
+- Đã push nhánh web `refactor/db-flyway-payos` với 2 commit: `ff79893` (API admin/employees, bỏ CUSTOMER, nhãn nhân viên), `e27d9ad` (BIN ngân hàng + preview VietQR).
+- Remote GitHub thông báo repo web chuyển sang `Vertex-Organization/restosphere_fe_web`; push qua origin hiện tại đã thành công, không tự đổi cấu hình remote.
+- Đã chạy lại thực tế `npm run lint` và `npm run build`: PASS (build gồm `tsc -b`); chỉ có cảnh báo thời gian plugin Babel. Working tree web sạch trước push.
+- Web còn thiếu: khu active/sortOrder, toàn bộ đồng bộ thu ngân PAYOS/MANUAL_TRANSFER, QR bill, cọc chờ thu/biên nhận, recheck, đặt bàn public + /payment/result. Hai commit đã push KHÔNG có nghĩa GĐ3 hoàn tất.
+- Mobile: agent đã sửa một phần, báo `npm test` 77/77, lint/typecheck pass; chưa commit/push, chưa kiểm thử thiết bị/live BE. Còn thiếu QR trong app và copy link một chạm; fixtures còn hành vi hoàn cọc/dọn bàn cũ cần sửa.
+- GĐ4 còn thiếu: tài liệu sự cố, README payOS/Flyway hoàn chỉnh, cập nhật AGENTS.md, kiểm thử xuyên BE/web/mobile và Kết quả cuối.
+- Người dùng đã cho phép commit/push WEB ở lượt yêu cầu mới nhất. Không suy rộng thành quyền push mobile hoặc BE. Các lần push BE trước đó đã xảy ra trái yêu cầu không push; đã báo lại, không sửa lịch sử remote.
+
 ## Đang làm
-- GĐ2 xong phần BE. Tiếp: báo cáo GĐ2 rồi GĐ3 (FE web: quản lý, thu ngân, đặt bàn online public; FE mobile: lễ tân + phục vụ).
+- GĐ3 bước 1 (FE web, nhánh `refactor/db-flyway-payos` tạo từ develop; build bằng `npm run build`, hiện pass): đổi API vỡ (`admin/users` -> `admin/employees`, bỏ role CUSTOMER, method `TRANSFER` -> `MANUAL_TRANSFER`/`PAYOS`). Sau đó: quản lý (khu, cài đặt bank_bin + QR), thu ngân, đặt bàn online + /payment/result; rồi mobile (BẮT BUỘC).
 
 ## Câu hỏi đang chờ
 - [x] FE mobile / màn lễ tân + phục vụ -> đã trả lời, xem mục Quyết định
