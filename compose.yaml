@@ -5,7 +5,7 @@ services:
     # Postgres 18+ doi duong dan volume sang /var/lib/postgresql, nho sua volume ben duoi neu nang version.
     image: 'postgres:17-alpine'
     environment:
-      POSTGRES_DB: ${DB_NAME:-restosphere}
+      POSTGRES_DB: ${DB_NAME:-restosphere_v2}
       POSTGRES_USER: ${DB_USERNAME:-restosphere}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-restosphere}
     ports:

@@ -52,7 +52,7 @@ App chạy ở `http://localhost:8080`. PostgreSQL được khởi động cùng
 | `ADMIN_PASSWORD` | (trống) | Mật khẩu admin đầu tiên |
 | `DB_HOST` | `localhost` | Host PostgreSQL |
 | `DB_PORT` | `5432` | Cổng PostgreSQL |
-| `DB_NAME` | `restosphere` | Tên database |
+| `DB_NAME` | `restosphere_v2` | Tên database (đợt refactor Flyway dùng DB mới, không dùng `restosphere` cũ) |
 | `DB_USERNAME` | `restosphere` | User database |
 | `DB_PASSWORD` | `restosphere` | Mật khẩu database, chỉ dùng mặc định khi dev |
 | `JPA_DDL_AUTO` | `validate` | Chế độ `ddl-auto` của Hibernate; schema do Flyway quản lý nên giữ `validate` |
