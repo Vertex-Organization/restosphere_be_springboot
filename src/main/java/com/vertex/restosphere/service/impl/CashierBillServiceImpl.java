@@ -23,6 +23,7 @@ import com.vertex.restosphere.repository.PaymentRepository;
 import com.vertex.restosphere.repository.RestaurantSettingsRepository;
 import com.vertex.restosphere.security.CurrentUserService;
 import com.vertex.restosphere.service.CashierBillService;
+import com.vertex.restosphere.service.PayosGateway;
 import java.math.BigDecimal;
 import java.util.Collection;
 import java.util.List;
@@ -45,6 +46,7 @@ public class CashierBillServiceImpl implements CashierBillService {
     private final OrderItemRepository orderItems;
     private final AuditLogRepository auditLogs;
     private final RestaurantSettingsRepository settings;
+    private final PayosGateway payos;
 
     @Transactional(readOnly = true)
     @Override
@@ -200,9 +202,15 @@ public class CashierBillServiceImpl implements CashierBillService {
                 s.getAddress(),
                 s.getServiceChargeRate().movePointRight(2),
                 s.getVatRate().movePointRight(2),
-                // TODO(confirm): PAYOS stays false until the payOS integration (phase 2) flips it
-                // on.
-                Map.of("CASH", true, "PAYOS", false, "MANUAL_TRANSFER", transfer, "CARD", false),
+                Map.of(
+                        "CASH",
+                        true,
+                        "PAYOS",
+                        payos.available(),
+                        "MANUAL_TRANSFER",
+                        transfer,
+                        "CARD",
+                        false),
                 bank);
     }
 

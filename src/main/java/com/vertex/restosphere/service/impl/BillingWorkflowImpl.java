@@ -19,6 +19,7 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class BillingWorkflowImpl implements BillingWorkflow {
     private final WorkspaceStore db;
+    private final PayosLinks links;
 
     @Override
     public Bill open() {
@@ -61,6 +62,32 @@ public class BillingWorkflowImpl implements BillingWorkflow {
         b.setServiceCharge(service);
         b.setTaxAmount(tax);
         b.setTotal(net.add(service).add(tax));
+        cancelStaleLinks(b);
+    }
+
+    // A QR printed for an old amount must not stay payable: drop it so the cashier prints a new
+    // one.
+    private void cancelStaleLinks(Bill b) {
+        var pending = pendingLinks(b);
+        if (pending.isEmpty()) return;
+        BigDecimal outstanding = b.getTotal().subtract(received(b));
+        links.cancelAll(
+                pending.stream().filter(p -> p.getAmount().compareTo(outstanding) != 0).toList(),
+                "Hóa đơn thay đổi");
+    }
+
+    private List<Payment> pendingLinks(Bill b) {
+        return db.query(
+                Payment.class,
+                "from Payment p where p.bill=?1 and p.method=?2 and p.status=?3",
+                b,
+                Payment.Method.PAYOS,
+                Payment.Status.PENDING);
+    }
+
+    @Override
+    public void cancelPayosLinks(Bill b, String reason) {
+        links.cancelAll(pendingLinks(b), reason);
     }
 
     @Override
@@ -81,9 +108,9 @@ public class BillingWorkflowImpl implements BillingWorkflow {
         if (b.getStatus() != Bill.Status.OPEN
                 || !db.query(
                                 Payment.class,
-                                "from Payment p where p.bill=?1 and p.reservation is null and p.status in ?2",
+                                "from Payment p where p.bill=?1 and p.reservation is null and p.status=?2",
                                 b,
-                                List.of(Payment.Status.PENDING, Payment.Status.COMPLETED))
+                                Payment.Status.COMPLETED)
                         .isEmpty()) throw ApiException.conflict("Bill has payments or is closed");
     }
 

@@ -22,6 +22,16 @@ public interface PaymentRepository extends JpaRepository<Payment, UUID> {
 
     boolean existsByTransactionReference(String transactionReference);
 
+    boolean existsByPayosOrderCode(Long payosOrderCode);
+
+    Optional<Payment> findByPayosOrderCode(Long payosOrderCode);
+
+    List<Payment> findByBillIdAndMethodAndStatus(
+            UUID billId, Payment.Method method, Payment.Status status);
+
+    List<Payment> findByReservationIdAndMethodAndStatus(
+            UUID reservationId, Payment.Method method, Payment.Status status);
+
     List<Payment> findByBillIdInOrderByCreatedAtAsc(Collection<UUID> billIds);
 
     @Query(

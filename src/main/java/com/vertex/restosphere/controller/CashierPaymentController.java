@@ -3,6 +3,7 @@ package com.vertex.restosphere.controller;
 import com.vertex.restosphere.config.OpenApiConfig;
 import com.vertex.restosphere.dto.request.CashierManualTransferRequest;
 import com.vertex.restosphere.dto.request.CashierPayCashRequest;
+import com.vertex.restosphere.dto.request.CashierPayosLinkRequest;
 import com.vertex.restosphere.dto.response.CashierPaymentResponse;
 import com.vertex.restosphere.entity.Payment;
 import com.vertex.restosphere.security.CurrentUserService;
@@ -63,6 +64,14 @@ public class CashierPaymentController {
             @PathVariable UUID id,
             @Valid @RequestBody CashierManualTransferRequest req) {
         return respond(service.payManualTransfer(CurrentUserService.idOf(jwt), id, req));
+    }
+
+    @PostMapping("/bills/{id}/payos-link")
+    public ResponseEntity<CashierPaymentResponse> payosLink(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable UUID id,
+            @Valid @RequestBody CashierPayosLinkRequest req) {
+        return respond(service.createPayosLink(CurrentUserService.idOf(jwt), id, req));
     }
 
     private static ResponseEntity<CashierPaymentResponse> respond(

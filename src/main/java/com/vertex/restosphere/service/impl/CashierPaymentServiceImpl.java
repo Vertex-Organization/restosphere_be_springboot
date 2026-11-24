@@ -5,6 +5,7 @@ import com.vertex.restosphere.common.util.EmailUtils;
 import com.vertex.restosphere.common.util.Values;
 import com.vertex.restosphere.dto.request.CashierManualTransferRequest;
 import com.vertex.restosphere.dto.request.CashierPayCashRequest;
+import com.vertex.restosphere.dto.request.CashierPayosLinkRequest;
 import com.vertex.restosphere.dto.response.CashierPaymentResponse;
 import com.vertex.restosphere.entity.Bill;
 import com.vertex.restosphere.entity.CashierShift;
@@ -40,6 +41,13 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class CashierPaymentServiceImpl implements CashierPaymentService {
+    private static final Set<OrderItem.Status> UNSERVED =
+            Set.of(
+                    OrderItem.Status.DRAFT,
+                    OrderItem.Status.SUBMITTED,
+                    OrderItem.Status.PREPARING,
+                    OrderItem.Status.READY);
+
     private final CurrentUserService currentUser;
     private final RestaurantLock restaurantLock;
     private final WorkspaceStore store;
@@ -52,6 +60,7 @@ public class CashierPaymentServiceImpl implements CashierPaymentService {
     private final EmployeeRepository employees;
     private final PasswordEncoder passwordEncoder;
     private final AuditRecorder auditRecorder;
+    private final PayosLinks payosLinks;
     private final FailureLimiter approvalFailures = new FailureLimiter(10, 15 * 60_000L);
 
     @Transactional(readOnly = true)
@@ -219,23 +228,7 @@ public class CashierPaymentServiceImpl implements CashierPaymentService {
             }
             return new Outcome(CashierPaymentResponse.from(p), false);
         }
-        Bill bill = store.get(Bill.class, billId.toString());
-        billing.requireVersion(bill, billVersion);
-        billing.recalculate(bill);
-        if (bill.getStatus() != Bill.Status.OPEN || !bill.awaitingPayment()) {
-            throw ApiException.conflict("Bill is not awaiting payment");
-        }
-        if (billing.items(bill).stream()
-                .anyMatch(
-                        i ->
-                                Set.of(
-                                                OrderItem.Status.DRAFT,
-                                                OrderItem.Status.SUBMITTED,
-                                                OrderItem.Status.PREPARING,
-                                                OrderItem.Status.READY)
-                                        .contains(i.getStatus()))) {
-            throw ApiException.conflict("Unserved dishes remain");
-        }
+        Bill bill = payableBill(billId, billVersion);
         BigDecimal amount = Values.money(rawAmount, "amount");
         if (amount.signum() <= 0
                 || amount.compareTo(bill.getTotal().subtract(billing.received(bill))) > 0) {
@@ -269,6 +262,47 @@ public class CashierPaymentServiceImpl implements CashierPaymentService {
         billing.settle(bill);
         writes.commit(user, cash ? "pay-cash" : "pay-manual-transfer");
         notifyIfPaid(payment);
+        store.flush();
+        return new Outcome(CashierPaymentResponse.from(payment), true);
+    }
+
+    // Loads the bill and checks it can take money now: current version, check requested, all
+    // served.
+    private Bill payableBill(UUID billId, Long billVersion) {
+        Bill bill = store.get(Bill.class, billId.toString());
+        billing.requireVersion(bill, billVersion);
+        billing.recalculate(bill);
+        if (bill.getStatus() != Bill.Status.OPEN || !bill.awaitingPayment()) {
+            throw ApiException.conflict("Bill is not awaiting payment");
+        }
+        if (billing.items(bill).stream().anyMatch(i -> UNSERVED.contains(i.getStatus()))) {
+            throw ApiException.conflict("Unserved dishes remain");
+        }
+        return bill;
+    }
+
+    @Transactional
+    @Override
+    public Outcome createPayosLink(UUID actorId, UUID billId, CashierPayosLinkRequest req) {
+        Employee user = currentUser.require(actorId, Role.ADMIN, Role.CASHIER);
+        restaurantLock.acquire();
+        Bill bill = payableBill(billId, req.billVersion());
+        BigDecimal outstanding = bill.getTotal().subtract(billing.received(bill));
+        if (outstanding.signum() <= 0) throw ApiException.conflict("Bill is already paid");
+        CashierShift shift =
+                shifts.findFirstByCashierIdAndClosedAtIsNull(user.getId())
+                        .orElseThrow(() -> ApiException.conflict("Open a cashier shift first"));
+        var pending =
+                payments.findByBillIdAndMethodAndStatus(
+                        bill.getId(), Payment.Method.PAYOS, Payment.Status.PENDING);
+        var current =
+                pending.stream().filter(p -> p.getAmount().compareTo(outstanding) == 0).findFirst();
+        // Printing again for the same amount reuses the live link instead of making a second QR.
+        if (current.isPresent())
+            return new Outcome(CashierPaymentResponse.from(current.get()), false);
+        billing.cancelPayosLinks(bill, "Hóa đơn thay đổi");
+        Payment payment = payosLinks.createForBill(bill, outstanding, shift, user);
+        writes.commit(user, "create-payos-link");
         store.flush();
         return new Outcome(CashierPaymentResponse.from(payment), true);
     }

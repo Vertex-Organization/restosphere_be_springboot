@@ -29,7 +29,10 @@ public interface BillingWorkflow {
     /** Báo xung đột khi phiên bản hóa đơn client giữ đã cũ. */
     void requireVersion(Bill b, long version);
 
-    /** Chặn sửa hóa đơn đã đóng hoặc đã có thanh toán. */
+    /** Hủy mọi link payOS đang chờ của hóa đơn (payment -> CANCELLED, gọi payOS hủy link). */
+    void cancelPayosLinks(Bill b, String reason);
+
+    /** Chặn sửa hóa đơn đã đóng hoặc đã có thanh toán thành công. */
     void editable(Bill b);
 
     /** Chuyển hóa đơn sang PAID khi đã thu đủ, ngược lại mở lại. */

@@ -2,6 +2,7 @@ package com.vertex.restosphere.service;
 
 import com.vertex.restosphere.dto.request.CashierManualTransferRequest;
 import com.vertex.restosphere.dto.request.CashierPayCashRequest;
+import com.vertex.restosphere.dto.request.CashierPayosLinkRequest;
 import com.vertex.restosphere.dto.response.CashierPaymentResponse;
 import com.vertex.restosphere.entity.Payment;
 import java.time.Instant;
@@ -16,6 +17,9 @@ public interface CashierPaymentService {
             UUID actorId, Instant from, Instant to, Payment.Method method, String status);
 
     Outcome payCash(UUID actorId, UUID billId, CashierPayCashRequest req);
+
+    /** Tạo link payOS cho phần còn lại của bill (QR in trên bill); hủy link cũ khi số tiền đổi. */
+    Outcome createPayosLink(UUID actorId, UUID billId, CashierPayosLinkRequest req);
 
     /** Thu thủ công khi payOS lỗi: tạo thẳng COMPLETED, có quản lý xác nhận. */
     Outcome payManualTransfer(UUID actorId, UUID billId, CashierManualTransferRequest req);
