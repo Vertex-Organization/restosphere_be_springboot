@@ -27,6 +27,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -59,6 +60,8 @@ public class TableSessionServiceImpl implements TableSessionService {
         }
         TableSession target = find(targetSessionId);
         TableSession source = find(sourceSessionId);
+        requireOwnSession(user, target);
+        requireOwnSession(user, source);
         Bill keep = target.getBill();
         Bill voided = source.getBill();
         if (keep.getId().equals(voided.getId())) {
@@ -83,6 +86,7 @@ public class TableSessionServiceImpl implements TableSessionService {
         Employee user = currentUser.require(actorId, ALLOWED);
         restaurantLock.acquire();
         TableSession from = find(sessionId);
+        requireOwnSession(user, from);
         Bill old = from.getBill();
         requireMergeable(old);
         var table =
@@ -130,6 +134,16 @@ public class TableSessionServiceImpl implements TableSessionService {
         billing.recalculate(bill);
         writes.commit(user, "split-session");
         return new SessionChangeResponse(session.getId(), bill.getId(), bill.getCode());
+    }
+
+    // A waiter only touches the tables they serve; other roles are not limited.
+    private static void requireOwnSession(Employee user, TableSession session) {
+        if (user.getRole() == Role.WAITER
+                && (session.getWaiter() == null
+                        || !session.getWaiter().getId().equals(user.getId()))) {
+            throw new ApiException(
+                    HttpStatus.FORBIDDEN, "Bạn chỉ được ghép hoặc tách bàn do mình phụ trách.");
+        }
     }
 
     private TableSession find(UUID id) {

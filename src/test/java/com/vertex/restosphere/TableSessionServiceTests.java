@@ -17,6 +17,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.HttpStatus;
 import org.springframework.transaction.annotation.Transactional;
 
 /** Merging and splitting table sessions, including every rule that blocks them. */
@@ -40,6 +41,11 @@ class TableSessionServiceTests {
         return db.save(u);
     }
 
+    Employee ownWaiter() {
+        waiter = waiter == null ? user(Role.WAITER) : waiter;
+        return waiter;
+    }
+
     RestaurantTable table(TableStatus status) {
         if (area == null) {
             area = new Area();
@@ -55,7 +61,7 @@ class TableSessionServiceTests {
     }
 
     TableSession session(RestaurantTable table) {
-        waiter = waiter == null ? user(Role.WAITER) : waiter;
+        ownWaiter();
         var bill = billing.open();
         var s = new TableSession();
         s.setBill(bill);
@@ -117,7 +123,7 @@ class TableSessionServiceTests {
 
     @Test
     void splitMovesChosenItemsToANewBillAtAnotherFreeTable() {
-        var staff = user(Role.WAITER);
+        var staff = ownWaiter();
         var a = session(table(TableStatus.AVAILABLE));
         var keep = dish(a, "100000", 1);
         var move = dish(a, "40000", 2);
@@ -139,8 +145,48 @@ class TableSessionServiceTests {
     }
 
     @Test
+    void aWaiterCanOnlyMergeOrSplitSessionsTheyServe() {
+        var mine = session(table(TableStatus.AVAILABLE));
+        var item = dish(mine, "100000", 1);
+        var free = table(TableStatus.AVAILABLE);
+        var otherWaiter = user(Role.WAITER);
+        var foreign = session(table(TableStatus.AVAILABLE));
+        foreign.setWaiter(otherWaiter);
+
+        var merge =
+                assertThrows(
+                        ApiException.class,
+                        () -> service.merge(waiter.getId(), mine.getId(), foreign.getId()));
+        assertEquals(HttpStatus.FORBIDDEN, merge.getStatus());
+        var split =
+                assertThrows(
+                        ApiException.class,
+                        () ->
+                                service.split(
+                                        otherWaiter.getId(),
+                                        mine.getId(),
+                                        free.getId(),
+                                        List.of(item.getId()),
+                                        1));
+        assertEquals(HttpStatus.FORBIDDEN, split.getStatus());
+        assertEquals(TableStatus.AVAILABLE, free.getStatus());
+    }
+
+    @Test
+    void otherRolesAreNotLimitedToTheirOwnSessions() {
+        for (var role : List.of(Role.RECEPTIONIST, Role.CASHIER, Role.MANAGER, Role.ADMIN)) {
+            var a = session(table(TableStatus.AVAILABLE));
+            var b = session(table(TableStatus.AVAILABLE));
+            b.setWaiter(user(Role.WAITER));
+            var staff = user(role);
+            assertDoesNotThrow(
+                    () -> service.merge(staff.getId(), a.getId(), b.getId()), role.name());
+        }
+    }
+
+    @Test
     void splitNeedsAGuestCountThatLeavesAtLeastOneGuestAtEachTable() {
-        var staff = user(Role.WAITER);
+        var staff = ownWaiter();
         var a = session(table(TableStatus.AVAILABLE));
         var move = dish(a, "40000", 1);
         var free = table(TableStatus.AVAILABLE);
@@ -161,7 +207,7 @@ class TableSessionServiceTests {
 
     @Test
     void splitRejectsBusyTableAndForeignOrCancelledItems() {
-        var staff = user(Role.WAITER);
+        var staff = ownWaiter();
         var a = session(table(TableStatus.AVAILABLE));
         var other = session(table(TableStatus.AVAILABLE));
         var mine = dish(a, "100000", 1);
