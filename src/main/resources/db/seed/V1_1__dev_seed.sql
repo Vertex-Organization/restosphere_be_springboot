@@ -310,18 +310,20 @@ FROM (SELECT n, subtotal, discount, service, tax
 WHERE b.id = md5('restosphere:seed:bill:' || x.n)::uuid;
 INSERT INTO payments
 (id, bill_id, cashier_shift_id, amount, method, status, tendered, created_by_id, verified_by_id,
- transaction_reference, idempotency_key, paid_at, note, created_at, updated_at)
+ transaction_reference, payos_order_code, checkout_url, idempotency_key, paid_at, note, created_at, updated_at)
 SELECT md5('restosphere:seed:payment:' || n || ':' || attempt)::uuid, b.id,
        md5('restosphere:seed:cashier:' || day)::uuid,
        CASE WHEN n IN (23,24) THEN CASE WHEN attempt = 1 THEN floor(b.total / 2) ELSE b.total - floor(b.total / 2) END ELSE b.total END,
-       CASE WHEN n % 2 = 0 OR attempt > 1 THEN 'MANUAL_TRANSFER' ELSE 'CASH' END, state,
-       CASE WHEN n % 2 <> 0 AND attempt = 1 THEN ceil(b.total / 100000) * 100000 END,
+       method, state,
+       CASE WHEN method = 'CASH' THEN ceil(b.total / 100000) * 100000 END,
        md5('restosphere:demo:cashier')::uuid,
-       CASE WHEN state = 'COMPLETED' AND (n % 2 = 0 OR attempt > 1) THEN md5('restosphere:demo:cashier')::uuid END,
-       CASE WHEN n % 2 = 0 OR attempt > 1 THEN 'DEMO-TX-' || n || '-' || attempt END,
+       CASE WHEN method = 'MANUAL_TRANSFER' THEN md5('restosphere:demo:manager')::uuid END,
+       CASE WHEN method = 'MANUAL_TRANSFER' THEN 'DEMO-TX-' || n || '-' || attempt END,
+       CASE WHEN method = 'PAYOS' THEN 900000000 + n * 10 + attempt END,
+       CASE WHEN method = 'PAYOS' AND state = 'PENDING' THEN 'https://pay.payos.vn/web/demo-' || n || '-' || attempt END,
        'DEMO-PAY-' || n || '-' || attempt,
        CASE WHEN state IN ('COMPLETED','VOIDED') THEN starts_at + interval '60 minutes' END,
-       CASE WHEN state = 'VOIDED' THEN 'Ghi nhận nhầm; quản lý đã duyệt hủy'
+       CASE WHEN state = 'VOIDED' THEN 'Ghi nhầm; quản lý đã duyệt hủy'
             WHEN state = 'CANCELLED' THEN 'Khách đổi phương thức thanh toán'
             WHEN state = 'FAILED' THEN 'Ngân hàng từ chối giao dịch' ELSE 'Thanh toán demo' END,
        starts_at + (50 + attempt * 5) * interval '1 minute', starts_at + interval '65 minutes'
@@ -332,9 +334,12 @@ CROSS JOIN LATERAL (SELECT CASE WHEN n <= 18 THEN 'COMPLETED'
  WHEN n = 24 AND attempt = 2 THEN 'PENDING'
  WHEN n = 25 AND attempt = 1 THEN 'VOIDED'
  WHEN n = 25 AND attempt = 2 THEN 'CANCELLED' ELSE 'FAILED' END AS state) states
+-- Manual transfers exist only once a manager has confirmed them; anything else is a payOS attempt.
+CROSS JOIN LATERAL (SELECT CASE WHEN state = 'COMPLETED' AND (n % 2 = 0 OR attempt > 1) THEN 'MANUAL_TRANSFER'
+ WHEN state IN ('COMPLETED','VOIDED') AND n % 2 <> 0 AND attempt = 1 THEN 'CASH'
+ ELSE 'PAYOS' END AS method) methods
 WHERE (n <= 18 AND attempt = 1) OR (n = 23 AND attempt = 1) OR (n = 24 AND attempt <= 2) OR n = 25
 ON CONFLICT DO NOTHING;
-
 UPDATE cashier_shifts cs SET expected_cash = x.expected,
  counted_cash = CASE WHEN cs.closed_at IS NOT NULL THEN x.expected END
 FROM (SELECT md5('restosphere:seed:cashier:' || d)::uuid AS id,

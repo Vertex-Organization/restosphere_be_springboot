@@ -28,7 +28,7 @@ class DevSeedFlywayTests {
     void seedRunsAfterTheSchemaAndOnlyOnce() {
         var jdbc = new JdbcTemplate(dataSource);
         assertEquals(
-                "1,1000",
+                "1,1.1",
                 String.join(
                         ",",
                         jdbc.queryForList(

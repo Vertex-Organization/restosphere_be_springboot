@@ -34,7 +34,7 @@ class RestosphereBeSpringbootApplicationTests {
     @Test
     void devSeedCanBeAppliedTwice() throws Exception {
         try (var connection = dataSource.getConnection()) {
-            var dataset = new ClassPathResource("db/seed/V1000__dev_seed.sql");
+            var dataset = new ClassPathResource("db/seed/V1_1__dev_seed.sql");
             assertTrue(connection.getMetaData().getURL().contains("jdbc:postgresql:"));
             connection.setAutoCommit(false);
             ScriptUtils.executeSqlScript(connection, dataset);
@@ -212,6 +212,14 @@ class RestosphereBeSpringbootApplicationTests {
                 where p.created_at<cs.opened_at or p.created_at>cs.closed_at
                 or (p.status='COMPLETED' and p.paid_at is null)
                 or (p.method='CASH' and p.tendered<p.amount)
+                """));
+        assertEquals(
+                "0",
+                scalar(
+                        connection,
+                        """
+                select count(*) from payments p where p.method='MANUAL_TRANSFER' and
+                (p.status<>'COMPLETED' or p.verified_by_id is null or p.transaction_reference is null)
                 """));
         assertEquals(
                 "0",
