@@ -97,7 +97,49 @@ Các API có xác thực cần header `Authorization: Bearer <accessToken>`.
 
 Mỗi refresh token chỉ dùng được một lần. Nếu một token đã thu hồi bị gửi lại, toàn bộ chuỗi token cùng phiên đăng nhập sẽ bị thu hồi. Logout cũng thu hồi cả chuỗi này.
 
-Vai trò người dùng gồm `ADMIN`, `MANAGER` và `STAFF`.
+Vai trò nhân viên gồm `ADMIN`, `MANAGER`, `RECEPTIONIST`, `WAITER`, `KITCHEN`, `CASHIER`. Khách đặt bàn công khai, không có role CUSTOMER.
+
+## Flyway và cập nhật database nhóm
+
+- Schema mới gồm 24 bảng, khởi tạo bởi `src/main/resources/db/migration/V1__init_schema.sql`; Hibernate chỉ `validate`.
+- Mỗi thay đổi schema tạo migration mới. Không sửa migration/seed đã chạy, không sửa checksum hoặc dùng repair để che thay đổi.
+- Version phải duy nhất: thống nhất với nhóm hoặc dùng timestamp; kiểm tra không trùng trước merge.
+- Khi chuyển từ schema cũ, nhóm cần một lần khởi tạo DB phát triển sạch. Ưu tiên database mới `restosphere_v2`, giữ DB cũ `restosphere` nguyên vẹn. Chỉ chủ sở hữu được quyết định xóa DB local sau khi sao lưu; không áp dụng thao tác này cho production.
+- Sau lần chuyển đổi, chỉ pull và chạy app để Flyway nâng version; không drop lại mỗi lần chạy.
+- Seed chỉ chạy với profile `dev`, một lần mỗi version. `spring.sql.init` tắt. Không bật profile dev ở production.
+- Test dùng PostgreSQL Testcontainers, không trỏ vào DB local.
+
+## payOS: cấu hình và thử local
+
+| Biến | Ý nghĩa |
+| --- | --- |
+| `PAYOS_CLIENT_ID`, `PAYOS_API_KEY`, `PAYOS_CHECKSUM_KEY` | Khóa server; mặc định `not-configured`, không gửi xuống FE hoặc commit |
+| `PAYOS_FAKE` | `true` mặc định trong profile dev, `false` ngoài dev |
+| `PAYOS_RETURN_URL` | Mặc định `http://localhost:5173/payment/result` |
+| `PAYOS_CANCEL_URL` | Mặc định `http://localhost:5173/payment/result?cancelled=true` |
+| `PAYOS_BILL_LINK_TTL` | Hạn link bill, mặc định `30m` |
+| `PAYOS_TIMEOUT` | Timeout gateway, mặc định `10s` |
+
+Thử không dùng tiền thật: chạy profile dev với `PAYOS_FAKE=true` trên DB phát triển riêng, tạo link qua luồng bill/cọc, lấy `orderCode` từ response rồi gọi:
+
+```bash
+curl -X POST http://localhost:8080/api/dev/payos/fake-paid/ORDER_CODE
+```
+
+Thay `ORDER_CODE` bằng mã của payment vừa tạo. Endpoint chỉ tồn tại ở profile dev, từ chối nếu gateway không phải fake; dùng chung xử lý paid với webhook. Không công khai môi trường dev qua Internet.
+
+Kiểm thử webhook thật bằng ngrok chỉ khi người phụ trách chủ động cho phép: dùng môi trường thử tách biệt, không bật endpoint dev, cấu hình khóa ở môi trường server, chạy `ngrok http 8080` và đăng ký URL HTTPS ngrok nối `/api/payments/payos-webhook` trong payOS. Không coi hướng dẫn này là kết quả đã kiểm thử; đợt refactor không gọi payOS thật. Chữ ký được xác minh bằng SDK v2; chữ ký sai trả 400, mã lạ trả 200, callback lặp không thu hai lần.
+
+### Luồng payOS dùng khi trình bày đồ án
+
+1. Server tính số tiền từ bill hoặc đặt bàn, sinh `payos_order_code` duy nhất và lưu payment PENDING cùng link/QR.
+2. Khách quét QR và trả vào tài khoản chính thức của nhà hàng; FE không tự đánh dấu đã trả từ query string returnUrl.
+3. payOS gửi webhook; server xác minh chữ ký, so số tiền và xử lý idempotent. Nút **Kiểm tra lại** hỏi gateway rồi dùng chung logic cập nhật.
+4. Cọc COMPLETED xác nhận đặt bàn, khi check-in gắn vào bill đầu tiên. Bill đủ tiền chuyển PAID, đóng mọi phiên liên quan và trả bàn.
+5. Bill đổi tiền thì hủy link cũ; thu ngân tạo/in link mới. Ca còn payment payOS PENDING không được đóng.
+6. Hết hạn cọc: hỏi gateway trước khi hủy. Tiền đến sau hủy không khôi phục đặt bàn, báo quản lý xử lý. Không hoàn cọc.
+
+Quy trình khi hệ thống hoặc payOS lỗi: [QUY_TRINH_SU_CO.md](docs/QUY_TRINH_SU_CO.md). Tiến độ FE và các kiểm thử còn thiếu: [REFACTOR_PROGRESS.md](docs/REFACTOR_PROGRESS.md).
 
 ## Test
 

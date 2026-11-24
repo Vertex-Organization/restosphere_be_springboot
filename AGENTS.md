@@ -4,7 +4,7 @@ Quy tắc bắt buộc cho mọi thành viên khi dùng agent (opencode) trên r
 
 ## 1. Dự án
 
-Backend hệ thống quản lý nhà hàng RestoSphere. Java 21, Spring Boot 4.1, PostgreSQL, JPA/Hibernate, Spring Security (JWT), Lombok. Các vai trò: `CUSTOMER`, `ADMIN`, `MANAGER`, `RECEPTIONIST`, `WAITER`, `KITCHEN`, `CASHIER`.
+Backend hệ thống quản lý nhà hàng RestoSphere. Java 21, Spring Boot 4.1, PostgreSQL, JPA/Hibernate, Spring Security (JWT), Lombok. Các vai trò nhân viên: `ADMIN`, `MANAGER`, `RECEPTIONIST`, `WAITER`, `KITCHEN`, `CASHIER`. Khách đặt bàn công khai, không đăng nhập.
 
 ## 2. Lệnh thường dùng
 
@@ -79,11 +79,13 @@ Quy tắc đặt file:
 
 ## 9. Database
 
-- Dự án dùng Hibernate `ddl-auto=update` khi dev, chưa có Flyway/Liquibase, và **không dùng file migration**.
+- Schema do Flyway quản lý trong `src/main/resources/db/migration`; Hibernate dùng `ddl-auto=validate`, không dùng `update`.
+- Mỗi thay đổi schema phải có một file migration mới. Không sửa migration đã áp dụng, kể cả seed; bổ sung migration mới để sửa dữ liệu.
+- Version migration phải duy nhất. Thống nhất version với nhóm hoặc dùng timestamp và kiểm tra không trùng trước khi merge. Không sửa checksum hoặc chạy repair để che thay đổi migration đã áp dụng.
 - Khi đổi entity (thêm/đổi/xóa cột, bảng, ràng buộc), phải nêu rõ trong mô tả PR để cả nhóm biết cập nhật DB local.
 - Không tự ý đổi kiểu cột, xóa cột hoặc xóa bảng khi chưa hỏi.
 - Không bao giờ chạy lệnh phá hủy (`DROP`, `TRUNCATE`, `DELETE` không điều kiện) trên database đang dùng. Test dùng Testcontainers, không dùng DB local.
-- `src/main/resources/dataset.sql` là dữ liệu mẫu 7 ngày, chạy lặp không ghi đè dữ liệu. Khi sửa phải giữ tính nhất quán (tổng hóa đơn đúng công thức, thanh toán khớp ca thu ngân, khóa ngoại hợp lệ) và chạy lại `RestosphereBeSpringbootApplicationTests`. Tắt seed bằng `SQL_INIT_MODE=never`.
+- Seed trong `src/main/resources/db/seed` chỉ chạy qua Flyway với profile `dev`, mỗi version một lần; `spring.sql.init` tắt. Khi bổ sung seed phải giữ tổng hóa đơn đúng công thức, thanh toán khớp ca thu ngân, khóa ngoại hợp lệ và chạy lại `RestosphereBeSpringbootApplicationTests`. Không kích hoạt profile `dev` ở production.
 
 ## 10. Bảo mật
 

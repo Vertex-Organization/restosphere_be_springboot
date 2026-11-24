@@ -15,6 +15,9 @@
 - Người dùng đã cho phép commit/push WEB ở lượt yêu cầu mới nhất. Không suy rộng thành quyền push mobile hoặc BE. Các lần push BE trước đó đã xảy ra trái yêu cầu không push; đã báo lại, không sửa lịch sử remote.
 
 ## Đang làm
+- Bước tài liệu độc lập GĐ4: sửa quy tắc Flyway trong AGENTS, bổ sung README và quy trình sự cố/payOS. GĐ3 chưa hoàn tất; làm tài liệu không đánh dấu hoàn tất giai đoạn.
+- 2026-11-24: đã đọc master, cả ba AGENTS, toàn bộ hai skill FE và các reference nền tảng/inspection. BE/web sạch lúc bắt đầu; mobile có 16 file sửa và 1 file mới, giữ nguyên. Đang triển khai quản lý khu active/sortOrder trên web (type, API, dialog, fixture và test). Giữ nguyên công việc mobile chưa commit; không đọc .env, không gọi payOS thật, không dùng DB restosphere.
+- Người dùng hiện đã cho phép tạo nhánh, commit từng tính năng và push cả BE/web/mobile sau mỗi 2 commit hoàn thành, cuối phiên push phần còn lại. Quyền này thay thế giới hạn push chỉ web ghi ở trên.
 - GĐ3 bước 1 (FE web, nhánh `refactor/db-flyway-payos` tạo từ develop; build bằng `npm run build`, hiện pass): đổi API vỡ (`admin/users` -> `admin/employees`, bỏ role CUSTOMER, method `TRANSFER` -> `MANUAL_TRANSFER`/`PAYOS`). Sau đó: quản lý (khu, cài đặt bank_bin + QR), thu ngân, đặt bàn online + /payment/result; rồi mobile (BẮT BUỘC).
 
 ## Câu hỏi đang chờ
@@ -144,6 +147,9 @@
 - `application.yaml` có thay đổi cục bộ chưa commit của người dùng (`SQL_INIT_MODE` mặc định `always`). Không đụng vào cho tới khi cần sửa file này (khi sửa sẽ giữ nguyên dòng đó).
 
 ## Nhật ký
+- 2026-11-24 – Tài liệu: cập nhật AGENTS (Flyway, seed dev, vai trò; giữ quy tắc hỏi thường ngày), README (migration, biến payOS, fake-paid, ngrok, giải thích luồng), thêm QUY_TRINH_SU_CO.md. Đã chạy mvnw.cmd spotless:apply, spotless:check, -o compile, -o test; Surefire 40 lớp, không failure/error/skipped. Chưa rà soát bổ sung các edge case security/payment; test pass không thay thế review. TODO(confirm): nhập bù hồi tố/ca đã đóng chưa có API riêng, không giả dữ liệu để vượt ràng buộc; cọc CASH nhập bù dùng quản lý ký đối chiếu giấy.
+- 2026-11-24 – Web quản lý khu: commit `4bd423d` thêm active/sortOrder, dialog bật/tắt + thứ tự, PUT /areas/{id}, fixture và test giữ nguyên bàn/đặt bàn khi tạm đóng. Đã chạy Prettier write, npm run lint, npm run build (tsc + Vite), node --test scripts/manager-rules.test.mjs: 30/30 PASS; git diff --check PASS. Chưa kiểm tra giao diện trình duyệt/API live. Không thêm dependency. Các tính năng thu ngân/public/mobile và rà soát BE/GĐ4 vẫn CHƯA hoàn tất; số test BE 252 và mobile 77 là lịch sử, chưa chạy lại trong phiên này.
+
 - 2026-11-23 21:59 – GĐ1: V1 xong và chạy thật trên restosphere_v2. Phát hiện: `spring.jpa.defer-datasource-initialization: true` làm Hibernate validate chạy TRƯỚC Flyway -> đã bỏ. Test `DatabaseConstraintsTests`/`RestosphereBeSpringbootApplicationTests` không còn `create-drop`, giờ chạy qua Flyway thật (202/202 pass). DB tạm restosphere_gen đã xóa; DB `restosphere` cũ KHÔNG đụng tới.
 - 2026-11-23 21:13 – GĐ1: ghép/tách xong, 201/201 test pass. Tách bàn: bill cũ được tính lại, bill mới chứa món chuyển; ghép: bill của phiên nguồn -> VOIDED và bị ẩn khỏi danh sách.
 - 2026-11-23 20:58 – GĐ1: payments xong, 194/194 test pass (bỏ CashierTransferApiIntegrationTests, thêm CashierManualTransferApiIntegrationTests; sửa test cọc lễ tân theo payments). Bắt đầu push mỗi 2 commit.
