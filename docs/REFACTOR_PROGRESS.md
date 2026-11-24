@@ -1,38 +1,68 @@
 # RestoSphere Refactor – Tiến độ
 
 ## Trạng thái
-- Nhánh: `refactor/db-flyway-payos` ở cả 3 repo (BE, web `restophere-fe-web`, mobile `restosphere-fe-mobile`), đều đã có trên GitHub
-- Giai đoạn hiện tại: GĐ3 gần xong (web xong, mobile xong một phần), GĐ4 làm một phần. CHƯA nghiệm thu toàn bộ.
-- Cập nhật lần cuối: 2026-11-24
+- Nhánh: `refactor/db-flyway-payos` ở cả 3 repo (BE `restosphere-be-springboot`, web `restophere-fe-web`, mobile `restosphere-fe-mobile`), đã push lên GitHub.
+- Cập nhật lần cuối: 2026-11-24. Đợt A–E đã làm xong ở mức code + test tự động; CHƯA kiểm thử tay trên máy chạy thật (xem "Kết quả cuối").
 
-## Tóm tắt để nắm tiến trình (đọc mục này trước)
-| Phần | Trạng thái | Commit mới nhất |
+## Kết quả cuối
+
+### Đã chạy thật (không chỉ phân tích)
+- BE: `./mvnw -o spotless:check` sạch, `./mvnw -o test` **256/256 pass** (Testcontainers, Flyway thật).
+- Web: `npm run lint` sạch, `npm run build` pass, 9 file `node --test scripts/*.test.mjs` đều exit 0.
+- Mobile: `npm test` **83/83 pass**, `npm run typecheck` và `npm run lint` sạch.
+- KHÔNG làm: kiểm thử giao diện trên trình duyệt/thiết bị thật, gọi payOS thật (chưa có key), chạy trên DB `restosphere`.
+
+### Commit theo hạng mục
+| Mục | Nội dung | Commit |
 |---|---|---|
-| BE GĐ1 (schema, Flyway, ghép/tách...) | Xong, 252/252 test | `c803cd4` |
-| BE GĐ2 (payOS) | Xong với payOS GIẢ; chưa thử payOS thật (chưa có key) | `7533a56`, `e05f7ed` |
-| Web: nhân viên, BIN + QR tĩnh, khu active/thứ tự | Xong | `ff79893`, `e27d9ad`, `4bd423d` |
-| Web: thu ngân (CASH / payOS / CK thủ công, in bill QR, Kiểm tra lại, Cọc chờ thu, biên nhận cọc, chặn đóng ca) | Xong, lint+build+test script pass | `9b9f06a`, `bbd96b3` |
-| Web: đặt bàn online (đồng ý không hoàn cọc, payOS, `/payment/result`, hotline khi lỗi, "Không yêu cầu khu") | Xong, lint+build pass | `2dbbb5a` |
-| Mobile: lễ tân + phục vụ | MỘT PHẦN: có nhiều bàn, đặt bàn quầy, mở link payOS, nút "Gửi link cho khách" (Zalo/SMS qua share sheet của hệ điều hành), chuyển thu ngân, Kiểm tra lại, màn kết thúc bàn không còn bước dọn. THIẾU: ảnh QR hiển thị ngay trong app (không có thư viện QR, thêm cần duyệt; hiện mở trang payOS để quét); fixture/test giả lập vẫn mô phỏng luật CŨ (hoàn cọc, guest-left/clean) nên test mobile 77/77 chưa chứng minh luật mới | `5504ea4`, `fbca6d2` |
-| GĐ4: AGENTS.md (quy tắc Flyway), README, QUY_TRINH_SU_CO.md, tóm tắt payOS | Xong phần tài liệu | `21fb95a` |
-| GĐ4: seed, tự kiểm thử xuyên BE+web+mobile trên môi trường chạy thật | CHƯA làm | - |
+| A1 | Giới hạn thử sai xác nhận CK thủ công như login + audit mọi lần (thành công, sai, bị chặn, và mỗi lần quản lý xác thực đúng) | BE `8c46c13`, `f21aaa1` |
+| A2 | Tách bàn bắt buộc `guestCount`, trừ bàn cũ, mỗi bàn >= 1 | BE `9b242d4` |
+| A3 | WAITER chỉ ghép/tách phiên mình; ghép kiểm tra mọi phiên của cả hai bill | BE `5fe0843`, `f21aaa1` |
+| A4 | Nhiều bàn: mọi phiên dùng CHUNG 1 bill (cọc gắn bill đó), chia khách theo sức chứa, mỗi bàn >= 1; check-in mở phiên luôn, handover tương thích/idempotent; PAID đóng mọi phiên | BE `09c43b6`, `1dc2b8b`, `f21aaa1` |
+| A5 | Seed `V1_1__dev_seed.sql` (db/seed, chỉ profile dev); CK thủ công luôn COMPLETED + `verified_by_id` | BE `c489bb4` |
+| A6 | DB dev đọc từ biến môi trường, mặc định `restosphere_v2` | BE `5bdee77` |
+| A7 | `orders.submitted_at` giữ, bỏ TODO(confirm) | BE `88d5501` |
+| A8 | Tắt `spring.sql.init`, bỏ `SQL_INIT_MODE` | BE `ea3cbca` |
+| B | PAID -> phiên CLOSED ngay, bàn CLEANING (mọi bàn của bill); `clean` chạy được với phiên CLOSED -> AVAILABLE; `guest-left` chỉ ghi dấu tùy chọn; lễ tân không xếp được bàn CLEANING; chỉ phiên mới nhất của bàn mới cho dọn; mobile finish-screen | BE `1c14da5`, `f21aaa1`; mobile `a8c953e` |
+| C | QR vẽ cục bộ: web `qrcode.react`, mobile `react-native-qrcode-svg` + `react-native-svg 15.16.0` (qua `expo install`); gỡ hoàn toàn `api.qrserver.com`; mobile hiện QR cọc và QR hóa đơn trong app, vẫn giữ nút mở link/gửi link | web `4af3f1a`; mobile `a9ce859`, `292cfd3` |
+| D | Mobile: fixture/test theo luật mới (không hoàn cọc, CLEANING, DRAFT, ghép/tách, chặn khi có cọc/QR/đã yêu cầu thanh toán); BE: `EndToEndPaymentFlowTests` gọi HTTP thật `POST /api/dev/payos/fake-paid/{orderCode}` cho 2 luồng (DRAFT -> bếp -> bill -> payOS -> PAID -> CLEANING; cọc -> check-in nhiều bàn -> bill chung có cọc) | BE `4e04849`, `f21aaa1`; mobile `292cfd3` |
 
-Đã chạy thật: BE `./mvnw -o test` 252/252; web `npm run lint`, `npm run build`, `node --test` (billing-rules, billing-notifications, sea-crown-links); mobile `npm test` 77/77, lint, typecheck. KHÔNG có kiểm thử giao diện trên trình duyệt/thiết bị, không gọi payOS thật, không dùng DB `restosphere`.
+Các commit trước đó của đợt: BE GĐ2 payOS (`aed3298`...`e16b051`), web `ff79893`, `e27d9ad`, `4bd423d`, `9b9f06a`, `bbd96b3`, `2dbbb5a`, mobile `5504ea4`, `fbca6d2`.
 
-## Đang làm
-- Việc còn lại (chưa làm): sửa fixture/test mobile theo luật mới (không hoàn cọc, thanh toán tự đóng phiên), QR hiển thị trong app (cần duyệt thư viện), tự kiểm thử xuyên BE+web+mobile chạy thật, rồi ghi "Kết quả cuối".
-- Quyền git hiện tại: người dùng cho phép tạo nhánh, commit từng tính năng và push cả BE/web/mobile sau mỗi 2 commit, cuối phiên push phần còn lại. Lưu ý: BE push trước đó (`c803cd4`, `7533a56`) xảy ra trước khi có quyền này, đã báo lại.
-- Remote web báo repo đã chuyển sang `Vertex-Organization/restosphere_fe_web`; vẫn push được qua origin cũ, chưa đổi cấu hình remote.
+### TODO(confirm) còn lại trong code
+- Đặt bàn quầy dùng `input.counter=true` (source WALK_IN, giữ PENDING) để phân biệt với `walkIn` (ngồi ngay).
+- `POST /api/v1/reservations/payment-status` là endpoint công khai mới (rate limit, cần đúng mã đặt bàn + SĐT).
+- Chia khách nhiều bàn theo sức chứa, bàn cuối nhận phần còn lại, mỗi bàn >= 1.
+- Mobile `check-in` mở phiên ngay: màn bàn giao cũ không còn là bước bắt buộc.
 
-## Câu hỏi đang chờ
+### Câu hỏi đang chờ
+- Hai câu hỏi trước đã được trả lời: thêm thư viện QR (đồng ý, đã làm), bàn tự trống sau thanh toán (KHÔNG; đã đổi sang CLEANING).
+- Chưa có câu hỏi mới.
+
+### Việc CHƯA làm / hạn chế đã biết
+- Chưa thử payOS thật; webhook thật chỉ kiểm bằng chữ ký SDK + bản giả. Cần key payOS và URL công khai (ngrok) để thử.
+- Chưa kiểm thử giao diện: màn thu ngân, Cọc chờ thu, đặt bàn online, `/payment/result`, và toàn bộ màn mobile chỉ qua type-check/lint/test logic.
+- Fixture mobile là bản mô phỏng của server; test mobile không chạm BE thật. Tách/ghép/nháp trên mobile chưa chạy với BE thật.
+- Web: ảnh QR tĩnh VietQR vẫn lấy từ `img.vietqr.io` (dịch vụ ảnh công khai, không phải QR thanh toán payOS).
+- Mobile: `expo-doctor` báo thiếu peer `expo-font` (có từ trước, không do đợt này).
+- Bộ đếm thử sai nằm trong bộ nhớ (1 instance); `/payment/result` nhớ đơn trong sessionStorage (thiết bị khác phải tra cứu bằng mã + SĐT).
+- Remote web báo repo đã đổi sang `Vertex-Organization/restosphere_fe_web`; vẫn push được qua origin cũ.
+- Ghi chú git: BE đã push `c803cd4`, `7533a56` trước khi có quyền push, đã báo; chưa sửa lịch sử.
+
+### Hướng dẫn tự test thủ công
+1. DB: tạo DB trống `restosphere_v2` (Postgres, user/mật khẩu như `.env.example`). KHÔNG dùng DB `restosphere`.
+2. BE: copy `.env.example` thành `.env`, điền `JWT_SECRET` (>= 32 ký tự), `ADMIN_EMAIL`, `ADMIN_PASSWORD`; để trống `PAYOS_*`. Chạy `SPRING_PROFILES_ACTIVE=dev ./mvnw spring-boot:run` (dev bật payOS giả và nạp seed `V1_1`, mật khẩu demo `123456`).
+3. Web: `npm install && npm run dev` (trong `restophere-fe-web`), mở `/vi/catering` để đặt bàn có món (tick đồng ý không hoàn cọc), `/staff/login` cho thu ngân/quản lý.
+4. Mobile: `npm install && npx expo start` (trong `restosphere-fe-mobile`), đăng nhập lễ tân/phục vụ (`receptionist@restosphere.test`, `waiter@restosphere.test`).
+5. Luồng nên thử: (a) đặt bàn online có món -> lấy `orderCode` -> `curl -X POST http://localhost:8080/api/dev/payos/fake-paid/<orderCode>` -> đặt bàn tự CONFIRMED; (b) lễ tân tạo đặt bàn nhiều bàn -> check-in -> kiểm tra các phiên dùng chung 1 hóa đơn và cọc nằm trên đó; (c) phục vụ gọi món (giỏ nháp -> gửi bếp) -> bếp làm -> phục vụ yêu cầu thanh toán -> thu ngân tạo QR payOS -> `fake-paid` -> bill PAID, mọi bàn CLEANING -> phục vụ bấm "Đã dọn"; (d) thử xếp khách vào bàn CLEANING (phải bị từ chối); (e) thử tách bàn thiếu/thừa số khách, ghép/tách bàn có cọc hoặc đã có QR (phải bị chặn), CK thủ công nhập sai mật khẩu quản lý 10 lần (bị khóa 15 phút, có audit).
+
+## Câu hỏi đang chờ (lịch sử)
 - [x] FE mobile / màn lễ tân + phục vụ -> đã trả lời, xem mục Quyết định
 - [x] areas `active` + `sort_order` -> đã trả lời
 - [x] `reservations.area_id` NULL -> đã trả lời
 - [x] Seed dev: dataset.sql sang Flyway -> đã trả lời
-- [ ] `BillingWorkflowImpl.closeSessions` (TODO(confirm)): thanh toán xong bill thì phiên đóng + bàn về AVAILABLE ngay, không còn bước `guest-left`/`clean` của phục vụ. Endpoint `guest-left`/`clean` còn trong code nhưng không còn dùng được sau khi bill PAID (phiên đã CLOSED). Phương án an toàn đã chọn; mobile `finish-screen` cần sửa ở GĐ3. (2026-11-24)
-- [ ] Đặt bàn nhiều bàn: số khách chia cho các bàn theo sức chứa, mỗi bàn tối thiểu 1; lễ tân/quản lý nhận `tableIds` (mảng) hoặc `tableId`. Đổi bàn khi đã SEATED chỉ cho đặt bàn 1 bàn. TODO(confirm) cách chia khách. (2026-11-24)
-
-
+- [x] Bàn tự trống sau thanh toán -> KHÔNG; đã chuyển sang CLEANING + "Đã dọn" (mục B)
+- [x] Đặt bàn nhiều bàn dùng chung 1 hóa đơn, check-in mở phiên -> đã trả lời và làm (A4)
 ## Quyết định đã nhận từ người dùng trong lúc làm
 - 2026-11-24 – `orders.submitted_at`: ĐỒNG Ý giữ (bếp cần giờ gửi thật); đã bỏ TODO(confirm) trong `Order.java`.
 - 2026-11-24 – Phản hồi báo cáo GĐ1 (8 mục, xử lý trước payOS): (1) thử sai xác nhận CK thủ công như login + audit_logs mọi lần; (2) tách bàn bắt buộc `guestCount`; (3) WAITER chỉ ghép/tách phiên mình phụ trách; (4) nhiều phiên cho reservation nhiều bàn + bill PAID đóng mọi phiên; (5) seed đổi `V1_1__dev_seed.sql`, MANUAL_TRANSFER phải COMPLETED + verified_by_id; (6) DB dev mặc định `restosphere_v2`; (7) giữ `submitted_at`; (8) tắt `spring.sql.init`.
@@ -86,11 +116,12 @@
 - [x] FE web: quản lý (nhân viên `ff79893`, cài đặt + bank_bin + preview QR `e27d9ad`, khu active/sort `4bd423d`; xác nhận CK thủ công nằm ở màn thu ngân vì quản lý nhập email+mật khẩu tại quầy)
 - [x] FE web: thu ngân — `9b9f06a` (CASH / payOS / CK thủ công có quản lý xác nhận, in bill có QR, Kiểm tra lại, đóng ca bị chặn), `bbd96b3` (Cọc chờ thu, thu cọc tiền mặt/CK thủ công, biên nhận cọc ghi rõ không hoàn). TODO(confirm): ảnh QR payOS vẽ bằng dịch vụ ảnh công khai `api.qrserver.com` vì chưa có thư viện QR (thêm cần được duyệt); QR tĩnh dùng `img.vietqr.io` như trước. BE thêm `qrCode`, `orderCode` vào `CashierPaymentResponse` (`e05f7ed`)
 - [x] FE web: đặt bàn online — `2dbbb5a` (tick đồng ý không hoàn cọc, thanh toán qua link payOS, trang `/payment/result` chỉ tin `POST /reservations/payment-status`, payOS lỗi hiện hotline do BE trả, ẩn khu inactive do BE, "Không yêu cầu khu"). Hạn chế: `/payment/result` nhớ đơn trong sessionStorage; mở trên thiết bị khác sẽ báo không thấy và gợi ý tra cứu bằng mã + SĐT
-- [ ] FE MOBILE (BẮT BUỘC): phục vụ (giỏ DRAFT -> gửi bếp, tách/ghép bàn) — tách/ghép đã có sẵn từ trước, chưa kiểm thử với BE thật; màn kết thúc bàn cần sửa vì thanh toán xong bàn đã tự trả
-- [ ] FE MOBILE (BẮT BUỘC): lễ tân — `5504ea4` (nhiều bàn, đặt bàn quầy, mở link payOS, chuyển thu ngân, Kiểm tra lại); THIẾU: hiển thị QR trong app, copy link một chạm
+- [x] FE MOBILE (BẮT BUỘC): phục vụ — giỏ DRAFT -> gửi bếp (có sẵn), tách/ghép chặn theo quyền sở hữu/cọc/QR/đã yêu cầu thanh toán (`292cfd3`), màn kết thúc "Đã dọn" + "Khách đã về" tùy chọn (`a8c953e`). Mới kiểm bằng test logic (83/83), CHƯA chạy với BE thật hay trên thiết bị
+- [x] FE MOBILE (BẮT BUỘC): lễ tân — `5504ea4` (nhiều bàn, đặt bàn quầy, mở link payOS, chuyển thu ngân, Kiểm tra lại), `fbca6d2` (gửi link Zalo/SMS), `a9ce859` (QR cọc trong app), `292cfd3` (check-in mở phiên, QR hóa đơn). CHƯA chạy trên thiết bị
 ### Giai đoạn 4
 - [x] AGENTS.md (quy tắc Flyway: mỗi thay đổi schema một migration mới, không sửa migration đã chạy, version duy nhất; giữ quy tắc hỏi khi chưa rõ), README (Flyway, payOS, ngrok), `docs/QUY_TRINH_SU_CO.md`, tóm tắt luồng payOS trong README — `21fb95a`
-- [ ] Seed theo schema mới đã có (`V1_1__dev_seed.sql`); CHƯA có tự kiểm thử xuyên BE+web+mobile chạy thật
+- [x] Seed theo schema mới (`V1_1__dev_seed.sql`, `c489bb4`); test tích hợp xuyên suốt với endpoint fake-paid (`4e04849`, `f21aaa1`)
+- [ ] Tự kiểm thử tay xuyên BE+web+mobile trên máy chạy thật: CHƯA làm, xem "Hướng dẫn tự test thủ công" ở mục Kết quả cuối
 
 ### Báo cáo Giai đoạn 2 (Backend payOS)
 - Đã làm: SDK v2 + gateway (thật/giả), link bill + hủy khi bill đổi, link cọc 3 kênh, Cọc chờ thu (tiền mặt/CK thủ công), webhook + dev simulator, `Kiểm tra lại`, job hết hạn cọc hỏi payOS trước, endpoint trạng thái công khai. `./mvnw -o test` 252/252 pass.
