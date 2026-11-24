@@ -79,7 +79,7 @@ public class TableSessionServiceImpl implements TableSessionService {
 
     @Override
     public SessionChangeResponse split(
-            UUID actorId, UUID sessionId, UUID targetTableId, List<UUID> itemIds) {
+            UUID actorId, UUID sessionId, UUID targetTableId, List<UUID> itemIds, int guestCount) {
         Employee user = currentUser.require(actorId, ALLOWED);
         restaurantLock.acquire();
         TableSession from = find(sessionId);
@@ -96,6 +96,13 @@ public class TableSessionServiceImpl implements TableSessionService {
             throw ApiException.conflict("Bàn được chọn không trống.");
         }
         List<OrderItem> moved = movableItems(from, itemIds);
+        if (guestCount < 1 || guestCount >= from.getGuestCount()) {
+            throw ApiException.badRequest(
+                    "guestCount",
+                    "Số khách chuyển sang bàn mới phải từ 1 và nhỏ hơn số khách hiện tại của bàn ("
+                            + from.getGuestCount()
+                            + ").");
+        }
 
         Bill bill = billing.open();
         TableSession session = new TableSession();
@@ -104,8 +111,8 @@ public class TableSessionServiceImpl implements TableSessionService {
         session.setTable(table);
         session.setWaiter(from.getWaiter());
         session.setAcceptedAt(Instant.now());
-        // TODO(confirm): guest split is not specified; the new table starts with 1 guest.
-        session.setGuestCount(1);
+        session.setGuestCount(guestCount);
+        from.setGuestCount(from.getGuestCount() - guestCount);
         session.setStartedAt(Instant.now());
         sessions.save(session);
 

@@ -123,7 +123,8 @@ class TableSessionServiceTests {
         var move = dish(a, "40000", 2);
         var free = table(TableStatus.AVAILABLE);
 
-        var result = service.split(staff.getId(), a.getId(), free.getId(), List.of(move.getId()));
+        var result =
+                service.split(staff.getId(), a.getId(), free.getId(), List.of(move.getId()), 1);
 
         assertNotEquals(a.getBill().getId(), result.billId());
         assertEquals(new BigDecimal("100000"), a.getBill().getTotal());
@@ -133,6 +134,29 @@ class TableSessionServiceTests {
         var fresh = db.get(TableSession.class, result.sessionId().toString());
         assertEquals(new BigDecimal("40000"), fresh.getBill().getTotal());
         assertEquals(free.getId(), fresh.getTable().getId());
+        assertEquals(1, fresh.getGuestCount());
+        assertEquals(1, a.getGuestCount());
+    }
+
+    @Test
+    void splitNeedsAGuestCountThatLeavesAtLeastOneGuestAtEachTable() {
+        var staff = user(Role.WAITER);
+        var a = session(table(TableStatus.AVAILABLE));
+        var move = dish(a, "40000", 1);
+        var free = table(TableStatus.AVAILABLE);
+        for (int guests : new int[] {0, -1, 2, 3}) {
+            assertThrows(
+                    ApiException.class,
+                    () ->
+                            service.split(
+                                    staff.getId(),
+                                    a.getId(),
+                                    free.getId(),
+                                    List.of(move.getId()),
+                                    guests));
+        }
+        assertEquals(2, a.getGuestCount());
+        assertEquals(TableStatus.AVAILABLE, free.getStatus());
     }
 
     @Test
@@ -147,16 +171,24 @@ class TableSessionServiceTests {
 
         assertThrows(
                 ApiException.class,
-                () -> service.split(staff.getId(), a.getId(), busy.getId(), List.of(mine.getId())));
+                () ->
+                        service.split(
+                                staff.getId(), a.getId(), busy.getId(), List.of(mine.getId()), 1));
         assertThrows(
                 ApiException.class,
                 () ->
                         service.split(
-                                staff.getId(), a.getId(), free.getId(), List.of(foreign.getId())));
+                                staff.getId(),
+                                a.getId(),
+                                free.getId(),
+                                List.of(foreign.getId()),
+                                1));
         mine.setStatus(OrderItem.Status.CANCELLED);
         assertThrows(
                 ApiException.class,
-                () -> service.split(staff.getId(), a.getId(), free.getId(), List.of(mine.getId())));
+                () ->
+                        service.split(
+                                staff.getId(), a.getId(), free.getId(), List.of(mine.getId()), 1));
     }
 
     @Test
@@ -172,7 +204,9 @@ class TableSessionServiceTests {
         var free = table(TableStatus.AVAILABLE);
         assertThrows(
                 ApiException.class,
-                () -> service.split(staff.getId(), a.getId(), free.getId(), List.of(item.getId())));
+                () ->
+                        service.split(
+                                staff.getId(), a.getId(), free.getId(), List.of(item.getId()), 1));
     }
 
     @Test
@@ -195,7 +229,11 @@ class TableSessionServiceTests {
                     ApiException.class,
                     () ->
                             service.split(
-                                    staff.getId(), a.getId(), free.getId(), List.of(item.getId())));
+                                    staff.getId(),
+                                    a.getId(),
+                                    free.getId(),
+                                    List.of(item.getId()),
+                                    1));
         }
     }
 
@@ -228,7 +266,9 @@ class TableSessionServiceTests {
         assertThrows(ApiException.class, () -> service.merge(staff.getId(), a.getId(), b.getId()));
         assertThrows(
                 ApiException.class,
-                () -> service.split(staff.getId(), a.getId(), free.getId(), List.of(item.getId())));
+                () ->
+                        service.split(
+                                staff.getId(), a.getId(), free.getId(), List.of(item.getId()), 1));
     }
 
     @Test

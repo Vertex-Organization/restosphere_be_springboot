@@ -44,6 +44,10 @@ public class TableSessionController {
             @PathVariable UUID sessionId,
             @Valid @RequestBody SplitSessionRequest req) {
         return service.split(
-                CurrentUserService.idOf(jwt), sessionId, req.targetTableId(), req.itemIds());
+                CurrentUserService.idOf(jwt),
+                sessionId,
+                req.targetTableId(),
+                req.itemIds(),
+                req.guestCount());
     }
 }

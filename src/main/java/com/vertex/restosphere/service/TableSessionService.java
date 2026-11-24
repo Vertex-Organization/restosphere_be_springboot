@@ -12,5 +12,5 @@ public interface TableSessionService {
 
     /** Chuyển các món sang phiên mới ở một bàn trống khác, có hóa đơn và gọi món riêng. */
     SessionChangeResponse split(
-            UUID actorId, UUID sessionId, UUID targetTableId, List<UUID> itemIds);
+            UUID actorId, UUID sessionId, UUID targetTableId, List<UUID> itemIds, int guestCount);
 }
