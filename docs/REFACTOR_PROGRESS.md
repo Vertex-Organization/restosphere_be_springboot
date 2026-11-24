@@ -8,7 +8,7 @@
 
 ### Đã chạy thật (không chỉ phân tích)
 - BE: `./mvnw -o spotless:check` sạch, `./mvnw -o test` **256/256 pass** (Testcontainers, Flyway thật).
-- Web: `npm run lint` sạch, `npm run build` pass, 9 file `node --test scripts/*.test.mjs` đều exit 0.
+- Web: `npm run lint` sạch, `npm run build` pass, 8/9 file `node --test scripts/*.test.mjs` exit 0. `workspace-api.test.mjs` exit 1 và đã lỗi từ TRƯỚC đợt này (kiểm bằng `git stash`): nó cấm `localStorage` trong mọi file nguồn nhưng `hooks/kitchen/useKitchenStation.ts` (commit `da16ab8` của người khác) đang dùng; tôi chỉ sửa kỳ vọng `admin/users` -> `admin/employees` (`b011594`), chưa sửa lỗi cũ này.
 - Mobile: `npm test` **83/83 pass**, `npm run typecheck` và `npm run lint` sạch.
 - KHÔNG làm: kiểm thử giao diện trên trình duyệt/thiết bị thật, gọi payOS thật (chưa có key), chạy trên DB `restosphere`.
 
