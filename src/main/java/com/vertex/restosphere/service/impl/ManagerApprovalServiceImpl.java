@@ -1,6 +1,7 @@
 package com.vertex.restosphere.service.impl;
 
 import com.vertex.restosphere.common.enums.Role;
+import com.vertex.restosphere.common.util.Values;
 import com.vertex.restosphere.dto.request.ApprovalDecisionRequest;
 import com.vertex.restosphere.dto.response.ApprovalResponse;
 import com.vertex.restosphere.entity.ApprovalRequest;
@@ -226,7 +227,7 @@ public class ManagerApprovalServiceImpl implements ManagerApprovalService {
     }
 
     private static String code(ApprovalRequest r) {
-        return "R-" + r.getId().toString().substring(0, 8).toUpperCase();
+        return Values.code("R", r);
     }
 
     private static String typeName(ApprovalRequest.Type type) {

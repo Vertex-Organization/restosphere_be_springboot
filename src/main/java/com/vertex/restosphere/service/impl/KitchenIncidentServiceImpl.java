@@ -1,6 +1,7 @@
 package com.vertex.restosphere.service.impl;
 
 import com.vertex.restosphere.common.enums.Role;
+import com.vertex.restosphere.common.util.Values;
 import com.vertex.restosphere.dto.request.KitchenIncidentRequest;
 import com.vertex.restosphere.dto.response.KitchenIncidentResponse;
 import com.vertex.restosphere.entity.Employee;
@@ -119,7 +120,7 @@ public class KitchenIncidentServiceImpl implements KitchenIncidentService {
                                 i.getResolution());
         return new KitchenIncidentResponse(
                 i.getId(),
-                "I-" + i.getId(),
+                Values.code("I", i),
                 i.getType(),
                 i.getSeverity(),
                 i.getStatus(),

@@ -30,7 +30,7 @@ public record CashierPaymentResponse(
     public static CashierPaymentResponse from(Payment p) {
         return new CashierPaymentResponse(
                 p.getId(),
-                "P-" + p.getId(),
+                Values.code("P", p),
                 p.getBill() == null ? null : p.getBill().getId(),
                 p.getReservation() == null ? null : p.getReservation().getId(),
                 p.getCashierShift() == null ? null : p.getCashierShift().getId(),

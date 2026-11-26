@@ -147,7 +147,7 @@ public class CashierBillServiceImpl implements CashierBillService {
                         .map(
                                 p ->
                                         new CashierReceiptResponse.Payment(
-                                                "P-" + p.getId(),
+                                                Values.code("P", p),
                                                 p.getMethod().name(),
                                                 p.getAmount(),
                                                 p.getTendered(),

@@ -1,5 +1,6 @@
 package com.vertex.restosphere.dto.response;
 
+import com.vertex.restosphere.common.util.Values;
 import com.vertex.restosphere.entity.Employee;
 import com.vertex.restosphere.entity.Incident;
 import com.vertex.restosphere.entity.Order;
@@ -29,7 +30,7 @@ public record ManagerIncidentResponse(
     public record Reply(UUID by, Instant at, String text) {}
 
     public static String code(Incident i) {
-        return "I-" + i.getId().toString().substring(0, 8).toUpperCase();
+        return Values.code("I", i);
     }
 
     public static ManagerIncidentResponse from(Incident i) {

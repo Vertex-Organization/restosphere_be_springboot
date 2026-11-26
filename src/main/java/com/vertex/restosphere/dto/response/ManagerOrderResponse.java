@@ -1,5 +1,6 @@
 package com.vertex.restosphere.dto.response;
 
+import com.vertex.restosphere.common.util.Values;
 import com.vertex.restosphere.entity.Order;
 import com.vertex.restosphere.entity.RestaurantTable;
 import com.vertex.restosphere.entity.TableSession;
@@ -24,7 +25,7 @@ public record ManagerOrderResponse(
         List<ManagerOrderItemResponse> items) {
 
     public static String code(Order o) {
-        return "O-" + o.getId().toString().substring(0, 8).toUpperCase();
+        return Values.code("O", o);
     }
 
     public static ManagerOrderResponse from(

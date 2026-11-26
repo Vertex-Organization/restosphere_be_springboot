@@ -1,5 +1,6 @@
 package com.vertex.restosphere.mapper;
 
+import static com.vertex.restosphere.common.util.Values.code;
 import static com.vertex.restosphere.common.util.Values.id;
 import static com.vertex.restosphere.common.util.Values.map;
 
@@ -71,7 +72,7 @@ public class BillMapper {
                 "id",
                 id(p),
                 "code",
-                "P-" + id(p),
+                code("P", p),
                 "billId",
                 p.getBill() == null ? null : id(p.getBill()),
                 "reservationId",

@@ -1,5 +1,6 @@
 package com.vertex.restosphere.dto.response;
 
+import com.vertex.restosphere.common.util.Values;
 import com.vertex.restosphere.entity.CashierShift;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -20,7 +21,7 @@ public record CashierShiftResponse(
     public static CashierShiftResponse from(CashierShift s) {
         return new CashierShiftResponse(
                 s.getId(),
-                "S-" + s.getId(),
+                Values.code("S", s),
                 s.getCashier().getId(),
                 s.getClosedAt() == null ? "OPEN" : "CLOSED",
                 s.getOpenedAt(),

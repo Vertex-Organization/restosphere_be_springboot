@@ -56,7 +56,8 @@ class KitchenIncidentApiIntegrationTests extends KitchenApiTestBase {
                                 kitchenToken,
                                 body("EQUIPMENT", "HIGH", "  Lo nuong hong  ")));
         String id = json(res, "$.id");
-        assertThat((String) json(res, "$.code")).isEqualTo("I-" + id);
+        assertThat((String) json(res, "$.code"))
+                .isEqualTo("I-" + id.substring(id.length() - 8).toUpperCase());
         assertThat((String) json(res, "$.type")).isEqualTo("EQUIPMENT");
         assertThat((String) json(res, "$.title")).isEqualTo("EQUIPMENT");
         assertThat((String) json(res, "$.severity")).isEqualTo("HIGH");

@@ -1,6 +1,7 @@
 package com.vertex.restosphere.service.impl;
 
 import com.vertex.restosphere.common.enums.Role;
+import com.vertex.restosphere.common.util.Values;
 import com.vertex.restosphere.dto.request.KitchenItemRef;
 import com.vertex.restosphere.dto.response.KitchenOrderItemResponse;
 import com.vertex.restosphere.dto.response.KitchenOrderResponse;
@@ -182,7 +183,7 @@ public class KitchenServiceImpl implements KitchenService {
                                 o.getPriorityReason());
         return new KitchenOrderResponse(
                 o.getId(),
-                "O-" + o.getId(),
+                Values.code("O", o),
                 o.getSession().getId(),
                 table.getCode(),
                 table.getArea().getName(),
