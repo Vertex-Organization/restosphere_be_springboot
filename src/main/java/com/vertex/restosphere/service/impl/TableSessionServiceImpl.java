@@ -1,7 +1,9 @@
 package com.vertex.restosphere.service.impl;
 
+import com.vertex.restosphere.common.enums.PriceUnit;
 import com.vertex.restosphere.common.enums.Role;
 import com.vertex.restosphere.common.enums.TableStatus;
+import com.vertex.restosphere.dto.request.SplitItemRequest;
 import com.vertex.restosphere.dto.response.SessionChangeResponse;
 import com.vertex.restosphere.entity.ApprovalRequest;
 import com.vertex.restosphere.entity.Bill;
@@ -22,10 +24,12 @@ import com.vertex.restosphere.service.BillingWorkflow;
 import com.vertex.restosphere.service.RestaurantLock;
 import com.vertex.restosphere.service.TableSessionService;
 import com.vertex.restosphere.service.WorkspaceCommit;
+import java.math.BigDecimal;
 import java.time.Instant;
-import java.util.HashSet;
 import java.util.List;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -84,7 +88,11 @@ public class TableSessionServiceImpl implements TableSessionService {
 
     @Override
     public SessionChangeResponse split(
-            UUID actorId, UUID sessionId, UUID targetTableId, List<UUID> itemIds, int guestCount) {
+            UUID actorId,
+            UUID sessionId,
+            UUID targetTableId,
+            List<SplitItemRequest> items,
+            int guestCount) {
         Employee user = currentUser.require(actorId, ALLOWED);
         restaurantLock.acquire();
         TableSession from = find(sessionId);
@@ -101,7 +109,7 @@ public class TableSessionServiceImpl implements TableSessionService {
                         table.getId(), TableSession.Status.CLOSED)) {
             throw ApiException.conflict("Bàn được chọn không trống.");
         }
-        List<OrderItem> moved = movableItems(from, itemIds);
+        List<SplitLine> lines = movableItems(from, items);
         if (guestCount < 1 || guestCount >= from.getGuestCount()) {
             throw ApiException.badRequest(
                     "guestCount",
@@ -129,7 +137,7 @@ public class TableSessionServiceImpl implements TableSessionService {
         order.setRoundNumber(1);
         order.setSubmittedAt(Instant.now());
         orders.save(order);
-        moved.forEach(i -> i.setOrder(order));
+        lines.forEach(line -> moveLine(line, order));
 
         table.setStatus(TableStatus.OCCUPIED);
         billing.recalculate(old);
@@ -157,18 +165,73 @@ public class TableSessionServiceImpl implements TableSessionService {
         return s;
     }
 
-    private List<OrderItem> movableItems(TableSession from, List<UUID> itemIds) {
-        var unique = new HashSet<>(itemIds);
-        var owned = orderItems.findByOrderSessionId(from.getId());
-        var chosen = owned.stream().filter(i -> unique.contains(i.getId())).toList();
-        if (chosen.size() != unique.size()) {
-            throw ApiException.badRequest("itemIds", "Có món không thuộc bàn đang tách.");
+    private record SplitLine(OrderItem item, BigDecimal quantity) {}
+
+    private List<SplitLine> movableItems(TableSession from, List<SplitItemRequest> items) {
+        var ids = items.stream().map(SplitItemRequest::itemId).collect(Collectors.toSet());
+        if (ids.size() != items.size()) {
+            throw ApiException.badRequest("items", "Mỗi món chỉ được chọn một lần.");
         }
-        if (chosen.stream().anyMatch(i -> OrderItem.NOT_BILLABLE.contains(i.getStatus()))) {
+        var owned =
+                orderItems.findByOrderSessionId(from.getId()).stream()
+                        .collect(Collectors.toMap(OrderItem::getId, Function.identity()));
+        return items.stream().map(req -> toLine(owned.get(req.itemId()), req)).toList();
+    }
+
+    private SplitLine toLine(OrderItem item, SplitItemRequest req) {
+        if (item == null) {
+            throw ApiException.badRequest("items", "Có món không thuộc bàn đang tách.");
+        }
+        if (OrderItem.NOT_BILLABLE.contains(item.getStatus())) {
+            throw ApiException.badRequest("items", "Chỉ tách được món đã gửi bếp và chưa bị hủy.");
+        }
+        if (req.quantity() == null) {
+            return new SplitLine(item, item.getQuantity());
+        }
+        BigDecimal quantity = req.quantity();
+        if (quantity.signum() <= 0 || quantity.compareTo(item.getQuantity()) > 0) {
             throw ApiException.badRequest(
-                    "itemIds", "Chỉ tách được món đã gửi bếp và chưa bị hủy.");
+                    "items", "Số lượng tách phải lớn hơn 0 và không vượt quá số lượng của món.");
         }
-        return chosen;
+        boolean whole = quantity.compareTo(item.getQuantity()) == 0;
+        boolean fractional = quantity.stripTrailingZeros().scale() > 0;
+        if (!whole && fractional) {
+            throw ApiException.badRequest(
+                    "items", "Chỉ được tách số lượng nguyên với món không tính theo kg.");
+        }
+        if (!whole && item.getMenuItem().getPriceUnit() == PriceUnit.KG) {
+            throw ApiException.badRequest(
+                    "items", "Món tính theo kg chỉ được chuyển cả dòng.");
+        }
+        return new SplitLine(item, quantity);
+    }
+
+    private void moveLine(SplitLine line, Order target) {
+        OrderItem item = line.item();
+        if (line.quantity().compareTo(item.getQuantity()) == 0) {
+            item.setOrder(target);
+            return;
+        }
+        item.setQuantity(item.getQuantity().subtract(line.quantity()));
+        orderItems.save(copyOf(item, target, line.quantity()));
+    }
+
+    private static OrderItem copyOf(OrderItem item, Order target, BigDecimal quantity) {
+        var copy = new OrderItem();
+        copy.setOrder(target);
+        copy.setMenuItem(item.getMenuItem());
+        copy.setItemName(item.getItemName());
+        copy.setUnit(item.getUnit());
+        copy.setUnitPrice(item.getUnitPrice());
+        copy.setQuantity(quantity);
+        copy.setStatus(item.getStatus());
+        copy.setChef(item.getChef());
+        copy.setStartedAt(item.getStartedAt());
+        copy.setReadyAt(item.getReadyAt());
+        copy.setServedAt(item.getServedAt());
+        copy.setNote(item.getNote());
+        copy.setRejectionReason(item.getRejectionReason());
+        return copy;
     }
 
     // Shared by merge and split: money already allocated to a bill cannot be re-shared safely.

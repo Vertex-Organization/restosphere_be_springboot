@@ -47,7 +47,7 @@ public class TableSessionController {
                 CurrentUserService.idOf(jwt),
                 sessionId,
                 req.targetTableId(),
-                req.itemIds(),
+                req.lines(),
                 req.guestCount());
     }
 }

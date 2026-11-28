@@ -4,6 +4,9 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import com.vertex.restosphere.common.enums.Role;
 import com.vertex.restosphere.common.enums.TableStatus;
+import com.vertex.restosphere.common.enums.PriceUnit;
+import com.vertex.restosphere.dto.request.SplitItemRequest;
+import com.vertex.restosphere.dto.request.SplitSessionRequest;
 import com.vertex.restosphere.entity.*;
 import com.vertex.restosphere.exception.ApiException;
 import com.vertex.restosphere.service.BillingWorkflow;
@@ -130,7 +133,7 @@ class TableSessionServiceTests {
         var free = table(TableStatus.AVAILABLE);
 
         var result =
-                service.split(staff.getId(), a.getId(), free.getId(), List.of(move.getId()), 1);
+                service.split(staff.getId(), a.getId(), free.getId(), whole(move), 1);
 
         assertNotEquals(a.getBill().getId(), result.billId());
         assertEquals(new BigDecimal("100000"), a.getBill().getTotal());
@@ -142,6 +145,148 @@ class TableSessionServiceTests {
         assertEquals(free.getId(), fresh.getTable().getId());
         assertEquals(1, fresh.getGuestCount());
         assertEquals(1, a.getGuestCount());
+    }
+
+    OrderItem bulkDish(TableSession s, String price, int quantity, int round) {
+        var i = dish(s, price, round);
+        i.setQuantity(new BigDecimal(quantity));
+        i.setNote("no onion");
+        billing.recalculate(s.getBill());
+        return i;
+    }
+
+    List<OrderItem> itemsOf(TableSession s) {
+        return db.query(OrderItem.class, "from OrderItem i where i.order.session=?1", s);
+    }
+
+    List<SplitItemRequest> whole(OrderItem item) {
+        return List.of(part(item, null));
+    }
+
+    SplitItemRequest part(OrderItem item, String quantity) {
+        return new SplitItemRequest(item.getId(), quantity == null ? null : new BigDecimal(quantity));
+    }
+
+    @Test
+    void splitMovesPartOfAQuantityIntoANewLine() {
+        var staff = ownWaiter();
+        var a = session(table(TableStatus.AVAILABLE));
+        var line = bulkDish(a, "100000", 4, 1);
+        var free = table(TableStatus.AVAILABLE);
+
+        var result =
+                service.split(
+                        staff.getId(), a.getId(), free.getId(), List.of(part(line, "2")), 1);
+
+        assertEquals(0, new BigDecimal("2").compareTo(line.getQuantity()));
+        assertEquals(a.getId(), line.getOrder().getSession().getId());
+        var fresh = db.get(TableSession.class, result.sessionId().toString());
+        var copy = itemsOf(fresh).get(0);
+        assertNotEquals(line.getId(), copy.getId());
+        assertEquals(0, new BigDecimal("2").compareTo(copy.getQuantity()));
+        assertEquals(line.getItemName(), copy.getItemName());
+        assertEquals(line.getUnitPrice(), copy.getUnitPrice());
+        assertEquals(line.getUnit(), copy.getUnit());
+        assertEquals(line.getStatus(), copy.getStatus());
+        assertEquals("no onion", copy.getNote());
+        assertEquals(new BigDecimal("200000"), a.getBill().getTotal());
+        assertEquals(new BigDecimal("200000"), fresh.getBill().getTotal());
+    }
+
+    @Test
+    void splitWithItemsMovesAWholeLineWhenQuantityMatches() {
+        var staff = ownWaiter();
+        var a = session(table(TableStatus.AVAILABLE));
+        dish(a, "100000", 1);
+        var line = bulkDish(a, "40000", 3, 2);
+        var free = table(TableStatus.AVAILABLE);
+
+        var result =
+                service.split(
+                        staff.getId(), a.getId(), free.getId(), List.of(part(line, "3")), 1);
+
+        assertEquals(result.sessionId(), line.getOrder().getSession().getId());
+        assertEquals(0, new BigDecimal("3").compareTo(line.getQuantity()));
+        var fresh = db.get(TableSession.class, result.sessionId().toString());
+        assertEquals(1, itemsOf(fresh).size());
+        assertEquals(new BigDecimal("120000"), fresh.getBill().getTotal());
+        assertEquals(new BigDecimal("100000"), a.getBill().getTotal());
+    }
+
+    @Test
+    void splitWithoutQuantityMovesTheWholeLine() {
+        var staff = ownWaiter();
+        var a = session(table(TableStatus.AVAILABLE));
+        var line = bulkDish(a, "40000", 3, 2);
+        var free = table(TableStatus.AVAILABLE);
+
+        var result =
+                service.split(
+                        staff.getId(), a.getId(), free.getId(), List.of(part(line, null)), 1);
+
+        assertEquals(result.sessionId(), line.getOrder().getSession().getId());
+        assertEquals(0, new BigDecimal("3").compareTo(line.getQuantity()));
+    }
+
+    @Test
+    void splitRejectsAnInvalidQuantityWith400() {
+        var staff = ownWaiter();
+        var a = session(table(TableStatus.AVAILABLE));
+        var line = bulkDish(a, "100000", 4, 1);
+        var free = table(TableStatus.AVAILABLE);
+        for (var quantity : List.of("0", "-1", "5", "1.5")) {
+            var error =
+                    assertThrows(
+                            ApiException.class,
+                            () ->
+                                    service.split(
+                                            staff.getId(),
+                                            a.getId(),
+                                            free.getId(),
+                                            List.of(part(line, quantity)),
+                                            1),
+                            quantity);
+            assertEquals(HttpStatus.BAD_REQUEST, error.getStatus(), quantity);
+        }
+        assertEquals(0, new BigDecimal("4").compareTo(line.getQuantity()));
+        assertEquals(TableStatus.AVAILABLE, free.getStatus());
+    }
+
+    @Test
+    void splitCanOnlyMoveAWholeLineOfAWeighedDish() {
+        var staff = ownWaiter();
+        var a = session(table(TableStatus.AVAILABLE));
+        var line = dish(a, "100000", 1);
+        line.getMenuItem().setPriceUnit(PriceUnit.KG);
+        line.setQuantity(new BigDecimal("2.500"));
+        var free = table(TableStatus.AVAILABLE);
+
+        var error =
+                assertThrows(
+                        ApiException.class,
+                        () ->
+                                service.split(
+                                        staff.getId(),
+                                        a.getId(),
+                                        free.getId(),
+                                        List.of(part(line, "1")),
+                                        1));
+        assertEquals(HttpStatus.BAD_REQUEST, error.getStatus());
+
+        var result =
+                service.split(
+                        staff.getId(), a.getId(), free.getId(), List.of(part(line, "2.5")), 1);
+        assertEquals(result.sessionId(), line.getOrder().getSession().getId());
+    }
+
+    @Test
+    void splitRequestUsesItemsOrLegacyItemIdsAndNeedsOne() {
+        var target = UUID.randomUUID();
+        var none = new SplitSessionRequest(target, null, null, 1);
+        var error = assertThrows(ApiException.class, none::lines);
+        assertEquals(HttpStatus.BAD_REQUEST, error.getStatus());
+        var legacy = new SplitSessionRequest(target, List.of(UUID.randomUUID()), null, 1);
+        assertNull(legacy.lines().get(0).quantity());
     }
 
     @Test
@@ -166,7 +311,7 @@ class TableSessionServiceTests {
                                         otherWaiter.getId(),
                                         mine.getId(),
                                         free.getId(),
-                                        List.of(item.getId()),
+                                        whole(item),
                                         1));
         assertEquals(HttpStatus.FORBIDDEN, split.getStatus());
         assertEquals(TableStatus.AVAILABLE, free.getStatus());
@@ -216,7 +361,7 @@ class TableSessionServiceTests {
                                     staff.getId(),
                                     a.getId(),
                                     free.getId(),
-                                    List.of(move.getId()),
+                                    whole(move),
                                     guests));
         }
         assertEquals(2, a.getGuestCount());
@@ -237,7 +382,7 @@ class TableSessionServiceTests {
                 ApiException.class,
                 () ->
                         service.split(
-                                staff.getId(), a.getId(), busy.getId(), List.of(mine.getId()), 1));
+                                staff.getId(), a.getId(), busy.getId(), whole(mine), 1));
         assertThrows(
                 ApiException.class,
                 () ->
@@ -245,14 +390,14 @@ class TableSessionServiceTests {
                                 staff.getId(),
                                 a.getId(),
                                 free.getId(),
-                                List.of(foreign.getId()),
+                                whole(foreign),
                                 1));
         mine.setStatus(OrderItem.Status.CANCELLED);
         assertThrows(
                 ApiException.class,
                 () ->
                         service.split(
-                                staff.getId(), a.getId(), free.getId(), List.of(mine.getId()), 1));
+                                staff.getId(), a.getId(), free.getId(), whole(mine), 1));
     }
 
     @Test
@@ -270,7 +415,7 @@ class TableSessionServiceTests {
                 ApiException.class,
                 () ->
                         service.split(
-                                staff.getId(), a.getId(), free.getId(), List.of(item.getId()), 1));
+                                staff.getId(), a.getId(), free.getId(), whole(item), 1));
     }
 
     @Test
@@ -296,7 +441,7 @@ class TableSessionServiceTests {
                                     staff.getId(),
                                     a.getId(),
                                     free.getId(),
-                                    List.of(item.getId()),
+                                    whole(item),
                                     1));
         }
     }
@@ -332,7 +477,7 @@ class TableSessionServiceTests {
                 ApiException.class,
                 () ->
                         service.split(
-                                staff.getId(), a.getId(), free.getId(), List.of(item.getId()), 1));
+                                staff.getId(), a.getId(), free.getId(), whole(item), 1));
     }
 
     @Test

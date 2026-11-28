@@ -1,5 +1,6 @@
 package com.vertex.restosphere.service;
 
+import com.vertex.restosphere.dto.request.SplitItemRequest;
 import com.vertex.restosphere.dto.response.SessionChangeResponse;
 import java.util.List;
 import java.util.UUID;
@@ -12,5 +13,5 @@ public interface TableSessionService {
 
     /** Chuyển các món sang phiên mới ở một bàn trống khác, có hóa đơn và gọi món riêng. */
     SessionChangeResponse split(
-            UUID actorId, UUID sessionId, UUID targetTableId, List<UUID> itemIds, int guestCount);
+            UUID actorId, UUID sessionId, UUID targetTableId, List<SplitItemRequest> items, int guestCount);
 }
