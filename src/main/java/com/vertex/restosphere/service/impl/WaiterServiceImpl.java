@@ -210,10 +210,19 @@ public class WaiterServiceImpl implements WaiterService {
         TableSession session = ownSession(sessionId, waiter);
         if (session.getStatus() != TableSession.Status.OPEN)
             throw ApiException.conflict("Payment already requested");
-        if (orderItems.existsByOrderSessionAndStatusIn(session, NOT_SERVED_YET)) {
-            throw ApiException.conflict("Submit drafts and serve or resolve all items first");
-        }
         Bill bill = billing.bill(session);
+        List<String> pendingTables =
+                bill.getSessions().stream()
+                        .filter(s -> orderItems.existsByOrderSessionAndStatusIn(s, NOT_SERVED_YET))
+                        .map(s -> s.getTable().getCode())
+                        .sorted()
+                        .toList();
+        if (!pendingTables.isEmpty()) {
+            throw ApiException.conflict(
+                    "Còn món chưa phục vụ ở bàn: "
+                            + String.join(", ", pendingTables)
+                            + ". Cần phục vụ hết món của mọi bàn trong hóa đơn.");
+        }
         billing.recalculate(bill);
         if (bill.getTotal().signum() <= 0) throw ApiException.conflict("Bill has no payable items");
 
