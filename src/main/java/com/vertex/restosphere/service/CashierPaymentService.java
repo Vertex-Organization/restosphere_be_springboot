@@ -24,6 +24,8 @@ public interface CashierPaymentService {
     /** Tạo link payOS cho phần còn lại của bill (QR in trên bill); hủy link cũ khi số tiền đổi. */
     Outcome createPayosLink(UUID actorId, UUID billId, CashierPayosLinkRequest req);
 
+    Outcome cancelPayosLink(UUID actorId, UUID billId);
+
     /** Thu thủ công khi payOS lỗi: tạo thẳng COMPLETED, có quản lý xác nhận. */
     Outcome payManualTransfer(UUID actorId, UUID billId, CashierManualTransferRequest req);
 

@@ -460,4 +460,24 @@ public class CashierPaymentServiceImpl implements CashierPaymentService {
         store.flush();
         return new Outcome(CashierPaymentResponse.from(payment), true);
     }
+
+    @Transactional
+    @Override
+    public Outcome cancelPayosLink(UUID actorId, UUID billId) {
+        Employee user = currentUser.require(actorId, Role.ADMIN, Role.CASHIER);
+        restaurantLock.acquire();
+        Bill bill = store.get(Bill.class, billId.toString());
+        shifts.findFirstByCashierIdAndClosedAtIsNull(user.getId())
+                .orElseThrow(() -> ApiException.conflict("Open a cashier shift first"));
+        var pending =
+                payments.findByBillIdAndMethodAndStatus(
+                        bill.getId(), Payment.Method.PAYOS, Payment.Status.PENDING);
+        if (bill.getStatus() != Bill.Status.OPEN || pending.isEmpty()) {
+            throw ApiException.conflict("Hóa đơn không có mã QR payOS đang chờ thanh toán.");
+        }
+        billing.cancelPayosLinks(bill, "Thu ngân hủy QR");
+        writes.commit(user, "cancel-payos-link");
+        store.flush();
+        return new Outcome(CashierPaymentResponse.from(pending.getFirst()), false);
+    }
 }

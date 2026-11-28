@@ -77,6 +77,12 @@ public class CashierPaymentController {
         return respond(service.createPayosLink(CurrentUserService.idOf(jwt), id, req));
     }
 
+    @PostMapping("/bills/{id}/payos-link/cancel")
+    public ResponseEntity<CashierPaymentResponse> cancelPayosLink(
+            @AuthenticationPrincipal Jwt jwt, @PathVariable UUID id) {
+        return respond(service.cancelPayosLink(CurrentUserService.idOf(jwt), id));
+    }
+
     @GetMapping("/deposits/pending")
     public List<CashierPendingDepositResponse> pendingDeposits(@AuthenticationPrincipal Jwt jwt) {
         return service.pendingDeposits(CurrentUserService.idOf(jwt));
